@@ -8,7 +8,7 @@
 > `CLAUDE.md`. Este archivo solo lleva el **estado de avance**.
 
 **Última actualización:** 2026-06-23
-**Estado general:** 🟢 Pasos 1–4 completos. Siguiente: Paso 5 (capa de datos: repositorios + converters Firestore §9.2).
+**Estado general:** 🟢 Pasos 1–5 completos. Siguiente: Paso 6 (Cuentas y tarjetas: CRUD + saldos derivados en UI).
 
 ---
 
@@ -28,7 +28,7 @@
 | 2 | Catálogo de tests (§12) escrito primero (TDD) | ✅ | 79 casos unit como `it.todo` en `src/domain/__tests__/` + 8 flujos e2e como `test.fixme` en `e2e/catalog.spec.ts`. Se vuelven verdes en Pasos 4+. |
 | 3 | Login (Google + correo/contraseña) + estructura `users/{uid}` + reglas seguridad | ✅ | Auth en `data/authRepository.ts`, doc raíz en `userRepository.ts`, sync→store en `useAuthSync`. UI: `LoginScreen` + `AppShell`. Reglas en `firestore.rules`. 5 tests de login. **Falta proyecto Firebase real.** |
 | 4 | Capa de dominio: tipos (§9.1), validación (§11), funciones puras de saldos/estados | ✅ | `types.ts`, `validation.ts`, `ledger.ts`, `derived.ts`, `fixed.ts`, `reconciliation.ts`, `reports.ts`. 58 unit tests en verde (catálogo convertido). Pura, sin React/Firebase. Quedan `it.todo`: rollover (→Paso 9) y exchange-rate (→Paso 13). |
-| 5 | Capa de datos: repositorios + converters Firestore (§9.2) | ⬜ | — |
+| 5 | Capa de datos: repositorios + converters Firestore (§9.2) | ✅ | `converters.ts` (genérico, quita/rehidrata `id`), `collections.ts` (refs tipadas por uid), `crud.ts` (list/subscribe/get/create/update/archive), `transactionService.ts` (create/edit/delete con `runTransaction` + `increment` + recálculo de cuentas). 3 tests de converter. Integración con emulador = pendiente. |
 | 6 | Cuentas y tarjetas (CRUD) + saldos derivados | ⬜ | — |
 | 7 | Registro de transacciones (captura cero fricción) + efectos en saldos | ⬜ | — |
 | 8 | Dashboard (número-héroe + resumen + dona por categoría) | ⬜ | — |
@@ -64,6 +64,17 @@ asumir y anotar la respuesta aquí.)*
   Firestore vía la capa `data/`; los stores **orquestan, no contienen reglas de negocio**
   (esas viven en `domain/`). Primer store de referencia: `sessionStore.ts` (sesión/auth),
   con test. Se alimentará desde Firebase Auth en el Paso 3.
+- **2026-06-23 — Capa de datos (Paso 5):** converters en UN solo lugar (`docConverter`
+  genérico para todo `BaseDoc`: quita `id` al escribir, lo rehidrata desde `doc.id` al leer).
+  `collections.ts` arma las refs `users/{uid}/<col>` tipadas con converter. CRUD genérico en
+  `crud.ts`. **Escritura de movimientos solo por `transactionService`** (createTransaction /
+  editTransaction / deleteTransaction): documento + cachés de saldo en una `runTransaction`
+  atómica, usando `increment()` para evitar carreras (§9.3). `recalculateAccountBalances`
+  reconstruye saldos de cuentas desde `initialBalance` + movimientos.
+  - **Pendiente (seguimiento):** (a) tests de integración con el **emulador de Firestore**
+    para runTransaction/reglas; (b) recálculo total de **tarjetas/créditos** requiere
+    persistir su "semilla" de onboarding (hoy solo se recalc. cuentas) — agregar campo en el
+    Paso 6/14.
 - **2026-06-23 — Dominio (Paso 4):** lógica de negocio pura en `src/domain/`, sin React ni
   Firebase. Módulos: `validation` (§11, devuelve lista de errores), `ledger` (deltas por
   tipo de movimiento + revert/edit/recompute), `derived` (reservado, disponible, cupo,
