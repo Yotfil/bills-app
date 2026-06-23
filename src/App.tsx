@@ -1,12 +1,25 @@
-// Placeholder de arranque. La UI real (navegación, pantallas) llega en pasos posteriores
-// del plan de construcción (CLAUDE.md §14). Por ahora solo confirma que el scaffold corre.
+import { useAuthSync } from './ui/hooks/useAuthSync';
+import { useSessionStore } from './store/sessionStore';
+import { LoginScreen } from './ui/screens/LoginScreen';
+import { AppShell } from './ui/screens/AppShell';
+
+// Raíz: decide qué mostrar según el estado de la sesión (CLAUDE.md §3).
+//   loading         → splash mientras Firebase resuelve si hay sesión
+//   unauthenticated → pantalla de login
+//   authenticated   → la app
 function App() {
-  return (
-    <main className="flex min-h-dvh flex-col items-center justify-center gap-2 bg-slate-50 p-6 text-center">
-      <h1 className="text-2xl font-bold text-slate-800">Finanzas</h1>
-      <p className="text-slate-500">Scaffold listo. Construcción en progreso.</p>
-    </main>
-  );
+  useAuthSync();
+  const status = useSessionStore((s) => s.status);
+
+  if (status === 'loading') {
+    return (
+      <main className="flex min-h-dvh items-center justify-center bg-slate-50">
+        <p className="animate-pulse text-slate-400">Cargando…</p>
+      </main>
+    );
+  }
+
+  return status === 'authenticated' ? <AppShell /> : <LoginScreen />;
 }
 
 export default App;

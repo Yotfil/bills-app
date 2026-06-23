@@ -1,0 +1,22 @@
+rules_version = '2';
+
+// Reglas de seguridad (CLAUDE.md §3).
+// Regla de oro: cada usuario solo lee y escribe SUS propios datos. Todo cuelga de
+// users/{uid}; nadie, ni autenticado, accede a datos de otro. Toda operación requiere
+// sesión iniciada.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /users/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+
+      // Todas las subcolecciones del usuario (accounts, cards, loans, categories,
+      // fixedTemplates, fixedMonthly, budgets, transactions) heredan la misma regla.
+      match /{document=**} {
+        allow read, write: if request.auth != null && request.auth.uid == uid;
+      }
+    }
+
+    // Cualquier otra ruta queda denegada por defecto (no se declara ningún allow).
+  }
+}
