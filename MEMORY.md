@@ -8,7 +8,7 @@
 > `CLAUDE.md`. Este archivo solo lleva el **estado de avance**.
 
 **Última actualización:** 2026-06-23
-**Estado general:** 🟢 Paso 1 (scaffold) completo y verificado. Siguiente: Paso 2 (catálogo de tests).
+**Estado general:** 🟢 Pasos 1 y 2 completos. Siguiente: Paso 3 (login + estructura `users/{uid}`).
 
 ---
 
@@ -25,7 +25,7 @@
 | # | Paso | Estado | Notas |
 |---|------|--------|-------|
 | 1 | Scaffold: Vite + React + TS + Tailwind + Firebase + ESLint/Prettier + setup tests | ✅ | Vite 9 / React 19 / TS 6 estricto. Tailwind v4. Lint+unit+build+e2e en verde. Estructura por capas creada. |
-| 2 | Catálogo de tests (§12) escrito primero (TDD) | ⬜ | — |
+| 2 | Catálogo de tests (§12) escrito primero (TDD) | ✅ | 79 casos unit como `it.todo` en `src/domain/__tests__/` + 8 flujos e2e como `test.fixme` en `e2e/catalog.spec.ts`. Se vuelven verdes en Pasos 4+. |
 | 3 | Login (Google + correo/contraseña) + estructura `users/{uid}` + reglas seguridad | ⬜ | — |
 | 4 | Capa de dominio: tipos (§9.1), validación (§11), funciones puras de saldos/estados | ⬜ | — |
 | 5 | Capa de datos: repositorios + converters Firestore (§9.2) | ⬜ | — |
@@ -64,6 +64,12 @@ asumir y anotar la respuesta aquí.)*
   Firestore vía la capa `data/`; los stores **orquestan, no contienen reglas de negocio**
   (esas viven en `domain/`). Primer store de referencia: `sessionStore.ts` (sesión/auth),
   con test. Se alimentará desde Firebase Auth en el Paso 3.
+- **2026-06-23 — Catálogo de tests (Paso 2):** los casos de §12 se escribieron como
+  `it.todo` (unit, en `src/domain/__tests__/`, 8 archivos por área: transaction-effects,
+  fixed-obligations, reconciliation, reports, edit-delete-recalc, validation, rollover,
+  exchange-rate) y `test.fixme` (e2e, `e2e/catalog.spec.ts`). Sirven de checklist
+  ejecutable: en el Paso 4+ se reemplazan los `todo`/`fixme` por tests reales que la
+  lógica debe satisfacer. NO duplican reglas: cada caso referencia su sección de CLAUDE.md.
 
 ---
 
