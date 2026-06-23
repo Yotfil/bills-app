@@ -8,7 +8,7 @@
 > `CLAUDE.md`. Este archivo solo lleva el **estado de avance**.
 
 **Última actualización:** 2026-06-23
-**Estado general:** 🟢 Pasos 1, 2 y 3 completos. Siguiente: Paso 4 (capa de dominio: tipos §9.1, validación §11, saldos).
+**Estado general:** 🟢 Pasos 1–4 completos. Siguiente: Paso 5 (capa de datos: repositorios + converters Firestore §9.2).
 
 ---
 
@@ -27,7 +27,7 @@
 | 1 | Scaffold: Vite + React + TS + Tailwind + Firebase + ESLint/Prettier + setup tests | ✅ | Vite 9 / React 19 / TS 6 estricto. Tailwind v4. Lint+unit+build+e2e en verde. Estructura por capas creada. |
 | 2 | Catálogo de tests (§12) escrito primero (TDD) | ✅ | 79 casos unit como `it.todo` en `src/domain/__tests__/` + 8 flujos e2e como `test.fixme` en `e2e/catalog.spec.ts`. Se vuelven verdes en Pasos 4+. |
 | 3 | Login (Google + correo/contraseña) + estructura `users/{uid}` + reglas seguridad | ✅ | Auth en `data/authRepository.ts`, doc raíz en `userRepository.ts`, sync→store en `useAuthSync`. UI: `LoginScreen` + `AppShell`. Reglas en `firestore.rules`. 5 tests de login. **Falta proyecto Firebase real.** |
-| 4 | Capa de dominio: tipos (§9.1), validación (§11), funciones puras de saldos/estados | ⬜ | — |
+| 4 | Capa de dominio: tipos (§9.1), validación (§11), funciones puras de saldos/estados | ✅ | `types.ts`, `validation.ts`, `ledger.ts`, `derived.ts`, `fixed.ts`, `reconciliation.ts`, `reports.ts`. 58 unit tests en verde (catálogo convertido). Pura, sin React/Firebase. Quedan `it.todo`: rollover (→Paso 9) y exchange-rate (→Paso 13). |
 | 5 | Capa de datos: repositorios + converters Firestore (§9.2) | ⬜ | — |
 | 6 | Cuentas y tarjetas (CRUD) + saldos derivados | ⬜ | — |
 | 7 | Registro de transacciones (captura cero fricción) + efectos en saldos | ⬜ | — |
@@ -64,6 +64,15 @@ asumir y anotar la respuesta aquí.)*
   Firestore vía la capa `data/`; los stores **orquestan, no contienen reglas de negocio**
   (esas viven en `domain/`). Primer store de referencia: `sessionStore.ts` (sesión/auth),
   con test. Se alimentará desde Firebase Auth en el Paso 3.
+- **2026-06-23 — Dominio (Paso 4):** lógica de negocio pura en `src/domain/`, sin React ni
+  Firebase. Módulos: `validation` (§11, devuelve lista de errores), `ledger` (deltas por
+  tipo de movimiento + revert/edit/recompute), `derived` (reservado, disponible, cupo,
+  progreso, **disponible real**), `fixed` (máquina de estados + `buildTransactionFromFixed`),
+  `reconciliation` (ajuste por desfase), `reports` (gasto/hormiga/presupuesto con la regla
+  de oro §5.4). `types.ts` importa `Timestamp` SOLO como tipo (no arrastra runtime). Detalle:
+  `recomputeBalances` recibe **semillas** (initialBalance de cuentas; deuda/saldo inicial de
+  tarjetas/créditos) porque el modelo no guarda esas semillas como movimientos; la capa de
+  datos (Paso 5) las proveerá desde el onboarding.
 - **2026-06-23 — Login (Paso 3):** auth (Google + email/password) aislada en
   `data/authRepository.ts`; la UI/stores nunca importan Firebase Auth directo. El
   `useAuthSync` (montado en `App`) escucha `onAuthStateChanged` y alimenta `sessionStore`,
