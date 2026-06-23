@@ -59,6 +59,11 @@ asumir y anotar la respuesta aquí.)*
   `src/data/firebase.ts`. Falta crear el proyecto real en Firebase Console y rellenar claves.
 - **2026-06-23 — Tests:** Vitest + Testing Library (unit) y Playwright (e2e, chromium +
   viewport móvil). Smoke tests en verde. Navegador chromium de Playwright ya instalado.
+- **2026-06-23 — Manejo de estado: Zustand** (decidido sobre Context, §3). Convención:
+  estado de cliente/UI en `src/store/` (slices por feature); datos de servidor llegan de
+  Firestore vía la capa `data/`; los stores **orquestan, no contienen reglas de negocio**
+  (esas viven en `domain/`). Primer store de referencia: `sessionStore.ts` (sesión/auth),
+  con test. Se alimentará desde Firebase Auth en el Paso 3.
 
 ---
 
