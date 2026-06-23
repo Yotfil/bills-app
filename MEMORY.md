@@ -8,7 +8,7 @@
 > `CLAUDE.md`. Este archivo solo lleva el **estado de avance**.
 
 **Última actualización:** 2026-06-23
-**Estado general:** 🟢 Pasos 1 y 2 completos. Siguiente: Paso 3 (login + estructura `users/{uid}`).
+**Estado general:** 🟢 Pasos 1, 2 y 3 completos. Siguiente: Paso 4 (capa de dominio: tipos §9.1, validación §11, saldos).
 
 ---
 
@@ -26,7 +26,7 @@
 |---|------|--------|-------|
 | 1 | Scaffold: Vite + React + TS + Tailwind + Firebase + ESLint/Prettier + setup tests | ✅ | Vite 9 / React 19 / TS 6 estricto. Tailwind v4. Lint+unit+build+e2e en verde. Estructura por capas creada. |
 | 2 | Catálogo de tests (§12) escrito primero (TDD) | ✅ | 79 casos unit como `it.todo` en `src/domain/__tests__/` + 8 flujos e2e como `test.fixme` en `e2e/catalog.spec.ts`. Se vuelven verdes en Pasos 4+. |
-| 3 | Login (Google + correo/contraseña) + estructura `users/{uid}` + reglas seguridad | ⬜ | — |
+| 3 | Login (Google + correo/contraseña) + estructura `users/{uid}` + reglas seguridad | ✅ | Auth en `data/authRepository.ts`, doc raíz en `userRepository.ts`, sync→store en `useAuthSync`. UI: `LoginScreen` + `AppShell`. Reglas en `firestore.rules`. 5 tests de login. **Falta proyecto Firebase real.** |
 | 4 | Capa de dominio: tipos (§9.1), validación (§11), funciones puras de saldos/estados | ⬜ | — |
 | 5 | Capa de datos: repositorios + converters Firestore (§9.2) | ⬜ | — |
 | 6 | Cuentas y tarjetas (CRUD) + saldos derivados | ⬜ | — |
@@ -64,6 +64,19 @@ asumir y anotar la respuesta aquí.)*
   Firestore vía la capa `data/`; los stores **orquestan, no contienen reglas de negocio**
   (esas viven en `domain/`). Primer store de referencia: `sessionStore.ts` (sesión/auth),
   con test. Se alimentará desde Firebase Auth en el Paso 3.
+- **2026-06-23 — Login (Paso 3):** auth (Google + email/password) aislada en
+  `data/authRepository.ts`; la UI/stores nunca importan Firebase Auth directo. El
+  `useAuthSync` (montado en `App`) escucha `onAuthStateChanged` y alimenta `sessionStore`,
+  y asegura `users/{uid}` vía `ensureUserSettings`. `App` enruta por estado de sesión
+  (loading/login/app). Reglas de seguridad en `firestore.rules` (aislamiento total bajo
+  `users/{uid}`), con `firebase.json` + `firestore.indexes.json` para deploy.
+- **2026-06-23 — Firebase resiliente sin claves:** `firebase.ts` expone
+  `isFirebaseConfigured`; si faltan las claves no inicializa Firebase (evita
+  `auth/invalid-api-key` al import) y la app igual renderiza el login. `auth`/`db` son
+  `T | null` y los repos los guardan. Esto mantiene dev/CI/e2e funcionando sin `.env.local`.
+- **2026-06-23 — Bundle:** el build avisa que el chunk supera 500 kB (es Firebase). Queda
+  como optimización futura (code-splitting / lazy import); no se actúa ahora (§13.2, evitar
+  optimización prematura).
 - **2026-06-23 — Catálogo de tests (Paso 2):** los casos de §12 se escribieron como
   `it.todo` (unit, en `src/domain/__tests__/`, 8 archivos por área: transaction-effects,
   fixed-obligations, reconciliation, reports, edit-delete-recalc, validation, rollover,
@@ -76,9 +89,15 @@ asumir y anotar la respuesta aquí.)*
 ## Pendientes / dudas abiertas
 *(Preguntas para el dueño o cosas a resolver antes de avanzar.)*
 
-- **Firebase real:** crear el proyecto en Firebase Console (Auth con Google +
-  correo/contraseña, Firestore, Hosting) y poner las claves en `.env.local`. Hasta
-  entonces, la app corre pero no conecta con Firebase.
+- **Firebase real (acción del dueño, no bloquea seguir programando):** la app corre y
+  muestra el login, pero el login real necesita un proyecto Firebase. Pasos:
+  1. Crear proyecto en https://console.firebase.google.com
+  2. **Authentication → Sign-in method:** habilitar **Google** y **Correo/contraseña**.
+  3. **Firestore Database:** crear en modo producción.
+  4. **Project settings → Your apps → Web (</>):** registrar app y copiar el `firebaseConfig`.
+  5. `cp .env.example .env.local` y pegar los valores (apiKey, authDomain, projectId, etc.).
+  6. (Deploy, luego) `firebase login` + `firebase use --add` y `firebase deploy --only firestore:rules`
+     para publicar `firestore.rules`.
 
 ---
 
