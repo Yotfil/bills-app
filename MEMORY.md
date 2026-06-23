@@ -8,7 +8,7 @@
 > `CLAUDE.md`. Este archivo solo lleva el **estado de avance**.
 
 **Última actualización:** 2026-06-23
-**Estado general:** 🟡 Solo existe la especificación (`CLAUDE.md`). Sin código aún.
+**Estado general:** 🟢 Paso 1 (scaffold) completo y verificado. Siguiente: Paso 2 (catálogo de tests).
 
 ---
 
@@ -24,7 +24,7 @@
 
 | # | Paso | Estado | Notas |
 |---|------|--------|-------|
-| 1 | Scaffold: Vite + React + TS + Tailwind + Firebase + ESLint/Prettier + setup tests | ⬜ | — |
+| 1 | Scaffold: Vite + React + TS + Tailwind + Firebase + ESLint/Prettier + setup tests | ✅ | Vite 9 / React 19 / TS 6 estricto. Tailwind v4. Lint+unit+build+e2e en verde. Estructura por capas creada. |
 | 2 | Catálogo de tests (§12) escrito primero (TDD) | ⬜ | — |
 | 3 | Login (Google + correo/contraseña) + estructura `users/{uid}` + reglas seguridad | ⬜ | — |
 | 4 | Capa de dominio: tipos (§9.1), validación (§11), funciones puras de saldos/estados | ⬜ | — |
@@ -47,14 +47,27 @@
 CLAUDE.md, con fecha. Si surge una ambigüedad no cubierta, preguntar al dueño antes de
 asumir y anotar la respuesta aquí.)*
 
-- (sin decisiones registradas todavía)
+- **2026-06-23 — Linter:** el scaffold de Vite 9 trae `oxlint`; se reemplazó por
+  **ESLint + Prettier** para honrar CLAUDE.md §3 y §13.2 (que los nombran explícitamente).
+- **2026-06-23 — Versiones:** Vite 9, React 19, TypeScript 6 (con `strict: true` y
+  `noUncheckedIndexedAccess`), Tailwind **v4** (config vía `@tailwindcss/vite` + `@import
+  'tailwindcss'`, sin `tailwind.config.js`).
+- **2026-06-23 — Estructura por capas creada** (§13.3): `src/{ui,store,domain,data,lib,test}`.
+  La lógica de negocio irá en `domain/` (pura), Firebase en `data/`.
+- **2026-06-23 — Firebase:** config por variables de entorno (`.env.local`, ver
+  `.env.example`); Firestore con persistencia offline multipestaña ya inicializada en
+  `src/data/firebase.ts`. Falta crear el proyecto real en Firebase Console y rellenar claves.
+- **2026-06-23 — Tests:** Vitest + Testing Library (unit) y Playwright (e2e, chromium +
+  viewport móvil). Smoke tests en verde. Navegador chromium de Playwright ya instalado.
 
 ---
 
 ## Pendientes / dudas abiertas
 *(Preguntas para el dueño o cosas a resolver antes de avanzar.)*
 
-- (ninguna por ahora)
+- **Firebase real:** crear el proyecto en Firebase Console (Auth con Google +
+  correo/contraseña, Firestore, Hosting) y poner las claves en `.env.local`. Hasta
+  entonces, la app corre pero no conecta con Firebase.
 
 ---
 
