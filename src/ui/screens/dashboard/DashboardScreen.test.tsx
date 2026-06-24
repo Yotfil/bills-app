@@ -8,7 +8,12 @@ import type { Account, Category, Transaction } from '../../../domain/types';
 
 const now = Timestamp.fromDate(new Date());
 
-const account = { id: 'a', cachedBalance: 1_000_000, archived: false } as unknown as Account;
+const account = {
+  id: 'a',
+  type: 'savings',
+  cachedBalance: 1_000_000,
+  archived: false,
+} as unknown as Account;
 const category = {
   id: 'c1',
   name: 'Comidas',

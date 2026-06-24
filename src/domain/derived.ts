@@ -1,6 +1,10 @@
 // Valores DERIVADOS (CLAUDE.md §4, §5.1, §5.5, §5.6). No se persisten: se calculan al leer
 // a partir de las cachés y los fijos del mes. Son funciones puras.
-import type { Account, CreditCard, FixedObligationMonthly, Loan } from './types';
+import type { Account, AccountType, CreditCard, FixedObligationMonthly, Loan } from './types';
+
+// Tipos de cuenta LÍQUIDOS que cuentan en el disponible real (§4): ahorros y efectivo. Los
+// CDT/inversión (term_deposit) NO cuentan: son plata comprometida, no de libre uso.
+const LIQUID_ACCOUNT_TYPES: AccountType[] = ['savings', 'cash'];
 
 /**
  * Reservado de una cuenta (§5.1, §5.2): Σ de los fijos del mes en estado 'allocated' cuyo
@@ -51,5 +55,7 @@ export function disponibleReal(
   accounts: Account[],
   monthlyFixeds: FixedObligationMonthly[],
 ): number {
-  return accounts.reduce((sum, acc) => sum + accountAvailable(acc, monthlyFixeds), 0);
+  return accounts
+    .filter((acc) => LIQUID_ACCOUNT_TYPES.includes(acc.type))
+    .reduce((sum, acc) => sum + accountAvailable(acc, monthlyFixeds), 0);
 }
