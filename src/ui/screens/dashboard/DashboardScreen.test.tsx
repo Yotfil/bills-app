@@ -45,6 +45,10 @@ vi.mock('../../../data/fixedMonthlyRepository', () => ({
     return () => {};
   },
 }));
+// Evita llamadas de red a la API de tasa durante el render del dashboard.
+vi.mock('../../../data/exchangeRate/exchangeRateService', () => ({
+  getUsdToCopRate: () => Promise.resolve(null),
+}));
 
 beforeEach(() => {
   useSessionStore.setState({
