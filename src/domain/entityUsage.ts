@@ -16,3 +16,8 @@ export function entityHasMovements(
       (t.destination?.kind === kind && t.destination.id === id),
   );
 }
+
+/** `true` si algún movimiento usa esta categoría. Misma regla §8.4: si la tiene, solo archivar. */
+export function categoryHasMovements(transactions: Transaction[], categoryId: string): boolean {
+  return transactions.some((t) => t.categoryId === categoryId);
+}

@@ -16,6 +16,7 @@ import { FijosScreen } from './ui/screens/fijos/FijosScreen';
 import { FixedTemplatesScreen } from './ui/screens/fijos/FixedTemplatesScreen';
 import { BudgetsScreen } from './ui/screens/budgets/BudgetsScreen';
 import { LoansScreen } from './ui/screens/loans/LoansScreen';
+import { CategoriesScreen } from './ui/screens/categories/CategoriesScreen';
 import { ArchivedScreen } from './ui/screens/archived/ArchivedScreen';
 
 // Raíz: decide qué mostrar según el estado de la sesión (CLAUDE.md §3).
@@ -63,6 +64,7 @@ function App() {
             <Route path="/mas/fijos" element={<FixedTemplatesScreen />} />
             <Route path="/mas/presupuestos" element={<BudgetsScreen />} />
             <Route path="/mas/creditos" element={<LoansScreen />} />
+            <Route path="/mas/categorias" element={<CategoriesScreen />} />
             <Route path="/mas/archivados" element={<ArchivedScreen />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
