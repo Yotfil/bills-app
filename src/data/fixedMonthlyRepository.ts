@@ -36,6 +36,38 @@ export function subscribeFixedMonthly(
   return onSnapshot(q, (snap) => onChange(snap.docs.map((d) => d.data())));
 }
 
+/** Lee de una sola vez los fijos de un mes (sin suscripción). Útil en orquestaciones. */
+export async function listFixedMonthlyForMonth(
+  uid: string,
+  month: string,
+): Promise<FixedObligationMonthly[]> {
+  const snap = await getDocs(query(fixedMonthlyCol(uid), where('month', '==', month)));
+  return snap.docs.map((d) => d.data());
+}
+
+/**
+ * Sincroniza SOLO el monto de los fijos del mes (no pagados) de una plantilla, sin tocar el
+ * resto del snapshot (medio de pago, categoría…). Lo usa el vínculo crédito↔cuota cuando cambia
+ * el valor de la cuota (§5.6). Devuelve cuántos actualizó.
+ */
+export async function syncMonthlyAmount(
+  uid: string,
+  templateId: string,
+  month: string,
+  amount: number,
+): Promise<number> {
+  const snap = await getDocs(query(fixedMonthlyCol(uid), where('month', '==', month)));
+  const targets = snap.docs.filter(
+    (d) => d.data().templateId === templateId && d.data().status !== 'paid',
+  );
+  await Promise.all(
+    targets.map((d) =>
+      updateDoc(rawDoc(uid, d.id), { budgetedAmount: amount, updatedAt: serverTimestamp() }),
+    ),
+  );
+  return targets.length;
+}
+
 /**
  * Genera los fijos del mes desde la plantilla, sin duplicar los ya existentes (§5.10).
  * Devuelve cuántos creó.
