@@ -47,6 +47,14 @@ export function currentMonthKey(): string {
   return monthKey(nowTimestamp());
 }
 
+/** Fecha local de hoy como 'YYYY-MM-DD' (p.ej. para la caché diaria de la tasa, §5.11). */
+export function todayIsoDate(): string {
+  const d = new Date();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${month}-${day}`;
+}
+
 /** Desplaza una clave de mes 'YYYY-MM' por `delta` meses (puede ser negativo). */
 export function addMonths(month: string, delta: number): string {
   const [year, m] = month.split('-').map(Number);
