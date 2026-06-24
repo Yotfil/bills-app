@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { buildAccountCreateInput } from './accountRepository';
 import { buildCardCreateInput } from './cardRepository';
 import { buildFixedTemplateCreateInput } from './fixedTemplateRepository';
+import { buildBudgetCreateInput } from './budgetRepository';
 
 // Los repositorios arman el documento a crear con defaults sensatos (parte pura, testeable).
 
@@ -47,5 +48,15 @@ describe('buildFixedTemplateCreateInput', () => {
     expect(input.active).toBe(true);
     expect(input.archived).toBe(false);
     expect(input.payKind).toBe('expense');
+  });
+});
+
+describe('buildBudgetCreateInput', () => {
+  it('nace activo y sin archivar, con su categoría y tope', () => {
+    const input = buildBudgetCreateInput({ categoryId: 'cat-ocio', monthlyLimit: 400_000 });
+    expect(input.categoryId).toBe('cat-ocio');
+    expect(input.monthlyLimit).toBe(400_000);
+    expect(input.active).toBe(true);
+    expect(input.archived).toBe(false);
   });
 });
