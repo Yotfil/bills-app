@@ -1,22 +1,45 @@
 rules_version = '2';
 
-// Reglas de seguridad (CLAUDE.md §3).
-// Regla de oro: cada usuario solo lee y escribe SUS propios datos. Todo cuelga de
-// users/{uid}; nadie, ni autenticado, accede a datos de otro. Toda operación requiere
-// sesión iniciada.
+// Reglas de seguridad de Firestore (CLAUDE.md §3).
+// Principio: todo cuelga de /users/{uid} y cada quien SOLO accede a lo suyo. Lo que no se
+// permite explícitamente queda denegado por defecto. Usamos un match explícito por
+// subcolección (en vez de un comodín) para no exponer colecciones no previstas.
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    match /users/{uid} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
-
-      // Todas las subcolecciones del usuario (accounts, cards, loans, categories,
-      // fixedTemplates, fixedMonthly, budgets, transactions) heredan la misma regla.
-      match /{document=**} {
-        allow read, write: if request.auth != null && request.auth.uid == uid;
-      }
+    // ¿La petición es del dueño de ese árbol de usuario?
+    function isOwner(uid) {
+      return request.auth != null && request.auth.uid == uid;
     }
 
-    // Cualquier otra ruta queda denegada por defecto (no se declara ningún allow).
+    match /users/{uid} {
+      // Perfil y ajustes del propio usuario.
+      allow read, write: if isOwner(uid);
+
+      // Subcolecciones privadas del usuario (§9.2).
+      match /accounts/{accountId} {
+        allow read, write: if isOwner(uid);
+      }
+      match /cards/{cardId} {
+        allow read, write: if isOwner(uid);
+      }
+      match /loans/{loanId} {
+        allow read, write: if isOwner(uid);
+      }
+      match /categories/{categoryId} {
+        allow read, write: if isOwner(uid);
+      }
+      match /fixedTemplates/{templateId} {
+        allow read, write: if isOwner(uid);
+      }
+      match /fixedMonthly/{fixedId} {
+        allow read, write: if isOwner(uid);
+      }
+      match /budgets/{budgetId} {
+        allow read, write: if isOwner(uid);
+      }
+      match /transactions/{txnId} {
+        allow read, write: if isOwner(uid);
+      }
+    }
   }
 }

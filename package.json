@@ -15,7 +15,9 @@
     "test:ui": "vitest --ui",
     "test:coverage": "vitest run --coverage",
     "e2e": "playwright test",
-    "e2e:ui": "playwright test --ui"
+    "e2e:ui": "playwright test --ui",
+    "firebase:login": "firebase login",
+    "deploy:rules": "firebase deploy --only firestore:rules"
   },
   "dependencies": {
     "clsx": "^2.1.1",
@@ -42,6 +44,7 @@
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.3",
+    "firebase-tools": "^15.22.1",
     "globals": "^17.7.0",
     "jsdom": "^29.1.1",
     "prettier": "^3.8.4",
