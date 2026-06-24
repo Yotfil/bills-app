@@ -15,7 +15,7 @@ const ITEMS: MenuItem[] = [
     hint: 'Bolsas apartadas (no cuentan en disponible)',
     ready: true,
   },
-  { to: '/mas/categorias', label: 'Categorías', hint: 'Administrar categorías', ready: false },
+  { to: '/mas/categorias', label: 'Categorías', hint: 'Administrar categorías', ready: true },
   { to: '/mas/fijos', label: 'Obligaciones fijas', hint: 'Plantilla mensual', ready: true },
   { to: '/mas/presupuestos', label: 'Presupuestos', hint: 'Topes por categoría', ready: true },
   {
