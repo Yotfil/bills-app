@@ -17,6 +17,10 @@ dist-ssr
 .env.*
 !.env.example
 
+# Documentos de trabajo local (un solo dev por ahora): no se versionan
+CLAUDE.md
+MEMORY.md
+
 # Tests
 coverage
 playwright-report
