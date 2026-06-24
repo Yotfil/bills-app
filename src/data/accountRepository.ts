@@ -1,7 +1,16 @@
 // Repositorio de cuentas (CLAUDE.md §5.1, §8.4). Ata el CRUD genérico a la colección de
 // cuentas y arma los valores por defecto al crear. La lógica de saldos NO vive aquí.
 import { accountsCol } from './collections';
-import { archive, create, subscribeAll, update, type CreateInput, type UpdateInput } from './crud';
+import {
+  archive,
+  create,
+  hardDelete,
+  subscribeAll,
+  unarchive,
+  update,
+  type CreateInput,
+  type UpdateInput,
+} from './crud';
 import type { Account } from '../domain/types';
 import type { NewAccount } from './NewAccount';
 
@@ -51,3 +60,9 @@ export const updateAccount = (uid: string, id: string, data: EditableAccountFiel
   update(accountsCol(uid), id, data);
 
 export const archiveAccount = (uid: string, id: string) => archive(accountsCol(uid), id);
+
+export const unarchiveAccount = (uid: string, id: string) => unarchive(accountsCol(uid), id);
+
+// Borrado físico: solo válido si la cuenta NO tiene movimientos (la UI lo verifica con
+// `entityHasMovements`, §8.4). Si los tiene, debe quedarse archivada.
+export const deleteAccount = (uid: string, id: string) => hardDelete(accountsCol(uid), id);

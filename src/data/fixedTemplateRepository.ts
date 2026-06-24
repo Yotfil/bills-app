@@ -1,6 +1,15 @@
 // Repositorio de la plantilla de obligaciones fijas (CLAUDE.md §5.2, §8.4, §10).
 import { fixedTemplatesCol } from './collections';
-import { archive, create, subscribeAll, update, type CreateInput, type UpdateInput } from './crud';
+import {
+  archive,
+  create,
+  hardDelete,
+  subscribeAll,
+  unarchive,
+  update,
+  type CreateInput,
+  type UpdateInput,
+} from './crud';
 import type { NewFixedTemplate } from './NewFixedTemplate';
 import type { FixedObligationTemplate } from '../domain/types';
 
@@ -40,3 +49,12 @@ export const updateFixedTemplate = (
 
 export const archiveFixedTemplate = (uid: string, id: string) =>
   archive(fixedTemplatesCol(uid), id);
+
+export const unarchiveFixedTemplate = (uid: string, id: string) =>
+  unarchive(fixedTemplatesCol(uid), id);
+
+// La plantilla es solo el "molde" del rollover: las instancias mensuales que generó son
+// snapshots autocontenidos (guardan su propio nombre/monto), así que borrar la plantilla NO
+// rompe el histórico (§8.4). Se puede eliminar siempre.
+export const deleteFixedTemplate = (uid: string, id: string) =>
+  hardDelete(fixedTemplatesCol(uid), id);

@@ -18,6 +18,12 @@ const ITEMS: MenuItem[] = [
   { to: '/mas/categorias', label: 'Categorías', hint: 'Administrar categorías', ready: false },
   { to: '/mas/fijos', label: 'Obligaciones fijas', hint: 'Plantilla mensual', ready: true },
   { to: '/mas/presupuestos', label: 'Presupuestos', hint: 'Topes por categoría', ready: true },
+  {
+    to: '/mas/archivados',
+    label: 'Archivados',
+    hint: 'Restaurar o eliminar lo archivado',
+    ready: true,
+  },
   { to: '/mas/datos', label: 'Sembrar mis datos', hint: 'Carga inicial (temporal)', ready: true },
 ];
 

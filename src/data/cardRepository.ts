@@ -1,7 +1,16 @@
 // Repositorio de tarjetas de crédito (CLAUDE.md §5.5, §8.4). La tarjeta es un medio de pago
 // con cupo y deuda; el cupo disponible es derivado (creditLimit − cachedDebt).
 import { cardsCol } from './collections';
-import { archive, create, subscribeAll, update, type CreateInput, type UpdateInput } from './crud';
+import {
+  archive,
+  create,
+  hardDelete,
+  subscribeAll,
+  unarchive,
+  update,
+  type CreateInput,
+  type UpdateInput,
+} from './crud';
 import type { CreditCard } from '../domain/types';
 import type { NewCard } from './NewCard';
 
@@ -37,3 +46,8 @@ export const updateCard = (uid: string, id: string, data: EditableCardFields) =>
   update(cardsCol(uid), id, data);
 
 export const archiveCard = (uid: string, id: string) => archive(cardsCol(uid), id);
+
+export const unarchiveCard = (uid: string, id: string) => unarchive(cardsCol(uid), id);
+
+// Borrado físico: solo si la tarjeta NO tiene movimientos asociados (§8.4).
+export const deleteCard = (uid: string, id: string) => hardDelete(cardsCol(uid), id);
