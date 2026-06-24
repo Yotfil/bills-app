@@ -13,7 +13,9 @@ import { entityHasMovements } from '../../domain/entityUsage';
 import { currentMonthKey } from '../../lib/date';
 import { archiveAccount, deleteAccount, subscribeAccounts } from '../../data/accountRepository';
 import { subscribeTransactions } from '../../data/transactionRepository';
+import { reconcileAccount } from '../../data/reconciliationService';
 import type { AccountsScreenProps } from './AccountsScreenProps';
+import type { ReconcileTarget } from './ReconcileTarget';
 import type { Account, AccountType, Transaction } from '../../domain/types';
 
 const TYPE_LABEL: Record<AccountType, string> = {
@@ -63,6 +65,19 @@ export function AccountsScreen({ savingsBucket = false }: AccountsScreenProps) {
     await archiveAccount(uid, deleting.id);
     setDeleting(null);
   }
+
+  const reconcileTarget: ReconcileTarget | null =
+    reconciling && uid
+      ? {
+          id: reconciling.id,
+          name: reconciling.name,
+          registeredValue: reconciling.cachedBalance,
+          registeredLabel: 'Saldo registrado',
+          inputLabel: 'Saldo real de la cuenta (COP)',
+          goodDirection: 'increase', // más saldo = verde
+          reconcile: (real, note) => reconcileAccount(uid, reconciling, real, note),
+        }
+      : null;
 
   return (
     <div className="mx-auto flex max-w-md flex-col gap-4 p-4 pb-24">
@@ -153,7 +168,7 @@ export function AccountsScreen({ savingsBucket = false }: AccountsScreenProps) {
       />
       <ReconcileModal
         open={!!reconciling}
-        account={reconciling}
+        target={reconcileTarget}
         onClose={() => setReconciling(null)}
       />
       <ConfirmDeleteModal

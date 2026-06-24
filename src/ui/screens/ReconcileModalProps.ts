@@ -1,7 +1,7 @@
-import type { Account } from '../../domain/types';
+import type { ReconcileTarget } from './ReconcileTarget';
 
 export interface ReconcileModalProps {
   open: boolean;
-  account: Account | null;
+  target: ReconcileTarget | null;
   onClose: () => void;
 }

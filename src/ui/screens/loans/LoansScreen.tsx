@@ -7,6 +7,7 @@ import { LoanForm } from './LoanForm';
 import { PayLoanModal } from './PayLoanModal';
 import { BackButton } from '../../components/BackButton';
 import { ConfirmDeleteModal } from '../../components/ConfirmDeleteModal';
+import { ReconcileModal } from '../ReconcileModal';
 import { entityHasMovements } from '../../../domain/entityUsage';
 import { linkedMonthlyCuota, loanHasLinkedFixed } from '../../../domain/loanCuota';
 import { archiveLoan, deleteLoan, subscribeLoans } from '../../../data/loanRepository';
@@ -15,7 +16,9 @@ import { subscribeTransactions } from '../../../data/transactionRepository';
 import { subscribeFixedTemplates } from '../../../data/fixedTemplateRepository';
 import { revertFixedPayment, syncMonthlyAmount } from '../../../data/fixedMonthlyRepository';
 import { payLinkedCuota } from '../../../data/loanCuotaService';
+import { reconcileLoan } from '../../../data/reconciliationService';
 import { currentMonthKey, formatMonthLabel } from '../../../lib/date';
+import type { ReconcileTarget } from '../ReconcileTarget';
 import type { Account, FixedObligationTemplate, Loan, Transaction } from '../../../domain/types';
 
 // Créditos grandes (CLAUDE.md §5.6, §8.4): progreso de amortización, fecha estimada y abonos.
@@ -32,6 +35,7 @@ export function LoansScreen() {
   const [editing, setEditing] = useState<Loan | null>(null);
   const [paying, setPaying] = useState<Loan | null>(null);
   const [deleting, setDeleting] = useState<Loan | null>(null);
+  const [reconciling, setReconciling] = useState<Loan | null>(null);
   const [creating, setCreating] = useState(false);
 
   const active = loans.filter((l) => !l.archived);
@@ -88,6 +92,20 @@ export function LoansScreen() {
     setDeleting(null);
   }
 
+  // Reconciliar el SALDO del crédito (§5.7): intereses que lo suben, desfases de pruebas, etc.
+  const reconcileTarget: ReconcileTarget | null =
+    reconciling && uid
+      ? {
+          id: reconciling.id,
+          name: reconciling.name,
+          registeredValue: reconciling.cachedBalance,
+          registeredLabel: 'Saldo registrado',
+          inputLabel: 'Saldo real del crédito (COP)',
+          goodDirection: 'decrease', // menos saldo pendiente = verde
+          reconcile: (real, note) => reconcileLoan(uid, reconciling, real, note),
+        }
+      : null;
+
   return (
     <div className="mx-auto flex max-w-md flex-col gap-4 p-4 pb-24">
       <BackButton />
@@ -121,6 +139,7 @@ export function LoansScreen() {
               onPay={() => handlePay(loan, linked)}
               onUndoCuota={() => handleUndoCuota(loan)}
               onEdit={() => setEditing(loan)}
+              onReconcile={() => setReconciling(loan)}
               onArchive={() => handleArchive(loan)}
               onDelete={() => setDeleting(loan)}
             />
@@ -149,6 +168,11 @@ export function LoansScreen() {
         onConfirm={() => void handleDelete()}
         onArchive={() => void handleArchiveFromModal()}
         onClose={() => setDeleting(null)}
+      />
+      <ReconcileModal
+        open={!!reconciling}
+        target={reconcileTarget}
+        onClose={() => setReconciling(null)}
       />
     </div>
   );

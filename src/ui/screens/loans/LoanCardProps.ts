@@ -13,6 +13,8 @@ export interface LoanCardProps {
   /** Deshacer el pago de la cuota del mes (solo si está ligada y pagada). */
   onUndoCuota: () => void;
   onEdit: () => void;
+  /** Reconciliar el saldo del crédito (§5.7): intereses, desfases de pruebas, etc. */
+  onReconcile: () => void;
   onArchive: () => void;
   onDelete: () => void;
 }
