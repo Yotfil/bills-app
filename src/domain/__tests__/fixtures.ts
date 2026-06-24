@@ -46,6 +46,7 @@ export function makeAccount(partial: Partial<Account> = {}): Account {
     type: 'savings',
     initialBalance: 0,
     cachedBalance: 0,
+    savingsBucket: false,
     color: '#000',
     icon: 'bank',
     sortOrder: 0,

@@ -108,13 +108,13 @@ describe('Efectos de transacciones sobre saldos', () => {
       expect(disponibleReal(accounts, [])).toBe(1_500_000);
     });
 
-    it('cuenta solo dinero líquido: excluye CDT/inversión (term_deposit)', () => {
+    it('excluye las bolsas de ahorro (savingsBucket): solo cuentas de uso', () => {
       const accounts = [
-        makeAccount({ id: 'acc-1', type: 'savings', cachedBalance: 1_000_000 }),
-        makeAccount({ id: 'acc-2', type: 'cash', cachedBalance: 150_000 }),
-        makeAccount({ id: 'acc-3', type: 'term_deposit', cachedBalance: 5_000_000 }),
+        makeAccount({ id: 'acc-1', cachedBalance: 1_000_000, savingsBucket: false }),
+        makeAccount({ id: 'acc-2', cachedBalance: 150_000, savingsBucket: false }),
+        makeAccount({ id: 'acc-3', cachedBalance: 5_000_000, savingsBucket: true }),
       ];
-      // El CDT (5.000.000) NO cuenta: disponible real = ahorros + efectivo.
+      // La bolsa de ahorro (5.000.000) NO cuenta en el disponible real.
       expect(disponibleReal(accounts, [])).toBe(1_150_000);
     });
   });
