@@ -21,7 +21,8 @@ export function buildLoanCreateInput(input: NewLoan): CreateInput<Loan> {
   return {
     name: input.name.trim(),
     originalAmount: input.originalAmount,
-    cachedBalance: input.currentBalance, // saldo actual = semilla
+    seedBalance: input.currentBalance, // semilla persistida para el recálculo total (§9.3)
+    cachedBalance: input.currentBalance, // el saldo arranca igual a la semilla
     monthlyPayment: input.monthlyPayment,
     annualRate: input.annualRate ?? null,
     startDate: null,
