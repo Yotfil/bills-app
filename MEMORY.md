@@ -8,7 +8,7 @@
 > `CLAUDE.md`. Este archivo solo lleva el **estado de avance**.
 
 **Última actualización:** 2026-06-23
-**Estado general:** 🟢 Pasos 1–5 completos. Siguiente: Paso 6 (Cuentas y tarjetas: CRUD + saldos derivados en UI).
+**Estado general:** 🟢 Pasos 1–6 completos. Siguiente: Paso 7 (Registro de transacciones: captura cero fricción + efectos en saldos).
 
 ---
 
@@ -29,7 +29,7 @@
 | 3 | Login (Google + correo/contraseña) + estructura `users/{uid}` + reglas seguridad | ✅ | Auth en `data/authRepository.ts`, doc raíz en `userRepository.ts`, sync→store en `useAuthSync`. UI: `LoginScreen` + `AppShell`. Reglas en `firestore.rules`. 5 tests de login. **Falta proyecto Firebase real.** |
 | 4 | Capa de dominio: tipos (§9.1), validación (§11), funciones puras de saldos/estados | ✅ | `types.ts`, `validation.ts`, `ledger.ts`, `derived.ts`, `fixed.ts`, `reconciliation.ts`, `reports.ts`. 58 unit tests en verde (catálogo convertido). Pura, sin React/Firebase. Quedan `it.todo`: rollover (→Paso 9) y exchange-rate (→Paso 13). |
 | 5 | Capa de datos: repositorios + converters Firestore (§9.2) | ✅ | `converters.ts` (genérico, quita/rehidrata `id`), `collections.ts` (refs tipadas por uid), `crud.ts` (list/subscribe/get/create/update/archive), `transactionService.ts` (create/edit/delete con `runTransaction` + `increment` + recálculo de cuentas). 3 tests de converter. Integración con emulador = pendiente. |
-| 6 | Cuentas y tarjetas (CRUD) + saldos derivados | ⬜ | — |
+| 6 | Cuentas y tarjetas (CRUD) + saldos derivados | ✅ | `accountRepository`/`cardRepository` + hook `useUserCollection` (tiempo real). Pantallas `AccountsScreen`/`CardsScreen` (CRUD + saldo/reservado/disponible y cupo/deuda). **Esqueleto de navegación**: router + `AppLayout` (barra inferior §8) + `MoreScreen`. 4 tests. Reservado=0 hasta el Paso 9. |
 | 7 | Registro de transacciones (captura cero fricción) + efectos en saldos | ⬜ | — |
 | 8 | Dashboard (número-héroe + resumen + dona por categoría) | ⬜ | — |
 | 9 | Fijos: plantilla, instancia mensual, 3 estados, reservado, fijo→registro al pagar | ⬜ | — |
@@ -64,6 +64,14 @@ asumir y anotar la respuesta aquí.)*
   Firestore vía la capa `data/`; los stores **orquestan, no contienen reglas de negocio**
   (esas viven en `domain/`). Primer store de referencia: `sessionStore.ts` (sesión/auth),
   con test. Se alimentará desde Firebase Auth en el Paso 3.
+- **2026-06-23 — Cuentas/Tarjetas + navegación (Paso 6):** patrón UI confirmado: datos de
+  servidor vía hook `useUserCollection(subscribeFn)` (tiempo real, toma `uid` de la sesión);
+  los componentes nunca tocan Firestore directo. Repos exponen `buildXCreateInput` puros
+  (testeados) + `subscribe/create/update/archive`. **Router** introducido (react-router-dom)
+  con `AppLayout` (barra inferior de 5 destinos §8); el botón central "+" y las pantallas
+  Inicio/Registro/Fijos son placeholders hasta sus pasos. Edición restringida: saldo de
+  cuenta y deuda de tarjeta NO se editan a mano (van por reconciliación/movimientos).
+  Pendiente de e2e real hasta tener claves Firebase.
 - **2026-06-23 — Capa de datos (Paso 5):** converters en UN solo lugar (`docConverter`
   genérico para todo `BaseDoc`: quita `id` al escribir, lo rehidrata desde `doc.id` al leer).
   `collections.ts` arma las refs `users/{uid}/<col>` tipadas con converter. CRUD genérico en
