@@ -5,6 +5,7 @@ import { useSessionStore } from '../../store/sessionStore';
 import { AccountForm } from './AccountForm';
 import { ReconcileModal } from './ReconcileModal';
 import { BackButton } from '../components/BackButton';
+import { ActionMenu } from '../components/ActionMenu';
 import { ConfirmDeleteModal } from '../components/ConfirmDeleteModal';
 import { formatCop, formatCopPlain } from '../../lib/currency';
 import { accountAvailable, accountReserved } from '../../domain/derived';
@@ -97,36 +98,20 @@ export function AccountsScreen({ savingsBucket = false }: AccountsScreenProps) {
                   <p className="truncate font-semibold text-slate-800">{account.name}</p>
                   <p className="text-xs text-slate-400">{TYPE_LABEL[account.type]}</p>
                 </div>
-                <div className="flex shrink-0 gap-3 text-xs">
-                  <button
-                    type="button"
-                    onClick={() => setEditing(account)}
-                    className="text-slate-500 underline"
-                  >
-                    Editar
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setReconciling(account)}
-                    className="text-slate-500 underline"
-                  >
-                    Reconciliar
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleArchive(account)}
-                    className="text-slate-400 underline"
-                  >
-                    Archivar
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setDeleting(account)}
-                    className="text-red-500 underline"
-                  >
-                    Eliminar
-                  </button>
-                </div>
+                <ActionMenu
+                  ariaLabel={`Acciones de ${account.name}`}
+                  items={[
+                    { label: 'Editar', icon: '✏️', onSelect: () => setEditing(account) },
+                    { label: 'Reconciliar', icon: '⚖️', onSelect: () => setReconciling(account) },
+                    { label: 'Archivar', icon: '📦', onSelect: () => handleArchive(account) },
+                    {
+                      label: 'Eliminar',
+                      icon: '🗑️',
+                      onSelect: () => setDeleting(account),
+                      danger: true,
+                    },
+                  ]}
+                />
               </div>
               <dl className="mt-3 grid grid-cols-3 gap-2 text-center">
                 <div>
