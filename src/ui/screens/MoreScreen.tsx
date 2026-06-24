@@ -9,9 +9,16 @@ const ITEMS: MenuItem[] = [
   { to: '/mas/cuentas', label: 'Cuentas', hint: 'Saldos, reservado y disponible', ready: true },
   { to: '/mas/tarjetas', label: 'Tarjetas', hint: 'Cupo y deuda', ready: true },
   { to: '/mas/creditos', label: 'Créditos', hint: 'Amortización y progreso', ready: true },
+  {
+    to: '/mas/ahorros',
+    label: 'Ahorros',
+    hint: 'Bolsas apartadas (no cuentan en disponible)',
+    ready: true,
+  },
   { to: '/mas/categorias', label: 'Categorías', hint: 'Administrar categorías', ready: false },
   { to: '/mas/fijos', label: 'Obligaciones fijas', hint: 'Plantilla mensual', ready: true },
   { to: '/mas/presupuestos', label: 'Presupuestos', hint: 'Topes por categoría', ready: true },
+  { to: '/mas/datos', label: 'Sembrar mis datos', hint: 'Carga inicial (temporal)', ready: true },
 ];
 
 export function MoreScreen() {

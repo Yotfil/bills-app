@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { useUserCollection } from '../hooks/useUserCollection';
 import { useSessionStore } from '../../store/sessionStore';
 import { Modal } from '../components/Modal';
+import { DisponibleRealBar } from '../components/DisponibleRealBar';
 import { TransactionForm } from './TransactionForm';
 import { formatCop } from '../../lib/currency';
 import { dayKey, formatDayLabel } from '../../lib/date';
@@ -92,6 +93,7 @@ export function RegistroScreen() {
 
   return (
     <div className="mx-auto flex max-w-md flex-col gap-4 p-4 pb-24">
+      <DisponibleRealBar />
       <h1 className="text-xl font-bold text-slate-800">Registro</h1>
 
       {categoryFilter && (

@@ -1,6 +1,8 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useUserCollection } from '../../hooks/useUserCollection';
 import { useSessionStore } from '../../../store/sessionStore';
+import { logout } from '../../../data/authRepository';
 import { AccountForm } from '../AccountForm';
 import { CardForm } from '../CardForm';
 import { LoanForm } from '../loans/LoanForm';
@@ -30,6 +32,7 @@ const TOTAL_STEPS = 5;
 // onboardingCompleted para no volver a mostrarse.
 export function OnboardingScreen() {
   const uid = useSessionStore((s) => s.user?.uid);
+  const navigate = useNavigate();
   const [step, setStep] = useState(0);
   const [showForm, setShowForm] = useState(false);
   const [finishing, setFinishing] = useState(false);
@@ -54,12 +57,14 @@ export function OnboardingScreen() {
     }
   }
 
+  // Termina (o salta) el onboarding: lo marca completado para no quedar atrapado y entra a la
+  // app. Se puede volver luego desde el dashboard (ruta /onboarding).
   async function handleFinish() {
     if (!uid) return;
     setFinishing(true);
     try {
-      // Al marcar completado, App deja de mostrar el onboarding y entra al dashboard.
       await completeOnboarding(uid);
+      navigate('/');
     } finally {
       setFinishing(false);
     }
@@ -194,6 +199,17 @@ export function OnboardingScreen() {
             Atrás
           </button>
         )}
+
+        {/* Salir del flujo sin quedar atrapado: se puede volver luego desde el dashboard. */}
+        <div className="mt-2 flex items-center justify-center gap-4 text-xs text-slate-400">
+          <button type="button" onClick={handleFinish} disabled={finishing} className="underline">
+            Saltar por ahora
+          </button>
+          <span>·</span>
+          <button type="button" onClick={() => void logout()} className="underline">
+            Cerrar sesión
+          </button>
+        </div>
       </div>
     </main>
   );

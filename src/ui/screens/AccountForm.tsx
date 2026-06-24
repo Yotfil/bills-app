@@ -7,12 +7,19 @@ import type { AccountType } from '../../domain/types';
 
 // Formulario para crear/editar una cuenta (CLAUDE.md §8.4). El saldo no se edita aquí: se
 // corrige reconciliando (§5.7).
-export function AccountForm({ open, account, onClose }: AccountFormProps) {
+export function AccountForm({ open, account, defaultSavingsBucket, onClose }: AccountFormProps) {
   const uid = useSessionStore((s) => s.user?.uid);
   const isEdit = !!account;
   const [name, setName] = useState(account?.name ?? '');
   const [type, setType] = useState<AccountType>(account?.type ?? 'savings');
   const [initialBalance, setInitialBalance] = useState(String(account?.initialBalance ?? ''));
+  const [savingsBucket, setSavingsBucket] = useState(
+    account?.savingsBucket ?? defaultSavingsBucket ?? false,
+  );
+  const [foreignCurrency, setForeignCurrency] = useState(account?.foreignCurrency ?? '');
+  const [foreignAmount, setForeignAmount] = useState(
+    account?.foreignAmount != null ? String(account.foreignAmount) : '',
+  );
   const [busy, setBusy] = useState(false);
 
   // Reinicia el formulario cada vez que se abre con otra cuenta (o para crear).
@@ -21,15 +28,26 @@ export function AccountForm({ open, account, onClose }: AccountFormProps) {
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     if (!uid || !name.trim()) return;
+    const currency = foreignCurrency.trim().toUpperCase() || null;
+    const fAmount = currency && foreignAmount ? Math.round(Number(foreignAmount) || 0) : null;
     setBusy(true);
     try {
       if (isEdit && account) {
-        await updateAccount(uid, account.id, { name: name.trim(), type });
+        await updateAccount(uid, account.id, {
+          name: name.trim(),
+          type,
+          savingsBucket,
+          foreignCurrency: currency,
+          foreignAmount: fAmount,
+        });
       } else {
         await createAccount(uid, {
           name,
           type,
           initialBalance: Math.round(Number(initialBalance) || 0),
+          savingsBucket,
+          foreignCurrency: currency,
+          foreignAmount: fAmount,
         });
       }
       onClose();
@@ -67,6 +85,32 @@ export function AccountForm({ open, account, onClose }: AccountFormProps) {
             className="rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-500"
           />
         )}
+        <label className="flex items-center gap-2 text-sm text-slate-600">
+          <input
+            type="checkbox"
+            checked={savingsBucket}
+            onChange={(e) => setSavingsBucket(e.target.checked)}
+          />
+          Es una bolsa de ahorro (no cuenta en el disponible)
+        </label>
+
+        {/* Moneda extranjera (opcional): el saldo se lleva en COP; esto es solo referencia. */}
+        <div className="flex gap-2">
+          <input
+            placeholder="Moneda (p.ej. USD)"
+            value={foreignCurrency}
+            onChange={(e) => setForeignCurrency(e.target.value)}
+            className="w-28 rounded-xl border border-slate-300 px-3 py-3 uppercase outline-none focus:border-slate-500"
+          />
+          <input
+            type="number"
+            inputMode="numeric"
+            placeholder="Monto en esa moneda"
+            value={foreignAmount}
+            onChange={(e) => setForeignAmount(e.target.value)}
+            className="flex-1 rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-500"
+          />
+        </div>
         {isEdit && (
           <p className="text-xs text-slate-400">
             El saldo no se edita aquí: se corrige reconciliando la cuenta (§5.7).

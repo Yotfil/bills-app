@@ -32,6 +32,8 @@ export function DashboardScreen() {
   // que solo filtra el resumen y la dona). El reservado se deriva de los fijos 'allocated'.
   const { items: monthlyFixeds } = useFixedMonthly(currentMonthKey());
   const available = disponibleReal(activeAccounts, monthlyFixeds);
+  // Saldo total: TODO lo que hay, incluido lo de Ahorros (a diferencia del disponible real).
+  const totalBalance = activeAccounts.reduce((sum, a) => sum + a.cachedBalance, 0);
   const ft = fixedTotals(monthlyFixeds);
 
   const monthTxns = useMemo(
@@ -64,7 +66,16 @@ export function DashboardScreen() {
         onNext={() => setMonth(addMonths(month, 1))}
       />
 
-      <HeroBalance amount={available} />
+      <HeroBalance amount={available} total={totalBalance} />
+
+      {/* Acceso para configurar/sembrar datos y volver a los 5 pasos del onboarding (§7). */}
+      <Link
+        to="/onboarding"
+        className="rounded-2xl border border-dashed border-slate-300 bg-white p-3 text-center text-sm font-medium text-slate-600"
+      >
+        ⚙️ Configurar mis datos · volver a los 5 pasos
+      </Link>
+
       <MonthSummaryCard summary={summary} />
       <FixedProgressCard
         paid={ft.counts.paid}

@@ -44,12 +44,14 @@ export function loanProgress(loan: Loan): number {
 }
 
 /**
- * NÚMERO-HÉROE (§4): Disponible real = Σ(saldos de cuentas) − Σ(reservado).
- * Equivale a la suma de los "disponibles" de cada cuenta.
+ * NÚMERO-HÉROE (§4): Disponible real = Σ(disponible de cuentas de uso) − Σ(reservado).
+ * Excluye las "bolsas de ahorro" (savingsBucket): dinero apartado que no es de libre uso.
  */
 export function disponibleReal(
   accounts: Account[],
   monthlyFixeds: FixedObligationMonthly[],
 ): number {
-  return accounts.reduce((sum, acc) => sum + accountAvailable(acc, monthlyFixeds), 0);
+  return accounts
+    .filter((acc) => !acc.savingsBucket)
+    .reduce((sum, acc) => sum + accountAvailable(acc, monthlyFixeds), 0);
 }

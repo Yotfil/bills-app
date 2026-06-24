@@ -4,6 +4,7 @@ import { useUserCollection } from '../../hooks/useUserCollection';
 import { useFixedMonthly } from '../../hooks/useFixedMonthly';
 import { useSessionStore } from '../../../store/sessionStore';
 import { MonthSelector } from '../../components/MonthSelector';
+import { DisponibleRealBar } from '../../components/DisponibleRealBar';
 import { FixedTotalsBar } from './FixedTotalsBar';
 import { FixedRow } from './FixedRow';
 import { PayFixedModal } from './PayFixedModal';
@@ -16,8 +17,10 @@ import { subscribeFixedTemplates } from '../../../data/fixedTemplateRepository';
 import {
   generateFixedMonthly,
   markFixedAllocated,
+  markFixedPaidWithoutTransaction,
   markFixedPending,
   payFixed,
+  revertFixedPayment,
 } from '../../../data/fixedMonthlyRepository';
 import type { PayFixedInput } from '../../../data/PayFixedInput';
 import type {
@@ -48,6 +51,19 @@ export function FijosScreen() {
   );
   const totals = fixedTotals(fijos);
   const activeTemplates = templates.filter((t) => t.active && !t.archived);
+  const unpaid = fijos.filter((f) => f.status !== 'paid');
+
+  async function handleMarkAllPaid() {
+    if (!uid || unpaid.length === 0) return;
+    if (
+      !confirm(
+        `¿Marcar ${unpaid.length} fijos como pagados, sin crear movimientos ni tocar saldos?`,
+      )
+    ) {
+      return;
+    }
+    await Promise.all(unpaid.map((f) => markFixedPaidWithoutTransaction(uid, f.id)));
+  }
 
   async function handleGenerate() {
     if (!uid) return;
@@ -64,8 +80,18 @@ export function FijosScreen() {
     await payFixed(uid, paying, input);
   }
 
+  async function handleRevert(fixed: FixedObligationMonthly) {
+    if (!uid) return;
+    const msg = fixed.transactionId
+      ? '¿Deshacer el pago? Se eliminará el movimiento y el dinero volverá a la cuenta de origen.'
+      : '¿Deshacer? Volverá a pendiente (no hubo movimiento, no se devuelve dinero).';
+    if (!confirm(msg)) return;
+    await revertFixedPayment(uid, fixed);
+  }
+
   return (
     <div className="mx-auto flex max-w-md flex-col gap-3 p-4 pb-24">
+      <DisponibleRealBar />
       <header className="flex items-center justify-between">
         <h1 className="text-xl font-bold text-slate-800">Fijos</h1>
         <Link to="/mas/fijos" className="text-sm text-slate-400 underline">
@@ -79,6 +105,16 @@ export function FijosScreen() {
         onNext={() => setMonth(addMonths(month, 1))}
       />
       <FixedTotalsBar totals={totals} />
+
+      {unpaid.length > 1 && (
+        <button
+          type="button"
+          onClick={handleMarkAllPaid}
+          className="text-center text-sm text-slate-500 underline"
+        >
+          Marcar los {unpaid.length} como pagados (sin movimiento)
+        </button>
+      )}
 
       {loading && <p className="text-slate-400">Cargando…</p>}
 
@@ -116,6 +152,8 @@ export function FijosScreen() {
             onAllocate={() => uid && markFixedAllocated(uid, fixed.id)}
             onUnallocate={() => uid && markFixedPending(uid, fixed.id)}
             onPay={() => setPaying(fixed)}
+            onMarkPaid={() => uid && markFixedPaidWithoutTransaction(uid, fixed.id)}
+            onRevert={() => handleRevert(fixed)}
           />
         ))}
       </ul>

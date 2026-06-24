@@ -12,7 +12,7 @@ import {
 } from 'firebase/firestore';
 import { fixedMonthlyCol, fixedTemplatesCol } from './collections';
 import { create, listAll } from './crud';
-import { createTransaction } from './transactionService';
+import { createTransaction, deleteTransaction } from './transactionService';
 import { generateMonthlyFixeds } from '../domain/rollover';
 import { buildTransactionFromFixed } from '../domain/fixed';
 import { nowTimestamp } from '../lib/date';
@@ -72,6 +72,47 @@ export async function markFixedPending(uid: string, id: string): Promise<void> {
 }
 
 /**
+ * Marca un fijo como pagado SIN crear movimiento ni tocar saldos. Útil para "ya estaba pagado"
+ * (p.ej. al empezar a usar la app a mitad de mes, cuando los saldos ya están al día). No tiene
+ * transactionId porque no hay movimiento asociado.
+ */
+export async function markFixedPaidWithoutTransaction(uid: string, id: string): Promise<void> {
+  await updateDoc(rawDoc(uid, id), {
+    status: 'paid',
+    transactionId: null,
+    paidAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+}
+
+// Campos que se copian de la plantilla al snapshot mensual.
+type MonthlySnapshot = Pick<
+  FixedObligationMonthly,
+  'name' | 'budgetedAmount' | 'categoryId' | 'payKind' | 'debtTargetId' | 'paymentMethod'
+>;
+
+/**
+ * Propaga un cambio de la plantilla a los fijos de ESE mes que aún NO están pagados (§5.2):
+ * actualiza sus snapshots (nombre, monto, categoría, medio…). Los pagados conservan su
+ * registro histórico. Devuelve cuántos actualizó.
+ */
+export async function syncMonthlyToTemplate(
+  uid: string,
+  templateId: string,
+  month: string,
+  snapshot: MonthlySnapshot,
+): Promise<number> {
+  const snap = await getDocs(query(fixedMonthlyCol(uid), where('month', '==', month)));
+  const targets = snap.docs.filter(
+    (d) => d.data().templateId === templateId && d.data().status !== 'paid',
+  );
+  await Promise.all(
+    targets.map((d) => updateDoc(rawDoc(uid, d.id), { ...snapshot, updatedAt: serverTimestamp() })),
+  );
+  return targets.length;
+}
+
+/**
  * Destinado/Pendiente → Pagado (§5.2, §5.3): crea la transacción real (que baja el saldo de
  * forma atómica) y enlaza el fijo con ella. Guarda el monto real y el medio usado.
  */
@@ -93,6 +134,26 @@ export async function payFixed(
     paymentMethod: input.paymentMethod,
     transactionId,
     paidAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+}
+
+/**
+ * Deshace el pago de un fijo (Pagado → Pendiente). Si el pago creó un movimiento, lo elimina:
+ * eso DEVUELVE el dinero a la cuenta de origen (revierte el efecto en los saldos, §9.3). Si se
+ * marcó con "Ya estaba pagado" (sin movimiento), no hay nada que devolver.
+ */
+export async function revertFixedPayment(
+  uid: string,
+  fixed: FixedObligationMonthly,
+): Promise<void> {
+  if (fixed.transactionId) {
+    await deleteTransaction(uid, fixed.transactionId);
+  }
+  await updateDoc(rawDoc(uid, fixed.id), {
+    status: 'pending',
+    transactionId: null,
+    paidAt: null,
     updatedAt: serverTimestamp(),
   });
 }

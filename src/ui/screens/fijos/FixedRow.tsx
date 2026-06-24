@@ -9,7 +9,14 @@ const STATUS_BADGE: Record<FixedStatus, { label: string; className: string }> = 
   paid: { label: 'Pagado', className: 'bg-emerald-100 text-emerald-700' },
 };
 
-export function FixedRow({ fixed, onAllocate, onUnallocate, onPay }: FixedRowProps) {
+export function FixedRow({
+  fixed,
+  onAllocate,
+  onUnallocate,
+  onPay,
+  onMarkPaid,
+  onRevert,
+}: FixedRowProps) {
   const badge = STATUS_BADGE[fixed.status];
 
   return (
@@ -52,6 +59,28 @@ export function FixedRow({ fixed, onAllocate, onUnallocate, onPay }: FixedRowPro
             Pagar
           </button>
         </div>
+      )}
+
+      {fixed.status !== 'paid' && (
+        // "Ya estaba pagado": marca pagado sin crear movimiento ni tocar saldos (§ back-fill).
+        <button
+          type="button"
+          onClick={onMarkPaid}
+          className="mt-2 w-full text-center text-xs text-slate-400 underline"
+        >
+          Ya estaba pagado (sin movimiento)
+        </button>
+      )}
+
+      {fixed.status === 'paid' && (
+        // Deshacer: si hubo movimiento, devuelve el dinero a su origen; si no, solo vuelve a pendiente.
+        <button
+          type="button"
+          onClick={onRevert}
+          className="mt-2 w-full text-center text-xs text-slate-400 underline"
+        >
+          Deshacer pago
+        </button>
       )}
     </li>
   );

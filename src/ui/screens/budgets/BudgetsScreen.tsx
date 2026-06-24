@@ -3,6 +3,7 @@ import { useUserCollection } from '../../hooks/useUserCollection';
 import { useSessionStore } from '../../../store/sessionStore';
 import { BudgetCard } from './BudgetCard';
 import { BudgetForm } from './BudgetForm';
+import { BackButton } from '../../components/BackButton';
 import { budgetStatus } from '../../../domain/reports';
 import { currentMonthKey, monthKey } from '../../../lib/date';
 import { archiveBudget, subscribeBudgets } from '../../../data/budgetRepository';
@@ -36,6 +37,7 @@ export function BudgetsScreen() {
 
   return (
     <div className="mx-auto flex max-w-md flex-col gap-4 p-4 pb-24">
+      <BackButton />
       <header className="flex items-center justify-between">
         <h1 className="text-xl font-bold text-slate-800">Presupuestos</h1>
         <button
@@ -67,12 +69,14 @@ export function BudgetsScreen() {
       </ul>
 
       <BudgetForm
+        key={`create-${creating}`}
         open={creating}
         categories={categories}
         usedCategoryIds={active.map((b) => b.categoryId)}
         onClose={() => setCreating(false)}
       />
       <BudgetForm
+        key={editing?.id ?? 'edit-none'}
         open={!!editing}
         budget={editing}
         categories={categories}

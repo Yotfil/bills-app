@@ -107,5 +107,15 @@ describe('Efectos de transacciones sobre saldos', () => {
       // Sin fijos destinados, reservado = 0 → disponible real = suma de saldos.
       expect(disponibleReal(accounts, [])).toBe(1_500_000);
     });
+
+    it('excluye las bolsas de ahorro (savingsBucket): solo cuentas de uso', () => {
+      const accounts = [
+        makeAccount({ id: 'acc-1', cachedBalance: 1_000_000, savingsBucket: false }),
+        makeAccount({ id: 'acc-2', cachedBalance: 150_000, savingsBucket: false }),
+        makeAccount({ id: 'acc-3', cachedBalance: 5_000_000, savingsBucket: true }),
+      ];
+      // La bolsa de ahorro (5.000.000) NO cuenta en el disponible real.
+      expect(disponibleReal(accounts, [])).toBe(1_150_000);
+    });
   });
 });
