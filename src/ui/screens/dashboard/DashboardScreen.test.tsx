@@ -9,7 +9,13 @@ import type { Account, Category, Transaction } from '../../../domain/types';
 const now = Timestamp.fromDate(new Date());
 
 const account = { id: 'a', cachedBalance: 1_000_000, archived: false } as unknown as Account;
-const category = { id: 'c1', name: 'Comidas', color: '#f97316', isSystem: false, archived: false } as unknown as Category;
+const category = {
+  id: 'c1',
+  name: 'Comidas',
+  color: '#f97316',
+  isSystem: false,
+  archived: false,
+} as unknown as Category;
 const txns = [
   { id: 't1', type: 'income', amount: 3_000_000, date: now, categoryId: null, tags: [] },
   { id: 't2', type: 'expense', amount: 200_000, date: now, categoryId: 'c1', tags: [] },

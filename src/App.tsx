@@ -27,24 +27,30 @@ function App() {
     );
   }
 
-  if (status !== 'authenticated') {
-    return <LoginScreen />;
-  }
-
+  // El Router SIEMPRE está montado, así la URL refleja el estado real. Sin sesión,
+  // cualquier ruta cae en el login y la URL se normaliza a "/" (no quedan rutas privadas
+  // "colgadas" en la barra de direcciones, p.ej. /mas tras cerrar sesión).
   return (
     <BrowserRouter>
-      <Routes>
-        <Route element={<AppLayout />}>
-          <Route path="/" element={<DashboardScreen />} />
-          <Route path="/registro" element={<RegistroScreen />} />
-          <Route path="/agregar" element={<AddTransactionScreen />} />
-          <Route path="/fijos" element={<Placeholder title="Fijos" step="Paso 9" />} />
-          <Route path="/mas" element={<MoreScreen />} />
-          <Route path="/mas/cuentas" element={<AccountsScreen />} />
-          <Route path="/mas/tarjetas" element={<CardsScreen />} />
+      {status === 'authenticated' ? (
+        <Routes>
+          <Route element={<AppLayout />}>
+            <Route path="/" element={<DashboardScreen />} />
+            <Route path="/registro" element={<RegistroScreen />} />
+            <Route path="/agregar" element={<AddTransactionScreen />} />
+            <Route path="/fijos" element={<Placeholder title="Fijos" step="Paso 9" />} />
+            <Route path="/mas" element={<MoreScreen />} />
+            <Route path="/mas/cuentas" element={<AccountsScreen />} />
+            <Route path="/mas/tarjetas" element={<CardsScreen />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Route>
+        </Routes>
+      ) : (
+        <Routes>
+          <Route path="/" element={<LoginScreen />} />
           <Route path="*" element={<Navigate to="/" replace />} />
-        </Route>
-      </Routes>
+        </Routes>
+      )}
     </BrowserRouter>
   );
 }
