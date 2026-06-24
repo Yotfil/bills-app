@@ -40,3 +40,6 @@ test-results
 
 # PWA (vite-plugin-pwa) dev output
 dev-dist
+
+# Respaldo local de datos del dueño (no versionar): ver backup/datos-reales.json
+backup/
