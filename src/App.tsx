@@ -16,6 +16,7 @@ import { FijosScreen } from './ui/screens/fijos/FijosScreen';
 import { FixedTemplatesScreen } from './ui/screens/fijos/FixedTemplatesScreen';
 import { BudgetsScreen } from './ui/screens/budgets/BudgetsScreen';
 import { LoansScreen } from './ui/screens/loans/LoansScreen';
+import { SeedDataScreen } from './ui/screens/admin/SeedDataScreen';
 
 // Raíz: decide qué mostrar según el estado de la sesión (CLAUDE.md §3).
 //   loading         → splash mientras Firebase resuelve si hay sesión
@@ -59,6 +60,7 @@ function App() {
           <Route path="/mas/fijos" element={<FixedTemplatesScreen />} />
           <Route path="/mas/presupuestos" element={<BudgetsScreen />} />
           <Route path="/mas/creditos" element={<LoansScreen />} />
+          <Route path="/mas/datos" element={<SeedDataScreen />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>
