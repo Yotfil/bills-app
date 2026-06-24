@@ -4,6 +4,7 @@ import { useSessionStore } from '../../../store/sessionStore';
 import { LoanCard } from './LoanCard';
 import { LoanForm } from './LoanForm';
 import { PayLoanModal } from './PayLoanModal';
+import { BackButton } from '../../components/BackButton';
 import { archiveLoan, subscribeLoans } from '../../../data/loanRepository';
 import { subscribeAccounts } from '../../../data/accountRepository';
 import type { Account, Loan } from '../../../domain/types';
@@ -27,6 +28,7 @@ export function LoansScreen() {
 
   return (
     <div className="mx-auto flex max-w-md flex-col gap-4 p-4 pb-24">
+      <BackButton />
       <header className="flex items-center justify-between">
         <h1 className="text-xl font-bold text-slate-800">Créditos</h1>
         <button

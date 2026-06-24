@@ -4,6 +4,7 @@ import { useFixedMonthly } from '../hooks/useFixedMonthly';
 import { useSessionStore } from '../../store/sessionStore';
 import { AccountForm } from './AccountForm';
 import { ReconcileModal } from './ReconcileModal';
+import { BackButton } from '../components/BackButton';
 import { formatCop, formatCopPlain } from '../../lib/currency';
 import { accountAvailable, accountReserved } from '../../domain/derived';
 import { currentMonthKey } from '../../lib/date';
@@ -41,6 +42,7 @@ export function AccountsScreen({ savingsBucket = false }: AccountsScreenProps) {
 
   return (
     <div className="mx-auto flex max-w-md flex-col gap-4 p-4 pb-24">
+      <BackButton />
       <header className="flex items-center justify-between">
         <h1 className="text-xl font-bold text-slate-800">{title}</h1>
         <button

@@ -1,8 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { AccountsScreen } from './AccountsScreen';
 import { useSessionStore } from '../../store/sessionStore';
 import type { Account } from '../../domain/types';
+
+const renderScreen = () =>
+  render(
+    <MemoryRouter>
+      <AccountsScreen />
+    </MemoryRouter>,
+  );
 
 // Mockeamos el repositorio: la pantalla no debe tocar Firestore directamente.
 const sampleAccount = {
@@ -41,13 +49,13 @@ beforeEach(() => {
 
 describe('AccountsScreen', () => {
   it('lista las cuentas activas con su nombre', () => {
-    render(<AccountsScreen />);
+    renderScreen();
     expect(screen.getByText('Bancolombia')).toBeInTheDocument();
     expect(screen.getByText('Ahorros')).toBeInTheDocument();
   });
 
   it('muestra el saldo y el disponible (reservado 0 sin fijos)', () => {
-    render(<AccountsScreen />);
+    renderScreen();
     // Saldo y disponible son ambos 1.000.000 cuando no hay reservado.
     expect(screen.getAllByText(/1\.000\.000/).length).toBeGreaterThanOrEqual(2);
     expect(screen.getByText('Disponible')).toBeInTheDocument();

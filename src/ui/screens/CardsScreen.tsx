@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useUserCollection } from '../hooks/useUserCollection';
 import { useSessionStore } from '../../store/sessionStore';
 import { CardForm } from './CardForm';
+import { BackButton } from '../components/BackButton';
 import { formatCop } from '../../lib/currency';
 import { cardAvailableCredit } from '../../domain/derived';
 import { archiveCard, subscribeCards } from '../../data/cardRepository';
@@ -23,6 +24,7 @@ export function CardsScreen() {
 
   return (
     <div className="mx-auto flex max-w-md flex-col gap-4 p-4 pb-24">
+      <BackButton />
       <header className="flex items-center justify-between">
         <h1 className="text-xl font-bold text-slate-800">Tarjetas</h1>
         <button

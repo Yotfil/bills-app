@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useSessionStore } from '../../../store/sessionStore';
 import { Button } from '../../components/Button';
+import { BackButton } from '../../components/BackButton';
 import { clearUserData } from '../../../data/clearUserData';
 import { seedRealData } from '../../../data/seedRealData';
 
@@ -50,6 +51,7 @@ export function SeedDataScreen() {
 
   return (
     <div className="mx-auto flex max-w-md flex-col gap-4 p-4 pb-24">
+      <BackButton />
       <h1 className="text-xl font-bold text-slate-800">Sembrar mis datos (temporal)</h1>
       <p className="text-sm text-slate-500">
         Carga inicial de tus datos reales. Primero borra lo de prueba, luego siembra. Esta pantalla
