@@ -72,8 +72,8 @@ export function SeedDataScreen() {
       )}
 
       <p className="text-xs text-slate-400">
-        Tras sembrar, ve a <strong>Fijos</strong> y genera los fijos del mes. Recuerda confirmar si
-        el saldo de <strong>Global66</strong> ($9.918) era COP o USD.
+        Tras sembrar, ve a <strong>Fijos</strong> y genera los fijos del mes. Global66 se guarda en
+        COP (9.918 USD × ~3.433 ≈ $34.051.370).
       </p>
     </div>
   );
