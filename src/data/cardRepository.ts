@@ -21,7 +21,8 @@ export function buildCardCreateInput(input: NewCard): CreateInput<CreditCard> {
   return {
     name: input.name.trim(),
     creditLimit: input.creditLimit,
-    cachedDebt: input.initialDebt,
+    initialDebt: input.initialDebt, // semilla persistida para el recálculo total (§9.3)
+    cachedDebt: input.initialDebt, // la deuda arranca igual a la semilla
     color: input.color ?? '#64748b',
     icon: input.icon ?? 'credit-card',
     sortOrder: input.sortOrder ?? 0,

@@ -31,6 +31,7 @@ describe('buildCardCreateInput', () => {
     });
     expect(input.creditLimit).toBe(2_000_000);
     expect(input.cachedDebt).toBe(350_000);
+    expect(input.initialDebt).toBe(350_000); // semilla persistida para el recálculo (§9.3)
     expect(input.archived).toBe(false);
   });
 });
@@ -71,6 +72,7 @@ describe('buildLoanCreateInput', () => {
       monthlyPayment: 2_700_000,
     });
     expect(input.cachedBalance).toBe(30_000_000);
+    expect(input.seedBalance).toBe(30_000_000); // semilla persistida para el recálculo (§9.3)
     expect(input.originalAmount).toBe(50_000_000);
     expect(input.annualRate).toBeNull();
     expect(input.archived).toBe(false);
