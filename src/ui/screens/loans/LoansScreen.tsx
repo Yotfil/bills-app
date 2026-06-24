@@ -5,17 +5,22 @@ import { LoanCard } from './LoanCard';
 import { LoanForm } from './LoanForm';
 import { PayLoanModal } from './PayLoanModal';
 import { BackButton } from '../../components/BackButton';
-import { archiveLoan, subscribeLoans } from '../../../data/loanRepository';
+import { ConfirmDeleteModal } from '../../components/ConfirmDeleteModal';
+import { entityHasMovements } from '../../../domain/entityUsage';
+import { archiveLoan, deleteLoan, subscribeLoans } from '../../../data/loanRepository';
 import { subscribeAccounts } from '../../../data/accountRepository';
-import type { Account, Loan } from '../../../domain/types';
+import { subscribeTransactions } from '../../../data/transactionRepository';
+import type { Account, Loan, Transaction } from '../../../domain/types';
 
 // Créditos grandes (CLAUDE.md §5.6, §8.4): progreso de amortización, fecha estimada y abonos.
 export function LoansScreen() {
   const uid = useSessionStore((s) => s.user?.uid);
   const { items: loans, loading } = useUserCollection<Loan>(subscribeLoans);
   const { items: accounts } = useUserCollection<Account>(subscribeAccounts);
+  const { items: transactions } = useUserCollection<Transaction>(subscribeTransactions);
   const [editing, setEditing] = useState<Loan | null>(null);
   const [paying, setPaying] = useState<Loan | null>(null);
+  const [deleting, setDeleting] = useState<Loan | null>(null);
   const [creating, setCreating] = useState(false);
 
   const active = loans.filter((l) => !l.archived);
@@ -24,6 +29,21 @@ export function LoansScreen() {
     if (!uid) return;
     if (!confirm(`¿Archivar el crédito "${loan.name}"? Su histórico se conserva.`)) return;
     await archiveLoan(uid, loan.id);
+  }
+
+  // El borrado físico solo procede si el crédito NO tiene abonos (movimientos) asociados (§8.4).
+  const deletingBlocked = deleting ? entityHasMovements(transactions, 'loan', deleting.id) : false;
+
+  async function handleDelete() {
+    if (!uid || !deleting) return;
+    await deleteLoan(uid, deleting.id);
+    setDeleting(null);
+  }
+
+  async function handleArchiveFromModal() {
+    if (!uid || !deleting) return;
+    await archiveLoan(uid, deleting.id);
+    setDeleting(null);
   }
 
   return (
@@ -53,6 +73,7 @@ export function LoansScreen() {
             onPay={() => setPaying(loan)}
             onEdit={() => setEditing(loan)}
             onArchive={() => handleArchive(loan)}
+            onDelete={() => setDeleting(loan)}
           />
         ))}
       </ul>
@@ -69,6 +90,15 @@ export function LoansScreen() {
         loan={paying}
         accounts={accounts.filter((a) => !a.archived)}
         onClose={() => setPaying(null)}
+      />
+      <ConfirmDeleteModal
+        open={!!deleting}
+        itemLabel={deleting?.name ?? ''}
+        itemKind="el crédito"
+        blocked={deletingBlocked}
+        onConfirm={() => void handleDelete()}
+        onArchive={() => void handleArchiveFromModal()}
+        onClose={() => setDeleting(null)}
       />
     </div>
   );

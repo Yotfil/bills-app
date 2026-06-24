@@ -5,4 +5,5 @@ export interface BudgetCardProps {
   status: BudgetStatus;
   onEdit: () => void;
   onArchive: () => void;
+  onDelete: () => void;
 }
