@@ -4,7 +4,7 @@ import { BackButton } from '../../components/BackButton';
 import { ArchivedSection } from './ArchivedSection';
 import { ArchivedItemRow } from './ArchivedItemRow';
 import { formatCop } from '../../../lib/currency';
-import { entityHasMovements } from '../../../domain/entityUsage';
+import { categoryHasMovements, entityHasMovements } from '../../../domain/entityUsage';
 import {
   deleteAccount,
   subscribeAccounts,
@@ -18,7 +18,11 @@ import {
   subscribeFixedTemplates,
   unarchiveFixedTemplate,
 } from '../../../data/fixedTemplateRepository';
-import { subscribeCategories } from '../../../data/categoryRepository';
+import {
+  deleteCategory,
+  subscribeCategories,
+  unarchiveCategory,
+} from '../../../data/categoryRepository';
 import { subscribeTransactions } from '../../../data/transactionRepository';
 import type {
   Account,
@@ -60,13 +64,15 @@ export function ArchivedScreen() {
   const archivedLoans = loans.filter((l) => l.archived);
   const archivedBudgets = budgets.filter((b) => b.archived);
   const archivedTemplates = templates.filter((t) => t.archived);
+  const archivedCategories = categories.filter((c) => c.archived);
 
   const total =
     archivedAccounts.length +
     archivedCards.length +
     archivedLoans.length +
     archivedBudgets.length +
-    archivedTemplates.length;
+    archivedTemplates.length +
+    archivedCategories.length;
 
   const categoryName = (id: string) => categories.find((c) => c.id === id)?.name ?? 'Categoría';
 
@@ -189,6 +195,23 @@ export function ArchivedScreen() {
               onDelete={() => remove(deleteBudget, b.id, categoryName(b.categoryId))}
             />
           ))}
+        </ArchivedSection>
+      )}
+
+      {archivedCategories.length > 0 && (
+        <ArchivedSection title="Categorías">
+          {archivedCategories.map((c) => {
+            const blocked = categoryHasMovements(transactions, c.id);
+            return (
+              <ArchivedItemRow
+                key={c.id}
+                label={`${c.icon} ${c.name}`}
+                onRestore={() => restore(unarchiveCategory, c.id)}
+                onDelete={blocked ? undefined : () => remove(deleteCategory, c.id, c.name)}
+                deleteBlockedReason={blocked ? HAS_MOVEMENTS_REASON : undefined}
+              />
+            );
+          })}
         </ArchivedSection>
       )}
     </div>
