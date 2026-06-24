@@ -6,6 +6,8 @@ import { AppLayout } from './ui/AppLayout';
 import { MoreScreen } from './ui/screens/MoreScreen';
 import { AccountsScreen } from './ui/screens/AccountsScreen';
 import { CardsScreen } from './ui/screens/CardsScreen';
+import { AddTransactionScreen } from './ui/screens/AddTransactionScreen';
+import { RegistroScreen } from './ui/screens/RegistroScreen';
 import { Placeholder } from './ui/screens/Placeholder';
 
 // Raíz: decide qué mostrar según el estado de la sesión (CLAUDE.md §3).
@@ -33,11 +35,8 @@ function App() {
       <Routes>
         <Route element={<AppLayout />}>
           <Route path="/" element={<Placeholder title="Inicio" step="Paso 8 (dashboard)" />} />
-          <Route path="/registro" element={<Placeholder title="Registro" step="Paso 7" />} />
-          <Route
-            path="/agregar"
-            element={<Placeholder title="Agregar movimiento" step="Paso 7" />}
-          />
+          <Route path="/registro" element={<RegistroScreen />} />
+          <Route path="/agregar" element={<AddTransactionScreen />} />
           <Route path="/fijos" element={<Placeholder title="Fijos" step="Paso 9" />} />
           <Route path="/mas" element={<MoreScreen />} />
           <Route path="/mas/cuentas" element={<AccountsScreen />} />
