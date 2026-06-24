@@ -16,6 +16,7 @@ import { subscribeFixedTemplates } from '../../../data/fixedTemplateRepository';
 import {
   generateFixedMonthly,
   markFixedAllocated,
+  markFixedPaidWithoutTransaction,
   markFixedPending,
   payFixed,
 } from '../../../data/fixedMonthlyRepository';
@@ -48,6 +49,19 @@ export function FijosScreen() {
   );
   const totals = fixedTotals(fijos);
   const activeTemplates = templates.filter((t) => t.active && !t.archived);
+  const unpaid = fijos.filter((f) => f.status !== 'paid');
+
+  async function handleMarkAllPaid() {
+    if (!uid || unpaid.length === 0) return;
+    if (
+      !confirm(
+        `¿Marcar ${unpaid.length} fijos como pagados, sin crear movimientos ni tocar saldos?`,
+      )
+    ) {
+      return;
+    }
+    await Promise.all(unpaid.map((f) => markFixedPaidWithoutTransaction(uid, f.id)));
+  }
 
   async function handleGenerate() {
     if (!uid) return;
@@ -79,6 +93,16 @@ export function FijosScreen() {
         onNext={() => setMonth(addMonths(month, 1))}
       />
       <FixedTotalsBar totals={totals} />
+
+      {unpaid.length > 1 && (
+        <button
+          type="button"
+          onClick={handleMarkAllPaid}
+          className="text-center text-sm text-slate-500 underline"
+        >
+          Marcar los {unpaid.length} como pagados (sin movimiento)
+        </button>
+      )}
 
       {loading && <p className="text-slate-400">Cargando…</p>}
 
@@ -116,6 +140,7 @@ export function FijosScreen() {
             onAllocate={() => uid && markFixedAllocated(uid, fixed.id)}
             onUnallocate={() => uid && markFixedPending(uid, fixed.id)}
             onPay={() => setPaying(fixed)}
+            onMarkPaid={() => uid && markFixedPaidWithoutTransaction(uid, fixed.id)}
           />
         ))}
       </ul>

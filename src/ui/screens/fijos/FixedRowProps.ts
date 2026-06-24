@@ -4,5 +4,6 @@ export interface FixedRowProps {
   fixed: FixedObligationMonthly;
   onAllocate: () => void; // pendiente → destinado
   onUnallocate: () => void; // destinado → pendiente (deshacer)
-  onPay: () => void; // abrir el flujo de pago
+  onPay: () => void; // abrir el flujo de pago (crea movimiento)
+  onMarkPaid: () => void; // marcar pagado SIN movimiento ("ya estaba pagado")
 }

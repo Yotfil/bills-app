@@ -72,6 +72,20 @@ export async function markFixedPending(uid: string, id: string): Promise<void> {
 }
 
 /**
+ * Marca un fijo como pagado SIN crear movimiento ni tocar saldos. Útil para "ya estaba pagado"
+ * (p.ej. al empezar a usar la app a mitad de mes, cuando los saldos ya están al día). No tiene
+ * transactionId porque no hay movimiento asociado.
+ */
+export async function markFixedPaidWithoutTransaction(uid: string, id: string): Promise<void> {
+  await updateDoc(rawDoc(uid, id), {
+    status: 'paid',
+    transactionId: null,
+    paidAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+}
+
+/**
  * Destinado/Pendiente → Pagado (§5.2, §5.3): crea la transacción real (que baja el saldo de
  * forma atómica) y enlaza el fijo con ella. Guarda el monto real y el medio usado.
  */
