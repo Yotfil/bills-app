@@ -9,6 +9,7 @@ import { dayKey, formatDayLabel } from '../../lib/date';
 import { subscribeTransactions } from '../../data/transactionRepository';
 import { subscribeAccounts } from '../../data/accountRepository';
 import { subscribeCards } from '../../data/cardRepository';
+import { subscribeLoans } from '../../data/loanRepository';
 import { subscribeCategories } from '../../data/categoryRepository';
 import { deleteTransaction } from '../../data/transactionService';
 import { totalSpend } from '../../domain/reports';
@@ -17,6 +18,7 @@ import type {
   Category,
   CreditCard,
   EntityRef,
+  Loan,
   Transaction,
   TransactionType,
 } from '../../domain/types';
@@ -44,6 +46,7 @@ export function RegistroScreen() {
   const { items: transactions, loading } = useUserCollection<Transaction>(subscribeTransactions);
   const { items: accounts } = useUserCollection<Account>(subscribeAccounts);
   const { items: cards } = useUserCollection<CreditCard>(subscribeCards);
+  const { items: loans } = useUserCollection<Loan>(subscribeLoans);
   const { items: categories } = useUserCollection<Category>(subscribeCategories);
   const [editing, setEditing] = useState<Transaction | null>(null);
 
@@ -55,8 +58,9 @@ export function RegistroScreen() {
     const map = new Map<string, string>();
     accounts.forEach((a) => map.set(`account:${a.id}`, a.name));
     cards.forEach((c) => map.set(`card:${c.id}`, c.name));
+    loans.forEach((l) => map.set(`loan:${l.id}`, l.name));
     return (ref: EntityRef | null) => (ref ? (map.get(`${ref.kind}:${ref.id}`) ?? '—') : '—');
-  }, [accounts, cards]);
+  }, [accounts, cards, loans]);
 
   const categoryById = useMemo(() => {
     const map = new Map<string, Category>();

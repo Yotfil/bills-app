@@ -1,4 +1,4 @@
-import type { Account, CreditCard, FixedObligationMonthly } from '../../../domain/types';
+import type { Account, CreditCard, FixedObligationMonthly, Loan } from '../../../domain/types';
 import type { PayFixedInput } from '../../../data/PayFixedInput';
 
 export interface PayFixedModalProps {
@@ -6,6 +6,7 @@ export interface PayFixedModalProps {
   fixed: FixedObligationMonthly | null;
   accounts: Account[];
   cards: CreditCard[];
+  loans: Loan[];
   onClose: () => void;
   onConfirm: (input: PayFixedInput) => Promise<void> | void;
 }

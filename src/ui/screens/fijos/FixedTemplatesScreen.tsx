@@ -5,12 +5,19 @@ import { FixedTemplateForm } from './FixedTemplateForm';
 import { formatCop } from '../../../lib/currency';
 import { subscribeAccounts } from '../../../data/accountRepository';
 import { subscribeCards } from '../../../data/cardRepository';
+import { subscribeLoans } from '../../../data/loanRepository';
 import { subscribeCategories } from '../../../data/categoryRepository';
 import {
   archiveFixedTemplate,
   subscribeFixedTemplates,
 } from '../../../data/fixedTemplateRepository';
-import type { Account, Category, CreditCard, FixedObligationTemplate } from '../../../domain/types';
+import type {
+  Account,
+  Category,
+  CreditCard,
+  FixedObligationTemplate,
+  Loan,
+} from '../../../domain/types';
 
 // Plantilla de obligaciones fijas (CLAUDE.md §8.4): CRUD. Desde aquí se generan los fijos de
 // cada mes en la pantalla de Fijos.
@@ -20,6 +27,7 @@ export function FixedTemplatesScreen() {
     useUserCollection<FixedObligationTemplate>(subscribeFixedTemplates);
   const { items: accounts } = useUserCollection<Account>(subscribeAccounts);
   const { items: cards } = useUserCollection<CreditCard>(subscribeCards);
+  const { items: loans } = useUserCollection<Loan>(subscribeLoans);
   const { items: categories } = useUserCollection<Category>(subscribeCategories);
   const [editing, setEditing] = useState<FixedObligationTemplate | null>(null);
   const [creating, setCreating] = useState(false);
@@ -90,6 +98,7 @@ export function FixedTemplatesScreen() {
         open={creating}
         accounts={accounts}
         cards={cards}
+        loans={loans}
         categories={categories}
         onClose={() => setCreating(false)}
       />
@@ -98,6 +107,7 @@ export function FixedTemplatesScreen() {
         template={editing}
         accounts={accounts}
         cards={cards}
+        loans={loans}
         categories={categories}
         onClose={() => setEditing(null)}
       />
