@@ -3,6 +3,7 @@ import { buildAccountCreateInput } from './accountRepository';
 import { buildCardCreateInput } from './cardRepository';
 import { buildFixedTemplateCreateInput } from './fixedTemplateRepository';
 import { buildBudgetCreateInput } from './budgetRepository';
+import { buildLoanCreateInput } from './loanRepository';
 
 // Los repositorios arman el documento a crear con defaults sensatos (parte pura, testeable).
 
@@ -57,6 +58,21 @@ describe('buildBudgetCreateInput', () => {
     expect(input.categoryId).toBe('cat-ocio');
     expect(input.monthlyLimit).toBe(400_000);
     expect(input.active).toBe(true);
+    expect(input.archived).toBe(false);
+  });
+});
+
+describe('buildLoanCreateInput', () => {
+  it('el saldo arranca en la semilla; la tasa por defecto es null', () => {
+    const input = buildLoanCreateInput({
+      name: 'Crédito carro',
+      originalAmount: 50_000_000,
+      currentBalance: 30_000_000,
+      monthlyPayment: 2_700_000,
+    });
+    expect(input.cachedBalance).toBe(30_000_000);
+    expect(input.originalAmount).toBe(50_000_000);
+    expect(input.annualRate).toBeNull();
     expect(input.archived).toBe(false);
   });
 });
