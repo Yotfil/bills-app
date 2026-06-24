@@ -59,13 +59,16 @@ export function transactionDelta(txn: TransactionDraft): LedgerDelta {
       else if (destination?.kind === 'loan') add(delta.loans, destination.id, -amount);
       break;
 
-    case 'adjustment':
-      // Reconciliación: ajusta el saldo de la cuenta según la dirección (§5.7).
-      if (source?.kind === 'account') {
-        const signed = txn.adjustmentDirection === 'decrease' ? -amount : +amount;
-        add(delta.accounts, source.id, signed);
-      }
+    case 'adjustment': {
+      // Reconciliación (§5.7): ajusta el valor seguido de la entidad según la dirección.
+      // 'increase' lo sube, 'decrease' lo baja — sea saldo de cuenta, deuda de tarjeta o saldo
+      // de crédito (en los tres, "el valor real es X" se lleva al registrado con este ajuste).
+      const signed = txn.adjustmentDirection === 'decrease' ? -amount : +amount;
+      if (source?.kind === 'account') add(delta.accounts, source.id, signed);
+      else if (source?.kind === 'card') add(delta.cards, source.id, signed);
+      else if (source?.kind === 'loan') add(delta.loans, source.id, signed);
       break;
+    }
   }
 
   return delta;

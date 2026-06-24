@@ -15,7 +15,7 @@ export type ValidationError =
   | 'transfer_requires_distinct_account_destination'
   | 'debt_payment_requires_account_source'
   | 'debt_payment_requires_card_or_loan_destination'
-  | 'adjustment_requires_account_source'
+  | 'adjustment_requires_source'
   | 'adjustment_requires_category'
   | 'adjustment_requires_direction';
 
@@ -80,8 +80,10 @@ export function validateTransaction(txn: TransactionDraft): ValidationError[] {
       break;
     }
     case 'adjustment': {
-      if (txn.source?.kind !== 'account') {
-        errors.push('adjustment_requires_account_source');
+      // El ajuste reconcilia una cuenta (saldo), una tarjeta (deuda) o un crédito (saldo), §5.7.
+      const kind = txn.source?.kind;
+      if (kind !== 'account' && kind !== 'card' && kind !== 'loan') {
+        errors.push('adjustment_requires_source');
       }
       // Debe usar la categoría de sistema "Ajuste / Reconciliación" (su id lo pone quien
       // crea el movimiento). Aquí exigimos que venga una categoría.
