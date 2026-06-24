@@ -16,6 +16,10 @@ export function AccountForm({ open, account, defaultSavingsBucket, onClose }: Ac
   const [savingsBucket, setSavingsBucket] = useState(
     account?.savingsBucket ?? defaultSavingsBucket ?? false,
   );
+  const [foreignCurrency, setForeignCurrency] = useState(account?.foreignCurrency ?? '');
+  const [foreignAmount, setForeignAmount] = useState(
+    account?.foreignAmount != null ? String(account.foreignAmount) : '',
+  );
   const [busy, setBusy] = useState(false);
 
   // Reinicia el formulario cada vez que se abre con otra cuenta (o para crear).
@@ -24,16 +28,26 @@ export function AccountForm({ open, account, defaultSavingsBucket, onClose }: Ac
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     if (!uid || !name.trim()) return;
+    const currency = foreignCurrency.trim().toUpperCase() || null;
+    const fAmount = currency && foreignAmount ? Math.round(Number(foreignAmount) || 0) : null;
     setBusy(true);
     try {
       if (isEdit && account) {
-        await updateAccount(uid, account.id, { name: name.trim(), type, savingsBucket });
+        await updateAccount(uid, account.id, {
+          name: name.trim(),
+          type,
+          savingsBucket,
+          foreignCurrency: currency,
+          foreignAmount: fAmount,
+        });
       } else {
         await createAccount(uid, {
           name,
           type,
           initialBalance: Math.round(Number(initialBalance) || 0),
           savingsBucket,
+          foreignCurrency: currency,
+          foreignAmount: fAmount,
         });
       }
       onClose();
@@ -79,6 +93,24 @@ export function AccountForm({ open, account, defaultSavingsBucket, onClose }: Ac
           />
           Es una bolsa de ahorro (no cuenta en el disponible)
         </label>
+
+        {/* Moneda extranjera (opcional): el saldo se lleva en COP; esto es solo referencia. */}
+        <div className="flex gap-2">
+          <input
+            placeholder="Moneda (p.ej. USD)"
+            value={foreignCurrency}
+            onChange={(e) => setForeignCurrency(e.target.value)}
+            className="w-28 rounded-xl border border-slate-300 px-3 py-3 uppercase outline-none focus:border-slate-500"
+          />
+          <input
+            type="number"
+            inputMode="numeric"
+            placeholder="Monto en esa moneda"
+            value={foreignAmount}
+            onChange={(e) => setForeignAmount(e.target.value)}
+            className="flex-1 rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-500"
+          />
+        </div>
         {isEdit && (
           <p className="text-xs text-slate-400">
             El saldo no se edita aquí: se corrige reconciliando la cuenta (§5.7).

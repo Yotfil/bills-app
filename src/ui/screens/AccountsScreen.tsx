@@ -4,7 +4,7 @@ import { useFixedMonthly } from '../hooks/useFixedMonthly';
 import { useSessionStore } from '../../store/sessionStore';
 import { AccountForm } from './AccountForm';
 import { ReconcileModal } from './ReconcileModal';
-import { formatCop } from '../../lib/currency';
+import { formatCop, formatCopPlain } from '../../lib/currency';
 import { accountAvailable, accountReserved } from '../../domain/derived';
 import { currentMonthKey } from '../../lib/date';
 import { archiveAccount, subscribeAccounts } from '../../data/accountRepository';
@@ -67,18 +67,25 @@ export function AccountsScreen({ savingsBucket = false }: AccountsScreenProps) {
           const available = accountAvailable(account, monthlyFixeds);
           return (
             <li key={account.id} className="rounded-xl border border-slate-200 bg-white p-4">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="font-semibold text-slate-800">{account.name}</p>
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="truncate font-semibold text-slate-800">{account.name}</p>
                   <p className="text-xs text-slate-400">{TYPE_LABEL[account.type]}</p>
                 </div>
-                <div className="flex gap-2 text-sm">
+                <div className="flex shrink-0 gap-3 text-xs">
                   <button
                     type="button"
                     onClick={() => setEditing(account)}
                     className="text-slate-500 underline"
                   >
                     Editar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setReconciling(account)}
+                    className="text-slate-500 underline"
+                  >
+                    Reconciliar
                   </button>
                   <button
                     type="button"
@@ -95,6 +102,11 @@ export function AccountsScreen({ savingsBucket = false }: AccountsScreenProps) {
                   <dd className="text-sm font-medium text-slate-800">
                     {formatCop(account.cachedBalance)}
                   </dd>
+                  {account.foreignCurrency && account.foreignAmount != null && (
+                    <dd className="text-[11px] text-slate-400">
+                      ≈ {formatCopPlain(account.foreignAmount)} {account.foreignCurrency}
+                    </dd>
+                  )}
                 </div>
                 <div>
                   <dt className="text-xs text-slate-400">Reservado</dt>
@@ -105,13 +117,6 @@ export function AccountsScreen({ savingsBucket = false }: AccountsScreenProps) {
                   <dd className="text-sm font-semibold text-emerald-600">{formatCop(available)}</dd>
                 </div>
               </dl>
-              <button
-                type="button"
-                onClick={() => setReconciling(account)}
-                className="mt-3 w-full rounded-lg border border-slate-200 py-2 text-sm text-slate-500"
-              >
-                Reconciliar saldo
-              </button>
             </li>
           );
         })}
