@@ -3,15 +3,20 @@ import { useUserCollection } from '../hooks/useUserCollection';
 import { useSessionStore } from '../../store/sessionStore';
 import { CardForm } from './CardForm';
 import { BackButton } from '../components/BackButton';
+import { ConfirmDeleteModal } from '../components/ConfirmDeleteModal';
 import { formatCop } from '../../lib/currency';
 import { cardAvailableCredit } from '../../domain/derived';
-import { archiveCard, subscribeCards } from '../../data/cardRepository';
-import type { CreditCard } from '../../domain/types';
+import { entityHasMovements } from '../../domain/entityUsage';
+import { archiveCard, deleteCard, subscribeCards } from '../../data/cardRepository';
+import { subscribeTransactions } from '../../data/transactionRepository';
+import type { CreditCard, Transaction } from '../../domain/types';
 
 export function CardsScreen() {
   const uid = useSessionStore((s) => s.user?.uid);
   const { items, loading } = useUserCollection<CreditCard>(subscribeCards);
+  const { items: transactions } = useUserCollection<Transaction>(subscribeTransactions);
   const [editing, setEditing] = useState<CreditCard | null>(null);
+  const [deleting, setDeleting] = useState<CreditCard | null>(null);
   const [creating, setCreating] = useState(false);
 
   const cards = items.filter((c) => !c.archived).sort((a, b) => a.sortOrder - b.sortOrder);
@@ -20,6 +25,21 @@ export function CardsScreen() {
     if (!uid) return;
     if (!confirm(`¿Archivar la tarjeta "${card.name}"? Su histórico se conserva.`)) return;
     await archiveCard(uid, card.id);
+  }
+
+  // El borrado físico solo procede si la tarjeta NO tiene movimientos (§8.4).
+  const deletingBlocked = deleting ? entityHasMovements(transactions, 'card', deleting.id) : false;
+
+  async function handleDelete() {
+    if (!uid || !deleting) return;
+    await deleteCard(uid, deleting.id);
+    setDeleting(null);
+  }
+
+  async function handleArchiveFromModal() {
+    if (!uid || !deleting) return;
+    await archiveCard(uid, deleting.id);
+    setDeleting(null);
   }
 
   return (
@@ -61,6 +81,13 @@ export function CardsScreen() {
                 >
                   Archivar
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setDeleting(card)}
+                  className="text-red-500 underline"
+                >
+                  Eliminar
+                </button>
               </div>
             </div>
             <dl className="mt-3 grid grid-cols-3 gap-2 text-center">
@@ -91,6 +118,15 @@ export function CardsScreen() {
         open={!!editing}
         card={editing}
         onClose={() => setEditing(null)}
+      />
+      <ConfirmDeleteModal
+        open={!!deleting}
+        itemLabel={deleting?.name ?? ''}
+        itemKind="la tarjeta"
+        blocked={deletingBlocked}
+        onConfirm={() => void handleDelete()}
+        onArchive={() => void handleArchiveFromModal()}
+        onClose={() => setDeleting(null)}
       />
     </div>
   );

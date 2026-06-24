@@ -5,7 +5,7 @@ import { addMonths, currentMonthKey, formatMonthLabel } from '../../../lib/date'
 import type { LoanCardProps } from './LoanCardProps';
 
 // Crédito grande con barra de amortización y fecha estimada de pago (CLAUDE.md §5.6).
-export function LoanCard({ loan, onPay, onEdit, onArchive }: LoanCardProps) {
+export function LoanCard({ loan, onPay, onEdit, onArchive, onDelete }: LoanCardProps) {
   const progress = loanProgress(loan);
   const pct = Math.round(progress * 100);
   const paid = loan.originalAmount - loan.cachedBalance;
@@ -28,6 +28,9 @@ export function LoanCard({ loan, onPay, onEdit, onArchive }: LoanCardProps) {
           </button>
           <button type="button" onClick={onArchive} className="text-slate-400 underline">
             Archivar
+          </button>
+          <button type="button" onClick={onDelete} className="text-red-500 underline">
+            Eliminar
           </button>
         </div>
       </div>

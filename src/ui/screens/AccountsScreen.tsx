@@ -5,12 +5,15 @@ import { useSessionStore } from '../../store/sessionStore';
 import { AccountForm } from './AccountForm';
 import { ReconcileModal } from './ReconcileModal';
 import { BackButton } from '../components/BackButton';
+import { ConfirmDeleteModal } from '../components/ConfirmDeleteModal';
 import { formatCop, formatCopPlain } from '../../lib/currency';
 import { accountAvailable, accountReserved } from '../../domain/derived';
+import { entityHasMovements } from '../../domain/entityUsage';
 import { currentMonthKey } from '../../lib/date';
-import { archiveAccount, subscribeAccounts } from '../../data/accountRepository';
+import { archiveAccount, deleteAccount, subscribeAccounts } from '../../data/accountRepository';
+import { subscribeTransactions } from '../../data/transactionRepository';
 import type { AccountsScreenProps } from './AccountsScreenProps';
-import type { Account, AccountType } from '../../domain/types';
+import type { Account, AccountType, Transaction } from '../../domain/types';
 
 const TYPE_LABEL: Record<AccountType, string> = {
   savings: 'Ahorros',
@@ -23,8 +26,10 @@ const TYPE_LABEL: Record<AccountType, string> = {
 export function AccountsScreen({ savingsBucket = false }: AccountsScreenProps) {
   const uid = useSessionStore((s) => s.user?.uid);
   const { items, loading } = useUserCollection<Account>(subscribeAccounts);
+  const { items: transactions } = useUserCollection<Transaction>(subscribeTransactions);
   const [editing, setEditing] = useState<Account | null>(null);
   const [reconciling, setReconciling] = useState<Account | null>(null);
+  const [deleting, setDeleting] = useState<Account | null>(null);
   const [creating, setCreating] = useState(false);
 
   const accounts = items
@@ -38,6 +43,24 @@ export function AccountsScreen({ savingsBucket = false }: AccountsScreenProps) {
     if (!uid) return;
     if (!confirm(`¿Archivar la cuenta "${account.name}"? Su histórico se conserva.`)) return;
     await archiveAccount(uid, account.id);
+  }
+
+  // El borrado físico solo procede si la cuenta NO tiene movimientos (§8.4); si los tiene, el
+  // popup bloquea y ofrece archivar.
+  const deletingBlocked = deleting
+    ? entityHasMovements(transactions, 'account', deleting.id)
+    : false;
+
+  async function handleDelete() {
+    if (!uid || !deleting) return;
+    await deleteAccount(uid, deleting.id);
+    setDeleting(null);
+  }
+
+  async function handleArchiveFromModal() {
+    if (!uid || !deleting) return;
+    await archiveAccount(uid, deleting.id);
+    setDeleting(null);
   }
 
   return (
@@ -96,6 +119,13 @@ export function AccountsScreen({ savingsBucket = false }: AccountsScreenProps) {
                   >
                     Archivar
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => setDeleting(account)}
+                    className="text-red-500 underline"
+                  >
+                    Eliminar
+                  </button>
                 </div>
               </div>
               <dl className="mt-3 grid grid-cols-3 gap-2 text-center">
@@ -140,6 +170,15 @@ export function AccountsScreen({ savingsBucket = false }: AccountsScreenProps) {
         open={!!reconciling}
         account={reconciling}
         onClose={() => setReconciling(null)}
+      />
+      <ConfirmDeleteModal
+        open={!!deleting}
+        itemLabel={deleting?.name ?? ''}
+        itemKind={savingsBucket ? 'la bolsa de ahorro' : 'la cuenta'}
+        blocked={deletingBlocked}
+        onConfirm={() => void handleDelete()}
+        onArchive={() => void handleArchiveFromModal()}
+        onClose={() => setDeleting(null)}
       />
     </div>
   );

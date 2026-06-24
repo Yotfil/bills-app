@@ -5,4 +5,5 @@ export interface LoanCardProps {
   onPay: () => void;
   onEdit: () => void;
   onArchive: () => void;
+  onDelete: () => void;
 }
