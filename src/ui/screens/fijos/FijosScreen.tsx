@@ -11,6 +11,7 @@ import { fixedTotals } from '../../../domain/fixed';
 import { addMonths, currentMonthKey } from '../../../lib/date';
 import { subscribeAccounts } from '../../../data/accountRepository';
 import { subscribeCards } from '../../../data/cardRepository';
+import { subscribeLoans } from '../../../data/loanRepository';
 import { subscribeFixedTemplates } from '../../../data/fixedTemplateRepository';
 import {
   generateFixedMonthly,
@@ -25,6 +26,7 @@ import type {
   FixedObligationMonthly,
   FixedObligationTemplate,
   FixedStatus,
+  Loan,
 } from '../../../domain/types';
 
 // Orden de lectura: lo que falta primero, lo pagado al final.
@@ -36,6 +38,7 @@ export function FijosScreen() {
   const { items: fijos, loading } = useFixedMonthly(month);
   const { items: accounts } = useUserCollection<Account>(subscribeAccounts);
   const { items: cards } = useUserCollection<CreditCard>(subscribeCards);
+  const { items: loans } = useUserCollection<Loan>(subscribeLoans);
   const { items: templates } = useUserCollection<FixedObligationTemplate>(subscribeFixedTemplates);
   const [paying, setPaying] = useState<FixedObligationMonthly | null>(null);
   const [generating, setGenerating] = useState(false);
@@ -122,6 +125,7 @@ export function FijosScreen() {
         fixed={paying}
         accounts={accounts.filter((a) => !a.archived)}
         cards={cards.filter((c) => !c.archived)}
+        loans={loans.filter((l) => !l.archived)}
         onClose={() => setPaying(null)}
         onConfirm={handlePay}
       />

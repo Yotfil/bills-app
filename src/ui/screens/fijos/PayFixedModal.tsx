@@ -12,6 +12,7 @@ export function PayFixedModal({
   fixed,
   accounts,
   cards,
+  loans,
   onClose,
   onConfirm,
 }: PayFixedModalProps) {
@@ -23,6 +24,7 @@ export function PayFixedModal({
         fixed={fixed}
         accounts={accounts}
         cards={cards}
+        loans={loans}
         onConfirm={onConfirm}
         onClose={onClose}
       />
@@ -34,7 +36,7 @@ type PayFixedFormProps = Omit<PayFixedModalProps, 'open'> & {
   fixed: NonNullable<PayFixedModalProps['fixed']>;
 };
 
-function PayFixedForm({ fixed, accounts, cards, onConfirm, onClose }: PayFixedFormProps) {
+function PayFixedForm({ fixed, accounts, cards, loans, onConfirm, onClose }: PayFixedFormProps) {
   const isDebtPayment = fixed.payKind === 'debt_payment';
   const [amount, setAmount] = useState(String(fixed.budgetedAmount));
   const [source, setSource] = useState(refToValue(fixed.paymentMethod));
@@ -51,9 +53,16 @@ function PayFixedForm({ fixed, accounts, cards, onConfirm, onClose }: PayFixedFo
         }))),
   ];
 
-  // Para abono a deuda, el destino es la tarjeta del fijo (loans llegan en el Paso 12).
+  // El destino del abono es la tarjeta o el crédito del fijo (resolvemos el kind por el id).
   const targetCard = isDebtPayment ? cards.find((c) => c.id === fixed.debtTargetId) : undefined;
-  const debtTargetMissing = isDebtPayment && !targetCard;
+  const targetLoan = isDebtPayment ? loans.find((l) => l.id === fixed.debtTargetId) : undefined;
+  const targetName = targetCard?.name ?? targetLoan?.name;
+  const debtTarget = targetCard
+    ? ({ kind: 'card', id: targetCard.id } as const)
+    : targetLoan
+      ? ({ kind: 'loan', id: targetLoan.id } as const)
+      : null;
+  const debtTargetMissing = isDebtPayment && !debtTarget;
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -64,7 +73,7 @@ function PayFixedForm({ fixed, accounts, cards, onConfirm, onClose }: PayFixedFo
       await onConfirm({
         amount: Math.round(Number(amount) || 0),
         paymentMethod,
-        debtTarget: targetCard ? { kind: 'card', id: targetCard.id } : null,
+        debtTarget,
       });
       onClose();
     } finally {
@@ -97,13 +106,13 @@ function PayFixedForm({ fixed, accounts, cards, onConfirm, onClose }: PayFixedFo
         placeholder="Selecciona…"
       />
 
-      {isDebtPayment && targetCard && (
-        <p className="text-xs text-slate-400">Abona a: {targetCard.name}</p>
+      {isDebtPayment && targetName && (
+        <p className="text-xs text-slate-400">Abona a: {targetName}</p>
       )}
       {debtTargetMissing && (
         <p className="text-sm text-red-600">
-          La deuda destino de este fijo no es una tarjeta registrada (los créditos llegan en el Paso
-          12). No se puede pagar todavía.
+          La deuda destino de este fijo no es una tarjeta ni crédito registrado. No se puede pagar
+          todavía.
         </p>
       )}
 

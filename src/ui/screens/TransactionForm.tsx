@@ -7,6 +7,7 @@ import { useEntryPrefsStore } from '../../store/entryPrefsStore';
 import { subscribeAccounts } from '../../data/accountRepository';
 import { subscribeCards } from '../../data/cardRepository';
 import { subscribeCategories } from '../../data/categoryRepository';
+import { subscribeLoans } from '../../data/loanRepository';
 import { createTransaction, editTransaction } from '../../data/transactionService';
 import { buildManualTransactionDraft, type ManualEntryInput } from '../../domain/transactionDraft';
 import { validateTransaction } from '../../domain/validation';
@@ -17,6 +18,7 @@ import type {
   CreditCard,
   EntityRef,
   LedgerEntityKind,
+  Loan,
 } from '../../domain/types';
 
 type EntryType = ManualEntryInput['type'];
@@ -39,6 +41,7 @@ export function TransactionForm({ existing, onDone }: TransactionFormProps) {
   const uid = useSessionStore((s) => s.user?.uid);
   const { items: accounts } = useUserCollection<Account>(subscribeAccounts);
   const { items: cards } = useUserCollection<CreditCard>(subscribeCards);
+  const { items: loans } = useUserCollection<Loan>(subscribeLoans);
   const { items: categories } = useUserCollection<Category>(subscribeCategories);
   const rememberPrefs = useEntryPrefsStore((s) => s.remember);
   const lastSource = useEntryPrefsStore((s) => s.lastSource);
@@ -46,6 +49,7 @@ export function TransactionForm({ existing, onDone }: TransactionFormProps) {
 
   const activeAccounts = accounts.filter((a) => !a.archived);
   const activeCards = cards.filter((c) => !c.archived);
+  const activeLoans = loans.filter((l) => !l.archived);
   const spendCategories = categories.filter((c) => !c.archived && !c.isSystem);
 
   const isEdit = !!existing;
@@ -215,11 +219,17 @@ export function TransactionForm({ existing, onDone }: TransactionFormProps) {
           label="Abonar a"
           value={refToValue(destination)}
           onChange={(v) => setDestination(valueToRef(v))}
-          options={activeCards.map((c) => ({
-            value: refToValue({ kind: 'card', id: c.id }),
-            label: c.name,
-          }))}
-          placeholder="Selecciona tarjeta…"
+          options={[
+            ...activeCards.map((c) => ({
+              value: refToValue({ kind: 'card', id: c.id }),
+              label: `${c.name} (TC)`,
+            })),
+            ...activeLoans.map((l) => ({
+              value: refToValue({ kind: 'loan', id: l.id }),
+              label: `${l.name} (crédito)`,
+            })),
+          ]}
+          placeholder="Selecciona tarjeta o crédito…"
         />
       )}
 

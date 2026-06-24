@@ -14,6 +14,7 @@ export function FixedTemplateForm({
   template,
   accounts,
   cards,
+  loans,
   categories,
   onClose,
 }: FixedTemplateFormProps) {
@@ -124,11 +125,18 @@ export function FixedTemplateForm({
 
         {payKind === 'debt_payment' && (
           <SelectField
-            label="Tarjeta a abonar"
+            label="Deuda a abonar"
             value={debtTargetId}
             onChange={setDebtTargetId}
-            options={cards.filter((c) => !c.archived).map((c) => ({ value: c.id, label: c.name }))}
-            placeholder="Selecciona tarjeta…"
+            options={[
+              ...cards
+                .filter((c) => !c.archived)
+                .map((c) => ({ value: c.id, label: `${c.name} (TC)` })),
+              ...loans
+                .filter((l) => !l.archived)
+                .map((l) => ({ value: l.id, label: `${l.name} (crédito)` })),
+            ]}
+            placeholder="Selecciona tarjeta o crédito…"
           />
         )}
 
