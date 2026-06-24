@@ -7,12 +7,15 @@ import type { AccountType } from '../../domain/types';
 
 // Formulario para crear/editar una cuenta (CLAUDE.md §8.4). El saldo no se edita aquí: se
 // corrige reconciliando (§5.7).
-export function AccountForm({ open, account, onClose }: AccountFormProps) {
+export function AccountForm({ open, account, defaultSavingsBucket, onClose }: AccountFormProps) {
   const uid = useSessionStore((s) => s.user?.uid);
   const isEdit = !!account;
   const [name, setName] = useState(account?.name ?? '');
   const [type, setType] = useState<AccountType>(account?.type ?? 'savings');
   const [initialBalance, setInitialBalance] = useState(String(account?.initialBalance ?? ''));
+  const [savingsBucket, setSavingsBucket] = useState(
+    account?.savingsBucket ?? defaultSavingsBucket ?? false,
+  );
   const [busy, setBusy] = useState(false);
 
   // Reinicia el formulario cada vez que se abre con otra cuenta (o para crear).
@@ -24,12 +27,13 @@ export function AccountForm({ open, account, onClose }: AccountFormProps) {
     setBusy(true);
     try {
       if (isEdit && account) {
-        await updateAccount(uid, account.id, { name: name.trim(), type });
+        await updateAccount(uid, account.id, { name: name.trim(), type, savingsBucket });
       } else {
         await createAccount(uid, {
           name,
           type,
           initialBalance: Math.round(Number(initialBalance) || 0),
+          savingsBucket,
         });
       }
       onClose();
@@ -67,6 +71,14 @@ export function AccountForm({ open, account, onClose }: AccountFormProps) {
             className="rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-500"
           />
         )}
+        <label className="flex items-center gap-2 text-sm text-slate-600">
+          <input
+            type="checkbox"
+            checked={savingsBucket}
+            onChange={(e) => setSavingsBucket(e.target.checked)}
+          />
+          Es una bolsa de ahorro (no cuenta en el disponible)
+        </label>
         {isEdit && (
           <p className="text-xs text-slate-400">
             El saldo no se edita aquí: se corrige reconciliando la cuenta (§5.7).

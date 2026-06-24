@@ -58,6 +58,7 @@ function App() {
             <Route path="/fijos" element={<FijosScreen />} />
             <Route path="/mas" element={<MoreScreen />} />
             <Route path="/mas/cuentas" element={<AccountsScreen />} />
+            <Route path="/mas/ahorros" element={<AccountsScreen savingsBucket />} />
             <Route path="/mas/tarjetas" element={<CardsScreen />} />
             <Route path="/mas/fijos" element={<FixedTemplatesScreen />} />
             <Route path="/mas/presupuestos" element={<BudgetsScreen />} />

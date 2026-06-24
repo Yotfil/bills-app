@@ -8,6 +8,7 @@ import { formatCop } from '../../lib/currency';
 import { accountAvailable, accountReserved } from '../../domain/derived';
 import { currentMonthKey } from '../../lib/date';
 import { archiveAccount, subscribeAccounts } from '../../data/accountRepository';
+import type { AccountsScreenProps } from './AccountsScreenProps';
 import type { Account, AccountType } from '../../domain/types';
 
 const TYPE_LABEL: Record<AccountType, string> = {
@@ -16,14 +17,19 @@ const TYPE_LABEL: Record<AccountType, string> = {
   term_deposit: 'CDT / Inversión',
 };
 
-export function AccountsScreen() {
+// Sirve dos secciones (§8.4): "Cuentas" (uso/gasto) y "Ahorros" (bolsas apartadas), según
+// el flag savingsBucket. El disponible real solo cuenta las de uso (§4).
+export function AccountsScreen({ savingsBucket = false }: AccountsScreenProps) {
   const uid = useSessionStore((s) => s.user?.uid);
   const { items, loading } = useUserCollection<Account>(subscribeAccounts);
   const [editing, setEditing] = useState<Account | null>(null);
   const [reconciling, setReconciling] = useState<Account | null>(null);
   const [creating, setCreating] = useState(false);
 
-  const accounts = items.filter((a) => !a.archived).sort((a, b) => a.sortOrder - b.sortOrder);
+  const accounts = items
+    .filter((a) => !a.archived && (a.savingsBucket ?? false) === savingsBucket)
+    .sort((a, b) => a.sortOrder - b.sortOrder);
+  const title = savingsBucket ? 'Ahorros' : 'Cuentas';
   // Reservado = fijos del mes actual en estado 'allocated' asignados a cada cuenta (§5.1, §5.2).
   const { items: monthlyFixeds } = useFixedMonthly(currentMonthKey());
 
@@ -36,7 +42,7 @@ export function AccountsScreen() {
   return (
     <div className="mx-auto flex max-w-md flex-col gap-4 p-4 pb-24">
       <header className="flex items-center justify-between">
-        <h1 className="text-xl font-bold text-slate-800">Cuentas</h1>
+        <h1 className="text-xl font-bold text-slate-800">{title}</h1>
         <button
           type="button"
           onClick={() => setCreating(true)}
@@ -48,7 +54,11 @@ export function AccountsScreen() {
 
       {loading && <p className="text-slate-400">Cargando…</p>}
       {!loading && accounts.length === 0 && (
-        <p className="text-slate-500">Aún no tienes cuentas. Crea la primera.</p>
+        <p className="text-slate-500">
+          {savingsBucket
+            ? 'Aún no tienes bolsas de ahorro. Crea una o marca una cuenta como ahorro.'
+            : 'Aún no tienes cuentas. Crea la primera.'}
+        </p>
       )}
 
       <ul className="flex flex-col gap-3">
@@ -107,7 +117,11 @@ export function AccountsScreen() {
         })}
       </ul>
 
-      <AccountForm open={creating} onClose={() => setCreating(false)} />
+      <AccountForm
+        open={creating}
+        defaultSavingsBucket={savingsBucket}
+        onClose={() => setCreating(false)}
+      />
       <AccountForm open={!!editing} account={editing} onClose={() => setEditing(null)} />
       <ReconcileModal
         open={!!reconciling}
