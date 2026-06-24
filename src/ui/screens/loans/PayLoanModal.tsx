@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { Modal } from '../../components/Modal';
 import { SelectField } from '../../components/SelectField';
+import { MoneyInput } from '../../components/MoneyInput';
 import { useSessionStore } from '../../../store/sessionStore';
 import { formatCop } from '../../../lib/currency';
 import { refToValue, valueToRef } from '../../../lib/entityRef';
@@ -65,12 +66,10 @@ function PayLoanForm({
     <form onSubmit={handleSubmit} className="flex flex-col gap-3">
       <label className="flex flex-col gap-1">
         <span className="text-xs text-slate-400">Monto del abono (COP)</span>
-        <input
+        <MoneyInput
           autoFocus
-          type="number"
-          inputMode="numeric"
           value={amount}
-          onChange={(e) => setAmount(e.target.value)}
+          onChange={setAmount}
           className="rounded-xl border border-slate-300 px-4 py-3 text-lg font-semibold outline-none focus:border-slate-500"
         />
         <span className="text-xs text-slate-400">Cuota: {formatCop(loan.monthlyPayment)}</span>

@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { Modal } from '../../components/Modal';
 import { SelectField } from '../../components/SelectField';
+import { MoneyInput } from '../../components/MoneyInput';
 import { useSessionStore } from '../../../store/sessionStore';
 import { refToValue, valueToRef } from '../../../lib/entityRef';
 import { currentMonthKey } from '../../../lib/date';
@@ -98,12 +99,10 @@ export function FixedTemplateForm({
           onChange={(e) => setName(e.target.value)}
           className="rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-500"
         />
-        <input
-          type="number"
-          inputMode="numeric"
+        <MoneyInput
           placeholder="Monto mensual (COP)"
           value={amount}
-          onChange={(e) => setAmount(e.target.value)}
+          onChange={setAmount}
           className="rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-500"
         />
 

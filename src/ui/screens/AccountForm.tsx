@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { Modal } from '../components/Modal';
+import { MoneyInput } from '../components/MoneyInput';
 import { useSessionStore } from '../../store/sessionStore';
 import { createAccount, updateAccount } from '../../data/accountRepository';
 import type { AccountFormProps } from './AccountFormProps';
@@ -76,12 +77,10 @@ export function AccountForm({ open, account, defaultSavingsBucket, onClose }: Ac
           <option value="term_deposit">CDT / Inversión</option>
         </select>
         {!isEdit && (
-          <input
-            type="number"
-            inputMode="numeric"
+          <MoneyInput
             placeholder="Saldo inicial (COP)"
             value={initialBalance}
-            onChange={(e) => setInitialBalance(e.target.value)}
+            onChange={setInitialBalance}
             className="rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-500"
           />
         )}
@@ -102,12 +101,10 @@ export function AccountForm({ open, account, defaultSavingsBucket, onClose }: Ac
             onChange={(e) => setForeignCurrency(e.target.value)}
             className="w-28 rounded-xl border border-slate-300 px-3 py-3 uppercase outline-none focus:border-slate-500"
           />
-          <input
-            type="number"
-            inputMode="numeric"
+          <MoneyInput
             placeholder="Monto en esa moneda"
             value={foreignAmount}
-            onChange={(e) => setForeignAmount(e.target.value)}
+            onChange={setForeignAmount}
             className="flex-1 rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-500"
           />
         </div>

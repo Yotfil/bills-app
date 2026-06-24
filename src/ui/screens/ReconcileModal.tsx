@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { Modal } from '../components/Modal';
+import { MoneyInput } from '../components/MoneyInput';
 import { formatCop } from '../../lib/currency';
 import { computeReconciliation } from '../../domain/reconciliation';
 import type { ReconcileModalProps } from './ReconcileModalProps';
@@ -46,12 +47,10 @@ function ReconcileForm({ target, onClose }: { target: ReconcileTarget; onClose: 
 
       <label className="flex flex-col gap-1">
         <span className="text-xs text-slate-400">{target.inputLabel}</span>
-        <input
+        <MoneyInput
           autoFocus
-          type="number"
-          inputMode="numeric"
           value={realValue}
-          onChange={(e) => setRealValue(e.target.value)}
+          onChange={setRealValue}
           className="rounded-xl border border-slate-300 px-4 py-3 text-lg font-semibold outline-none focus:border-slate-500"
         />
       </label>

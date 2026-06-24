@@ -1,5 +1,6 @@
 import { useMemo, useState, type FormEvent } from 'react';
 import { SelectField } from '../components/SelectField';
+import { MoneyInput } from '../components/MoneyInput';
 import type { TransactionFormProps } from './TransactionFormProps';
 import { useUserCollection } from '../hooks/useUserCollection';
 import { useSessionStore } from '../../store/sessionStore';
@@ -145,13 +146,11 @@ export function TransactionForm({ existing, onDone }: TransactionFormProps) {
       {/* Monto: lo primero y con teclado numérico (§5.4). */}
       <label className="flex flex-col gap-1">
         <span className="text-xs text-slate-400">Monto (COP)</span>
-        <input
+        <MoneyInput
           autoFocus
-          type="number"
-          inputMode="numeric"
           placeholder="0"
           value={amount}
-          onChange={(e) => setAmount(e.target.value)}
+          onChange={setAmount}
           className="rounded-xl border border-slate-300 px-4 py-3 text-2xl font-semibold outline-none focus:border-slate-500"
         />
       </label>
