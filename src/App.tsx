@@ -42,28 +42,36 @@ function App() {
     );
   }
 
-  // Autenticado: esperamos el doc de ajustes; si el onboarding no está hecho, lo mostramos (§7).
+  // Autenticado: esperamos el doc de ajustes. El onboarding NO atrapa: se puede saltar (queda
+  // marcado como completado) y volver luego a `/onboarding` desde el dashboard (§7).
   if (settingsLoading || !settings) return <Splash />;
-  if (!settings.onboardingCompleted) return <OnboardingScreen />;
 
   return (
     <BrowserRouter>
-      <Routes>
-        <Route element={<AppLayout />}>
-          <Route path="/" element={<DashboardScreen />} />
-          <Route path="/registro" element={<RegistroScreen />} />
-          <Route path="/agregar" element={<AddTransactionScreen />} />
-          <Route path="/fijos" element={<FijosScreen />} />
-          <Route path="/mas" element={<MoreScreen />} />
-          <Route path="/mas/cuentas" element={<AccountsScreen />} />
-          <Route path="/mas/tarjetas" element={<CardsScreen />} />
-          <Route path="/mas/fijos" element={<FixedTemplatesScreen />} />
-          <Route path="/mas/presupuestos" element={<BudgetsScreen />} />
-          <Route path="/mas/creditos" element={<LoansScreen />} />
-          <Route path="/mas/datos" element={<SeedDataScreen />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Route>
-      </Routes>
+      {settings.onboardingCompleted ? (
+        <Routes>
+          <Route path="/onboarding" element={<OnboardingScreen />} />
+          <Route element={<AppLayout />}>
+            <Route path="/" element={<DashboardScreen />} />
+            <Route path="/registro" element={<RegistroScreen />} />
+            <Route path="/agregar" element={<AddTransactionScreen />} />
+            <Route path="/fijos" element={<FijosScreen />} />
+            <Route path="/mas" element={<MoreScreen />} />
+            <Route path="/mas/cuentas" element={<AccountsScreen />} />
+            <Route path="/mas/tarjetas" element={<CardsScreen />} />
+            <Route path="/mas/fijos" element={<FixedTemplatesScreen />} />
+            <Route path="/mas/presupuestos" element={<BudgetsScreen />} />
+            <Route path="/mas/creditos" element={<LoansScreen />} />
+            <Route path="/mas/datos" element={<SeedDataScreen />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Route>
+        </Routes>
+      ) : (
+        // Aún sin onboarding: cualquier ruta muestra el onboarding (sin redirecciones que atrapen).
+        <Routes>
+          <Route path="*" element={<OnboardingScreen />} />
+        </Routes>
+      )}
     </BrowserRouter>
   );
 }

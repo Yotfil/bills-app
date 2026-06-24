@@ -65,6 +65,15 @@ export function DashboardScreen() {
       />
 
       <HeroBalance amount={available} />
+
+      {/* Acceso para configurar/sembrar datos y volver a los 5 pasos del onboarding (§7). */}
+      <Link
+        to="/onboarding"
+        className="rounded-2xl border border-dashed border-slate-300 bg-white p-3 text-center text-sm font-medium text-slate-600"
+      >
+        ⚙️ Configurar mis datos · volver a los 5 pasos
+      </Link>
+
       <MonthSummaryCard summary={summary} />
       <FixedProgressCard
         paid={ft.counts.paid}
