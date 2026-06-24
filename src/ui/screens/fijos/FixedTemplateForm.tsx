@@ -6,7 +6,7 @@ import { refToValue, valueToRef } from '../../../lib/entityRef';
 import { currentMonthKey } from '../../../lib/date';
 import { createFixedTemplate, updateFixedTemplate } from '../../../data/fixedTemplateRepository';
 import { syncMonthlyToTemplate } from '../../../data/fixedMonthlyRepository';
-import { syncCuotaFromTemplate } from '../../../data/loanCuotaService';
+import { syncCuotaFromTemplate } from '../../../data/cuotaService';
 import type { FixedTemplateFormProps } from './FixedTemplateFormProps';
 import type { FixedPayKind } from '../../../domain/types';
 
