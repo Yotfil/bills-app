@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useUserCollection } from '../hooks/useUserCollection';
 import { useSessionStore } from '../../store/sessionStore';
 import { Modal } from '../components/Modal';
@@ -46,6 +47,10 @@ export function RegistroScreen() {
   const { items: categories } = useUserCollection<Category>(subscribeCategories);
   const [editing, setEditing] = useState<Transaction | null>(null);
 
+  // Filtro por categoría que llega desde la dona del dashboard (§8.1, §8.2).
+  const [searchParams, setSearchParams] = useSearchParams();
+  const categoryFilter = searchParams.get('cat');
+
   const entityName = useMemo(() => {
     const map = new Map<string, string>();
     accounts.forEach((a) => map.set(`account:${a.id}`, a.name));
@@ -61,15 +66,18 @@ export function RegistroScreen() {
 
   // Agrupar por día conservando el orden cronológico inverso que ya trae la consulta (§8.2).
   const groups = useMemo(() => {
+    const visible = categoryFilter
+      ? transactions.filter((t) => t.categoryId === categoryFilter)
+      : transactions;
     const byDay = new Map<string, Transaction[]>();
-    for (const txn of transactions) {
+    for (const txn of visible) {
       const key = dayKey(txn.date);
       const list = byDay.get(key) ?? [];
       list.push(txn);
       byDay.set(key, list);
     }
     return [...byDay.entries()];
-  }, [transactions]);
+  }, [transactions, categoryFilter]);
 
   async function handleDelete(txn: Transaction) {
     if (!uid) return;
@@ -81,6 +89,21 @@ export function RegistroScreen() {
   return (
     <div className="mx-auto flex max-w-md flex-col gap-4 p-4 pb-24">
       <h1 className="text-xl font-bold text-slate-800">Registro</h1>
+
+      {categoryFilter && (
+        <div className="flex items-center gap-2 text-sm">
+          <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-600">
+            Categoría: {categoryById.get(categoryFilter)?.name ?? categoryFilter}
+          </span>
+          <button
+            type="button"
+            onClick={() => setSearchParams({})}
+            className="text-slate-400 underline"
+          >
+            Quitar filtro
+          </button>
+        </div>
+      )}
 
       {loading && <p className="text-slate-400">Cargando…</p>}
       {!loading && transactions.length === 0 && (

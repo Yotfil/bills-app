@@ -36,3 +36,30 @@ export function formatDayLabel(ts: Timestamp): string {
   if (key === yesterday) return 'Ayer';
   return ts.toDate().toLocaleDateString('es-CO', { day: 'numeric', month: 'long' });
 }
+
+/** Clave de mes 'YYYY-MM' (para agrupar y filtrar por mes, §5.10, §8.1). */
+export function monthKey(ts: Timestamp): string {
+  return toDateInputValue(ts).slice(0, 7);
+}
+
+/** Mes actual como 'YYYY-MM' (periodo por defecto del dashboard, §8.1). */
+export function currentMonthKey(): string {
+  return monthKey(nowTimestamp());
+}
+
+/** Desplaza una clave de mes 'YYYY-MM' por `delta` meses (puede ser negativo). */
+export function addMonths(month: string, delta: number): string {
+  const [year, m] = month.split('-').map(Number);
+  const date = new Date(year ?? 1970, (m ?? 1) - 1 + delta, 1);
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  return `${date.getFullYear()}-${mm}`;
+}
+
+/** Etiqueta de mes: "junio 2026" a partir de 'YYYY-MM'. */
+export function formatMonthLabel(month: string): string {
+  const [year, m] = month.split('-').map(Number);
+  return new Date(year ?? 1970, (m ?? 1) - 1, 1).toLocaleDateString('es-CO', {
+    month: 'long',
+    year: 'numeric',
+  });
+}
