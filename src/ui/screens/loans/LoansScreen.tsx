@@ -8,7 +8,7 @@ import { PayLoanModal } from './PayLoanModal';
 import { BackButton } from '../../components/BackButton';
 import { ConfirmDeleteModal } from '../../components/ConfirmDeleteModal';
 import { entityHasMovements } from '../../../domain/entityUsage';
-import { linkedMonthlyCuota } from '../../../domain/loanCuota';
+import { linkedMonthlyCuota, loanHasLinkedFixed } from '../../../domain/loanCuota';
 import { archiveLoan, deleteLoan, subscribeLoans } from '../../../data/loanRepository';
 import { subscribeAccounts } from '../../../data/accountRepository';
 import { subscribeTransactions } from '../../../data/transactionRepository';
@@ -37,8 +37,8 @@ export function LoansScreen() {
   const active = loans.filter((l) => !l.archived);
 
   // Pagar la cuota: 1 toque si está ligada (marca el fijo del mes), o abrir el modal si no.
-  function handlePay(loan: Loan) {
-    if (loan.linkedFixedTemplateId) {
+  function handlePay(loan: Loan, linked: boolean) {
+    if (linked) {
       if (uid) void payLinkedCuota(uid, loan, month);
     } else {
       setPaying(loan);
@@ -92,15 +92,16 @@ export function LoansScreen() {
 
       <ul className="flex flex-col gap-3">
         {active.map((loan) => {
+          const linked = loanHasLinkedFixed(loan, templates);
           const cuota = linkedMonthlyCuota(loan, monthlyFixeds);
           return (
             <LoanCard
               key={loan.id}
               loan={loan}
-              linked={!!loan.linkedFixedTemplateId}
+              linked={linked}
               cuotaPaid={cuota?.status === 'paid'}
               monthLabel={monthLabel}
-              onPay={() => handlePay(loan)}
+              onPay={() => handlePay(loan, linked)}
               onUndoCuota={() => handleUndoCuota(loan)}
               onEdit={() => setEditing(loan)}
               onArchive={() => handleArchive(loan)}
@@ -110,17 +111,11 @@ export function LoansScreen() {
         })}
       </ul>
 
-      <LoanForm
-        key={`create-${creating}`}
-        open={creating}
-        templates={templates}
-        onClose={() => setCreating(false)}
-      />
+      <LoanForm key={`create-${creating}`} open={creating} onClose={() => setCreating(false)} />
       <LoanForm
         key={editing?.id ?? 'edit-none'}
         open={!!editing}
         loan={editing}
-        templates={templates}
         onClose={() => setEditing(null)}
       />
       <PayLoanModal

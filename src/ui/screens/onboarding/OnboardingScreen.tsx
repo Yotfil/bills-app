@@ -155,7 +155,7 @@ export function OnboardingScreen() {
               + Agregar crédito
             </Button>
             <Button onClick={() => setStep(4)}>Continuar</Button>
-            <LoanForm open={showForm} templates={[]} onClose={() => setShowForm(false)} />
+            <LoanForm open={showForm} onClose={() => setShowForm(false)} />
           </OnboardingStep>
         )}
 
