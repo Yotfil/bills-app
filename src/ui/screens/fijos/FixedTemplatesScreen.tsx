@@ -3,7 +3,9 @@ import { useUserCollection } from '../../hooks/useUserCollection';
 import { useSessionStore } from '../../../store/sessionStore';
 import { FixedTemplateForm } from './FixedTemplateForm';
 import { BackButton } from '../../components/BackButton';
+import { SearchBar } from '../../components/SearchBar';
 import { formatCop } from '../../../lib/currency';
+import { matchesQuery } from '../../../lib/text';
 import { subscribeAccounts } from '../../../data/accountRepository';
 import { subscribeCards } from '../../../data/cardRepository';
 import { subscribeLoans } from '../../../data/loanRepository';
@@ -32,8 +34,10 @@ export function FixedTemplatesScreen() {
   const { items: categories } = useUserCollection<Category>(subscribeCategories);
   const [editing, setEditing] = useState<FixedObligationTemplate | null>(null);
   const [creating, setCreating] = useState(false);
+  const [search, setSearch] = useState('');
 
-  const active = templates.filter((t) => !t.archived).sort((a, b) => a.sortOrder - b.sortOrder);
+  const allActive = templates.filter((t) => !t.archived).sort((a, b) => a.sortOrder - b.sortOrder);
+  const active = allActive.filter((t) => matchesQuery(search, t.name));
   const categoryName = (id: string) => categories.find((c) => c.id === id)?.name;
 
   async function handleArchive(template: FixedObligationTemplate) {
@@ -56,9 +60,16 @@ export function FixedTemplatesScreen() {
         </button>
       </header>
 
+      {allActive.length > 0 && (
+        <SearchBar value={search} onChange={setSearch} placeholder="Buscar obligación…" />
+      )}
+
       {loading && <p className="text-slate-400">Cargando…</p>}
-      {!loading && active.length === 0 && (
+      {!loading && allActive.length === 0 && (
         <p className="text-slate-500">Aún no tienes obligaciones fijas. Crea la primera.</p>
+      )}
+      {!loading && allActive.length > 0 && active.length === 0 && (
+        <p className="text-slate-500">Ninguna obligación coincide con “{search}”.</p>
       )}
 
       <ul className="flex flex-col gap-2">

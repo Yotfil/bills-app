@@ -5,6 +5,8 @@ import { useFixedMonthly } from '../../hooks/useFixedMonthly';
 import { useSessionStore } from '../../../store/sessionStore';
 import { MonthSelector } from '../../components/MonthSelector';
 import { DisponibleRealBar } from '../../components/DisponibleRealBar';
+import { SearchBar } from '../../components/SearchBar';
+import { matchesQuery } from '../../../lib/text';
 import { FixedTotalsBar } from './FixedTotalsBar';
 import { FixedRow } from './FixedRow';
 import { PayFixedModal } from './PayFixedModal';
@@ -45,10 +47,13 @@ export function FijosScreen() {
   const { items: templates } = useUserCollection<FixedObligationTemplate>(subscribeFixedTemplates);
   const [paying, setPaying] = useState<FixedObligationMonthly | null>(null);
   const [generating, setGenerating] = useState(false);
+  const [search, setSearch] = useState('');
 
-  const sorted = [...fijos].sort(
-    (a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status] || a.name.localeCompare(b.name),
-  );
+  const sorted = [...fijos]
+    .filter((f) => matchesQuery(search, f.name))
+    .sort(
+      (a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status] || a.name.localeCompare(b.name),
+    );
   const totals = fixedTotals(fijos);
   const activeTemplates = templates.filter((t) => t.active && !t.archived);
   const unpaid = fijos.filter((f) => f.status !== 'paid');
@@ -106,6 +111,10 @@ export function FijosScreen() {
       />
       <FixedTotalsBar totals={totals} />
 
+      {fijos.length > 0 && (
+        <SearchBar value={search} onChange={setSearch} placeholder="Buscar fijo…" />
+      )}
+
       {unpaid.length > 1 && (
         <button
           type="button"
@@ -142,6 +151,10 @@ export function FijosScreen() {
             </p>
           )}
         </div>
+      )}
+
+      {fijos.length > 0 && sorted.length === 0 && (
+        <p className="text-slate-500">Ningún fijo coincide con “{search}”.</p>
       )}
 
       <ul className="flex flex-col gap-2">
