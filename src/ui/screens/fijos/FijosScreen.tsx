@@ -4,6 +4,7 @@ import { useUserCollection } from '../../hooks/useUserCollection';
 import { useFixedMonthly } from '../../hooks/useFixedMonthly';
 import { useSessionStore } from '../../../store/sessionStore';
 import { MonthSelector } from '../../components/MonthSelector';
+import { DisponibleRealBar } from '../../components/DisponibleRealBar';
 import { FixedTotalsBar } from './FixedTotalsBar';
 import { FixedRow } from './FixedRow';
 import { PayFixedModal } from './PayFixedModal';
@@ -90,6 +91,7 @@ export function FijosScreen() {
 
   return (
     <div className="mx-auto flex max-w-md flex-col gap-3 p-4 pb-24">
+      <DisponibleRealBar />
       <header className="flex items-center justify-between">
         <h1 className="text-xl font-bold text-slate-800">Fijos</h1>
         <Link to="/mas/fijos" className="text-sm text-slate-400 underline">
