@@ -6,6 +6,7 @@ import { refToValue, valueToRef } from '../../../lib/entityRef';
 import { currentMonthKey } from '../../../lib/date';
 import { createFixedTemplate, updateFixedTemplate } from '../../../data/fixedTemplateRepository';
 import { syncMonthlyToTemplate } from '../../../data/fixedMonthlyRepository';
+import { syncCuotaFromTemplate } from '../../../data/loanCuotaService';
 import type { FixedTemplateFormProps } from './FixedTemplateFormProps';
 import type { FixedPayKind } from '../../../domain/types';
 
@@ -73,6 +74,9 @@ export function FixedTemplateForm({
           debtTargetId: data.debtTargetId,
           paymentMethod: method,
         });
+        // Sync bidireccional crédito↔cuota (§5.6): si un crédito tiene ligado este fijo, su
+        // cuota mensual se actualiza al nuevo monto.
+        await syncCuotaFromTemplate(uid, template, data.budgetedAmount, loans);
       } else {
         await createFixedTemplate(uid, data);
       }

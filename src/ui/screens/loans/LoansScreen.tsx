@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useUserCollection } from '../../hooks/useUserCollection';
+import { useFixedMonthly } from '../../hooks/useFixedMonthly';
 import { useSessionStore } from '../../../store/sessionStore';
 import { LoanCard } from './LoanCard';
 import { LoanForm } from './LoanForm';
@@ -7,10 +8,15 @@ import { PayLoanModal } from './PayLoanModal';
 import { BackButton } from '../../components/BackButton';
 import { ConfirmDeleteModal } from '../../components/ConfirmDeleteModal';
 import { entityHasMovements } from '../../../domain/entityUsage';
+import { linkedMonthlyCuota } from '../../../domain/loanCuota';
 import { archiveLoan, deleteLoan, subscribeLoans } from '../../../data/loanRepository';
 import { subscribeAccounts } from '../../../data/accountRepository';
 import { subscribeTransactions } from '../../../data/transactionRepository';
-import type { Account, Loan, Transaction } from '../../../domain/types';
+import { subscribeFixedTemplates } from '../../../data/fixedTemplateRepository';
+import { revertFixedPayment } from '../../../data/fixedMonthlyRepository';
+import { payLinkedCuota } from '../../../data/loanCuotaService';
+import { currentMonthKey, formatMonthLabel } from '../../../lib/date';
+import type { Account, FixedObligationTemplate, Loan, Transaction } from '../../../domain/types';
 
 // Créditos grandes (CLAUDE.md §5.6, §8.4): progreso de amortización, fecha estimada y abonos.
 export function LoansScreen() {
@@ -18,12 +24,31 @@ export function LoansScreen() {
   const { items: loans, loading } = useUserCollection<Loan>(subscribeLoans);
   const { items: accounts } = useUserCollection<Account>(subscribeAccounts);
   const { items: transactions } = useUserCollection<Transaction>(subscribeTransactions);
+  const { items: templates } = useUserCollection<FixedObligationTemplate>(subscribeFixedTemplates);
+  // Fijos del mes en curso: de ahí se deriva el estado de pago de cada cuota ligada (§5.6).
+  const month = currentMonthKey();
+  const monthLabel = formatMonthLabel(month);
+  const { items: monthlyFixeds } = useFixedMonthly(month);
   const [editing, setEditing] = useState<Loan | null>(null);
   const [paying, setPaying] = useState<Loan | null>(null);
   const [deleting, setDeleting] = useState<Loan | null>(null);
   const [creating, setCreating] = useState(false);
 
   const active = loans.filter((l) => !l.archived);
+
+  // Pagar la cuota: 1 toque si está ligada (marca el fijo del mes), o abrir el modal si no.
+  function handlePay(loan: Loan) {
+    if (loan.linkedFixedTemplateId) {
+      if (uid) void payLinkedCuota(uid, loan, month);
+    } else {
+      setPaying(loan);
+    }
+  }
+
+  function handleUndoCuota(loan: Loan) {
+    const cuota = linkedMonthlyCuota(loan, monthlyFixeds);
+    if (uid && cuota) void revertFixedPayment(uid, cuota);
+  }
 
   async function handleArchive(loan: Loan) {
     if (!uid) return;
@@ -66,23 +91,36 @@ export function LoansScreen() {
       )}
 
       <ul className="flex flex-col gap-3">
-        {active.map((loan) => (
-          <LoanCard
-            key={loan.id}
-            loan={loan}
-            onPay={() => setPaying(loan)}
-            onEdit={() => setEditing(loan)}
-            onArchive={() => handleArchive(loan)}
-            onDelete={() => setDeleting(loan)}
-          />
-        ))}
+        {active.map((loan) => {
+          const cuota = linkedMonthlyCuota(loan, monthlyFixeds);
+          return (
+            <LoanCard
+              key={loan.id}
+              loan={loan}
+              linked={!!loan.linkedFixedTemplateId}
+              cuotaPaid={cuota?.status === 'paid'}
+              monthLabel={monthLabel}
+              onPay={() => handlePay(loan)}
+              onUndoCuota={() => handleUndoCuota(loan)}
+              onEdit={() => setEditing(loan)}
+              onArchive={() => handleArchive(loan)}
+              onDelete={() => setDeleting(loan)}
+            />
+          );
+        })}
       </ul>
 
-      <LoanForm key={`create-${creating}`} open={creating} onClose={() => setCreating(false)} />
+      <LoanForm
+        key={`create-${creating}`}
+        open={creating}
+        templates={templates}
+        onClose={() => setCreating(false)}
+      />
       <LoanForm
         key={editing?.id ?? 'edit-none'}
         open={!!editing}
         loan={editing}
+        templates={templates}
         onClose={() => setEditing(null)}
       />
       <PayLoanModal
