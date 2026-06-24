@@ -1,12 +1,11 @@
 // Reconciliación de cuentas (CLAUDE.md §5.7). Los saldos NO se editan a mano: el usuario
 // dice "el saldo real es X" y se crea un movimiento de AJUSTE por el desfase exacto.
-import type { Timestamp } from 'firebase/firestore';
-import type { AdjustmentDirection, EntityRef, TransactionDraft } from './types';
+import type { TransactionDraft } from './types';
+import type { ReconciliationResult } from './ReconciliationResult';
+import type { BuildAdjustmentOptions } from './BuildAdjustmentOptions';
 
-export interface ReconciliationResult {
-  direction: AdjustmentDirection;
-  amount: number; // siempre positivo (el desfase); la dirección decide si suma o resta
-}
+export type { ReconciliationResult } from './ReconciliationResult';
+export type { BuildAdjustmentOptions } from './BuildAdjustmentOptions';
 
 /**
  * Calcula el ajuste necesario para llevar el saldo registrado al saldo real.
@@ -24,13 +23,6 @@ export function computeReconciliation(
     direction: diff > 0 ? 'increase' : 'decrease',
     amount: Math.abs(diff),
   };
-}
-
-export interface BuildAdjustmentOptions {
-  account: EntityRef; // cuenta a reconciliar (origen del ajuste)
-  adjustmentCategoryId: string; // id de la categoría de sistema "Ajuste / Reconciliación"
-  date: Timestamp;
-  note?: string | null;
 }
 
 /**

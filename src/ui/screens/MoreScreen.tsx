@@ -1,16 +1,10 @@
 import { Link } from 'react-router-dom';
 import { logout } from '../../data/authRepository';
 import { useSessionStore } from '../../store/sessionStore';
+import type { MenuItem } from './MenuItem';
 
 // Pantalla "Más": administración (CLAUDE.md §8.4). Cada enlace lleva a un CRUD. Los que
 // aún no existen se irán habilitando en sus pasos del plan.
-interface MenuItem {
-  to: string;
-  label: string;
-  hint: string;
-  ready: boolean;
-}
-
 const ITEMS: MenuItem[] = [
   { to: '/mas/cuentas', label: 'Cuentas', hint: 'Saldos, reservado y disponible', ready: true },
   { to: '/mas/tarjetas', label: 'Tarjetas', hint: 'Cupo y deuda', ready: true },

@@ -1,9 +1,6 @@
-// Pantalla provisional para los destinos que se construyen en pasos posteriores (§14).
-interface PlaceholderProps {
-  title: string;
-  step: string;
-}
+import type { PlaceholderProps } from './PlaceholderProps';
 
+// Pantalla provisional para los destinos que se construyen en pasos posteriores (§14).
 export function Placeholder({ title, step }: PlaceholderProps) {
   return (
     <div className="flex flex-col gap-2 p-6 pb-24">

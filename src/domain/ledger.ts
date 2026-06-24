@@ -9,13 +9,14 @@
 //   - tarjeta.cachedDebt: sube al gastar con la tarjeta, baja al abonar (deuda, no saldo).
 //   - crédito.cachedBalance: el saldo que falta por pagar; baja al abonar.
 import type { TransactionDraft } from './types';
+import type { LedgerDelta } from './LedgerDelta';
+import type { BalanceSeeds } from './BalanceSeeds';
+import type { RecomputedBalances } from './RecomputedBalances';
 
-/** Cambios a aplicar a las cachés, por id de entidad. Positivo = sube esa caché. */
-export interface LedgerDelta {
-  accounts: Record<string, number>; // delta a cuenta.cachedBalance
-  cards: Record<string, number>; // delta a tarjeta.cachedDebt
-  loans: Record<string, number>; // delta a crédito.cachedBalance
-}
+// Re-exportamos las interfaces para que los consumidores las sigan importando desde aquí.
+export type { LedgerDelta } from './LedgerDelta';
+export type { BalanceSeeds } from './BalanceSeeds';
+export type { RecomputedBalances } from './RecomputedBalances';
 
 function emptyDelta(): LedgerDelta {
   return { accounts: {}, cards: {}, loans: {} };
@@ -103,19 +104,6 @@ export function mergeDeltas(...deltas: LedgerDelta[]): LedgerDelta {
     for (const [id, v] of Object.entries(d.loans)) add(result.loans, id, v);
   }
   return result;
-}
-
-/** Semillas de arranque para el recálculo total (valores del onboarding). */
-export interface BalanceSeeds {
-  accounts: Record<string, number>; // initialBalance por cuenta
-  cards: Record<string, number>; // deuda inicial por tarjeta
-  loans: Record<string, number>; // saldo inicial por crédito
-}
-
-export interface RecomputedBalances {
-  accounts: Record<string, number>;
-  cards: Record<string, number>;
-  loans: Record<string, number>;
 }
 
 /**

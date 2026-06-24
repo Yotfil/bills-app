@@ -712,6 +712,26 @@ código que los satisface. Mantener tanto **unit tests** (lógica de negocio pur
   reservado y los efectos por tipo de movimiento).
 - Linter + formateador (ESLint + Prettier) consistentes.
 
+#### 13.2.1 Un componente / una interfaz por archivo (obligatorio)
+- **Un solo componente React por archivo**, por pequeño que sea. Si un archivo tiene un
+  componente "auxiliar" (p.ej. un sub-formulario o un campo), va a su propio archivo. Si
+  varios componentes forman una familia, se pueden **agrupar en una carpeta** con un
+  archivo por componente.
+- **Cada `interface` en su propio archivo**, nombrado igual que la interfaz
+  (p.ej. `ModalProps.ts`, `Account.ts`, `LedgerDelta.ts`). Esto incluye:
+  - Interfaces del **modelo de dominio** (`src/domain/types/`, una por archivo + barrel
+    `index.ts` que reexporta).
+  - Interfaces de **props** de componentes (`XProps.ts`, junto al componente).
+  - Interfaces de entrada/resultado de **servicios y repositorios** (reexportadas desde su
+    módulo para no romper imports).
+- **Los `type` alias / uniones van JUNTO a la interfaz con la que se relacionan** (p.ej.
+  `AccountType` en `Account.ts`, `TransactionType` en `Transaction.ts`). No requieren
+  archivo propio.
+- **Las funciones helper** (no componentes, no interfaces) pueden convivir con el código
+  que las usa o en un util compartido; no aplica "una por archivo".
+- Para mantener estables los imports al separar, **reexportar** desde el módulo o barrel
+  original (`export type { X } from './X'`).
+
 ### 13.3 Escalabilidad
 - **Arquitectura por capas:** UI (React) → dominio/servicios (lógica pura) → acceso a
   datos (repositorios + converters de Firestore). Cada capa solo conoce la de abajo.

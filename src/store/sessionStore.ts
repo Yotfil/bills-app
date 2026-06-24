@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import type { SessionState } from './SessionState';
 
 // Store de SESIÓN (estado de cliente con Zustand, CLAUDE.md §3, §13.3).
 //
@@ -8,25 +9,11 @@ import { create } from 'zustand';
 //   - Tipado estricto, sin `any`.
 //
 // En el Paso 3 (login) este store se "alimenta" desde Firebase Auth: un listener de
-// `onAuthStateChanged` llamará a `setUser` / `clearUser`. Aquí no se importa Firebase a
+// `onAuthStateChanged` llama a `setUser` / `clearUser`. Aquí no se importa Firebase a
 // propósito, para que el estado de sesión sea testeable sin Firebase.
 
-/** Usuario autenticado, en términos del dominio de la app (no el objeto de Firebase). */
-export interface SessionUser {
-  uid: string;
-  email: string | null;
-  displayName: string | null;
-}
-
-/** Estado de carga de la sesión: mientras `loading`, aún no sabemos si hay usuario. */
-type SessionStatus = 'loading' | 'authenticated' | 'unauthenticated';
-
-interface SessionState {
-  user: SessionUser | null;
-  status: SessionStatus;
-  setUser: (user: SessionUser) => void;
-  clearUser: () => void;
-}
+// Re-exporta el tipo del usuario de sesión para quien lo necesite (p.ej. authRepository).
+export type { SessionUser } from './SessionUser';
 
 export const useSessionStore = create<SessionState>((set) => ({
   user: null,

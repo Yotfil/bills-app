@@ -3,15 +3,9 @@
 import { cardsCol } from './collections';
 import { archive, create, subscribeAll, update, type CreateInput, type UpdateInput } from './crud';
 import type { CreditCard } from '../domain/types';
+import type { NewCard } from './NewCard';
 
-export interface NewCard {
-  name: string;
-  creditLimit: number; // cupo total
-  initialDebt: number; // deuda actual al registrarla (semilla)
-  color?: string;
-  icon?: string;
-  sortOrder?: number;
-}
+export type { NewCard } from './NewCard';
 
 /** Construye el documento a crear (función pura, testeable). */
 export function buildCardCreateInput(input: NewCard): CreateInput<CreditCard> {

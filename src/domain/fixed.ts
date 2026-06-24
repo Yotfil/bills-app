@@ -1,8 +1,10 @@
 // Obligaciones fijas: máquina de estados y conexión fijo→registro (CLAUDE.md §5.2, §5.3).
 // Lógica pura: decide transiciones válidas y construye la transacción que se crea al pagar.
 // Los timestamps (allocatedAt/paidAt, date) los pone la capa de datos; aquí se reciben.
-import type { Timestamp } from 'firebase/firestore';
-import type { EntityRef, FixedObligationMonthly, FixedStatus, TransactionDraft } from './types';
+import type { FixedObligationMonthly, FixedStatus, TransactionDraft } from './types';
+import type { PayFixedOptions } from './PayFixedOptions';
+
+export type { PayFixedOptions } from './PayFixedOptions';
 
 // Transiciones permitidas (§5.2): pendiente→destinado, destinado→pagado, y el atajo
 // pendiente→pagado directo. No se permite "deshacer" hacia atrás desde aquí (editar un
@@ -21,16 +23,6 @@ export function assertTransition(from: FixedStatus, to: FixedStatus): void {
   if (!canTransition(from, to)) {
     throw new Error(`Transición de fijo inválida: ${from} → ${to}`);
   }
-}
-
-export interface PayFixedOptions {
-  /** Monto real al pagar; se prellena con budgetedAmount pero es editable (§5.3). */
-  amount: number;
-  date: Timestamp;
-  /** De qué cuenta/tarjeta sale (origen). Por defecto, el medio asignado al fijo. */
-  paymentMethod: EntityRef;
-  /** Destino del abono cuando payKind = 'debt_payment' (tarjeta o crédito). */
-  debtTarget?: EntityRef | null;
 }
 
 /**

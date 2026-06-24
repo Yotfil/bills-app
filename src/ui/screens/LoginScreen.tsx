@@ -65,77 +65,80 @@ export function LoginScreen() {
   }
 
   return (
-    <main className="flex min-h-dvh flex-col justify-center gap-6 bg-slate-50 px-6 py-10">
-      <header className="text-center">
-        <h1 className="text-2xl font-bold text-slate-800">Finanzas</h1>
-        <p className="mt-1 text-sm text-slate-500">
-          {mode === 'login' ? 'Inicia sesión para continuar' : 'Crea tu cuenta'}
-        </p>
-      </header>
-
-      <button
-        type="button"
-        onClick={handleGoogle}
-        disabled={busy}
-        className="flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white py-3 font-medium text-slate-700 shadow-sm disabled:opacity-50"
-      >
-        Continuar con Google
-      </button>
-
-      <div className="flex items-center gap-3 text-xs text-slate-400">
-        <span className="h-px flex-1 bg-slate-200" />o<span className="h-px flex-1 bg-slate-200" />
-      </div>
-
-      <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-        <input
-          type="email"
-          inputMode="email"
-          autoComplete="email"
-          placeholder="Correo"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-          className="rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-800 outline-none focus:border-slate-500"
-        />
-        <input
-          type="password"
-          autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-          placeholder="Contraseña"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-          minLength={6}
-          className="rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-800 outline-none focus:border-slate-500"
-        />
-
-        {error && (
-          <p role="alert" className="text-sm text-red-600">
-            {error}
+    <main className="flex min-h-dvh flex-col items-center justify-center bg-slate-50 px-6 py-10">
+      <div className="flex w-full max-w-sm flex-col gap-6">
+        <header className="text-center">
+          <h1 className="text-2xl font-bold text-slate-800">Finanzas</h1>
+          <p className="mt-1 text-sm text-slate-500">
+            {mode === 'login' ? 'Inicia sesión para continuar' : 'Crea tu cuenta'}
           </p>
-        )}
+        </header>
 
-        <button
-          type="submit"
-          disabled={busy}
-          className="rounded-xl bg-slate-800 py-3 font-medium text-white shadow-sm disabled:opacity-50"
-        >
-          {mode === 'login' ? 'Entrar' : 'Crear cuenta'}
-        </button>
-      </form>
-
-      <p className="text-center text-sm text-slate-500">
-        {mode === 'login' ? '¿No tienes cuenta?' : '¿Ya tienes cuenta?'}{' '}
         <button
           type="button"
-          onClick={() => {
-            setMode(mode === 'login' ? 'register' : 'login');
-            setError(null);
-          }}
-          className="font-medium text-slate-800 underline"
+          onClick={handleGoogle}
+          disabled={busy}
+          className="flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white py-3 font-medium text-slate-700 shadow-sm disabled:opacity-50"
         >
-          {mode === 'login' ? 'Regístrate' : 'Inicia sesión'}
+          Continuar con Google
         </button>
-      </p>
+
+        <div className="flex items-center gap-3 text-xs text-slate-400">
+          <span className="h-px flex-1 bg-slate-200" />o
+          <span className="h-px flex-1 bg-slate-200" />
+        </div>
+
+        <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+          <input
+            type="email"
+            inputMode="email"
+            autoComplete="email"
+            placeholder="Correo"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            className="rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-800 outline-none focus:border-slate-500"
+          />
+          <input
+            type="password"
+            autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+            placeholder="Contraseña"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            minLength={6}
+            className="rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-800 outline-none focus:border-slate-500"
+          />
+
+          {error && (
+            <p role="alert" className="text-sm text-red-600">
+              {error}
+            </p>
+          )}
+
+          <button
+            type="submit"
+            disabled={busy}
+            className="rounded-xl bg-slate-800 py-3 font-medium text-white shadow-sm disabled:opacity-50"
+          >
+            {mode === 'login' ? 'Entrar' : 'Crear cuenta'}
+          </button>
+        </form>
+
+        <p className="text-center text-sm text-slate-500">
+          {mode === 'login' ? '¿No tienes cuenta?' : '¿Ya tienes cuenta?'}{' '}
+          <button
+            type="button"
+            onClick={() => {
+              setMode(mode === 'login' ? 'register' : 'login');
+              setError(null);
+            }}
+            className="font-medium text-slate-800 underline"
+          >
+            {mode === 'login' ? 'Regístrate' : 'Inicia sesión'}
+          </button>
+        </p>
+      </div>
     </main>
   );
 }

@@ -2,16 +2,10 @@
 // cuentas y arma los valores por defecto al crear. La lógica de saldos NO vive aquí.
 import { accountsCol } from './collections';
 import { archive, create, subscribeAll, update, type CreateInput, type UpdateInput } from './crud';
-import type { Account, AccountType } from '../domain/types';
+import type { Account } from '../domain/types';
+import type { NewAccount } from './NewAccount';
 
-export interface NewAccount {
-  name: string;
-  type: AccountType;
-  initialBalance: number; // semilla del onboarding
-  color?: string;
-  icon?: string;
-  sortOrder?: number;
-}
+export type { NewAccount } from './NewAccount';
 
 /**
  * Construye el documento a crear (función pura, testeable). El saldo arranca IGUAL a la

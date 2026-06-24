@@ -3,6 +3,9 @@
 // REGLA DE ORO (§5.4): "¿en qué se me va el dinero?" cuenta SOLO los gastos reales
 // (expense). transfer, debt_payment y adjustment NUNCA aparecen como gasto.
 import { HORMIGA_TAG, type TransactionDraft } from './types';
+import type { BudgetStatus } from './BudgetStatus';
+
+export type { BudgetStatus } from './BudgetStatus';
 
 /** ¿Esta transacción cuenta como gasto en los reportes? Solo los expense (§5.4). */
 export function isSpendTransaction(txn: TransactionDraft): boolean {
@@ -29,13 +32,6 @@ export function totalHormiga(transactions: TransactionDraft[]): number {
   return transactions
     .filter((t) => isSpendTransaction(t) && t.tags.includes(HORMIGA_TAG))
     .reduce((sum, t) => sum + t.amount, 0);
-}
-
-export interface BudgetStatus {
-  limit: number;
-  consumed: number;
-  remaining: number;
-  exceeded: boolean;
 }
 
 /**

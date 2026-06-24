@@ -1,10 +1,10 @@
-import { useState, type FormEvent } from 'react';
+import { useState } from 'react';
 import { useUserCollection } from '../hooks/useUserCollection';
 import { useSessionStore } from '../../store/sessionStore';
-import { Modal } from '../components/Modal';
+import { CardForm } from './CardForm';
 import { formatCop } from '../../lib/currency';
 import { cardAvailableCredit } from '../../domain/derived';
-import { archiveCard, createCard, subscribeCards, updateCard } from '../../data/cardRepository';
+import { archiveCard, subscribeCards } from '../../data/cardRepository';
 import type { CreditCard } from '../../domain/types';
 
 export function CardsScreen() {
@@ -86,88 +86,5 @@ export function CardsScreen() {
       <CardForm open={creating} onClose={() => setCreating(false)} />
       <CardForm open={!!editing} card={editing} onClose={() => setEditing(null)} />
     </div>
-  );
-}
-
-interface CardFormProps {
-  open: boolean;
-  card?: CreditCard | null;
-  onClose: () => void;
-}
-
-function CardForm({ open, card, onClose }: CardFormProps) {
-  const uid = useSessionStore((s) => s.user?.uid);
-  const isEdit = !!card;
-  const [name, setName] = useState(card?.name ?? '');
-  const [creditLimit, setCreditLimit] = useState(String(card?.creditLimit ?? ''));
-  const [initialDebt, setInitialDebt] = useState(String(card?.cachedDebt ?? ''));
-  const [busy, setBusy] = useState(false);
-  const formKey = card?.id ?? 'new';
-
-  async function handleSubmit(event: FormEvent) {
-    event.preventDefault();
-    if (!uid || !name.trim()) return;
-    setBusy(true);
-    try {
-      if (isEdit && card) {
-        await updateCard(uid, card.id, {
-          name: name.trim(),
-          creditLimit: Math.round(Number(creditLimit) || 0),
-        });
-      } else {
-        await createCard(uid, {
-          name,
-          creditLimit: Math.round(Number(creditLimit) || 0),
-          initialDebt: Math.round(Number(initialDebt) || 0),
-        });
-      }
-      onClose();
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <Modal open={open} title={isEdit ? 'Editar tarjeta' : 'Nueva tarjeta'} onClose={onClose}>
-      <form key={formKey} onSubmit={handleSubmit} className="flex flex-col gap-3">
-        <input
-          autoFocus
-          placeholder="Nombre (p.ej. TC Davivienda)"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          className="rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-500"
-        />
-        <input
-          type="number"
-          inputMode="numeric"
-          placeholder="Cupo total (COP)"
-          value={creditLimit}
-          onChange={(e) => setCreditLimit(e.target.value)}
-          className="rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-500"
-        />
-        {!isEdit && (
-          <input
-            type="number"
-            inputMode="numeric"
-            placeholder="Deuda actual (COP)"
-            value={initialDebt}
-            onChange={(e) => setInitialDebt(e.target.value)}
-            className="rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-500"
-          />
-        )}
-        {isEdit && (
-          <p className="text-xs text-slate-400">
-            La deuda no se edita aquí: cambia con gastos y abonos a la tarjeta (§5.5).
-          </p>
-        )}
-        <button
-          type="submit"
-          disabled={busy}
-          className="rounded-xl bg-slate-800 py-3 font-medium text-white disabled:opacity-50"
-        >
-          {isEdit ? 'Guardar' : 'Crear tarjeta'}
-        </button>
-      </form>
-    </Modal>
   );
 }
