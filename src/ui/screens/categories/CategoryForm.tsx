@@ -1,11 +1,15 @@
-import { useState, type FormEvent } from 'react';
+import { lazy, Suspense, useState, type FormEvent } from 'react';
 import { Modal } from '../../components/Modal';
 import { useSessionStore } from '../../../store/sessionStore';
 import { createCategory, updateCategory } from '../../../data/categoryRepository';
+import type { EmojiStyle } from 'emoji-picker-react';
 import type { CategoryFormProps } from './CategoryFormProps';
 
-// Paleta de colores e iconos sugeridos (emoji) para elegir de un toque. El usuario también puede
-// escribir cualquier emoji en el campo. Misma estética que el set base (§6).
+// Selector de emojis con buscador y categorías. Se carga BAJO DEMANDA (lazy) para no sumar su peso
+// al bundle principal: solo se descarga cuando el usuario abre el selector de icono.
+const EmojiPicker = lazy(() => import('emoji-picker-react'));
+
+// Paleta de colores para elegir de un toque (misma estética que el set base, §6).
 const COLOR_PALETTE = [
   '#f97316',
   '#22c55e',
@@ -20,7 +24,6 @@ const COLOR_PALETTE = [
   '#8b5cf6',
   '#64748b',
 ];
-const EMOJI_QUICK = ['🏷️', '🍔', '🛒', '🚗', '🎭', '🩺', '🏠', '👨‍👩‍👧', '📚', '💡', '📺', '🎁'];
 
 // Crear/editar una categoría (CLAUDE.md §6, §8.4): nombre, icono (emoji) y color.
 export function CategoryForm({ open, category, nextSortOrder, onClose }: CategoryFormProps) {
@@ -29,6 +32,7 @@ export function CategoryForm({ open, category, nextSortOrder, onClose }: Categor
   const [name, setName] = useState(category?.name ?? '');
   const [icon, setIcon] = useState(category?.icon ?? '🏷️');
   const [color, setColor] = useState(category?.color ?? COLOR_PALETTE[0]!);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const formKey = category?.id ?? 'new';
 
@@ -67,28 +71,36 @@ export function CategoryForm({ open, category, nextSortOrder, onClose }: Categor
           />
         </div>
 
-        <label className="flex flex-col gap-1">
-          <span className="text-xs text-slate-400">Icono (emoji)</span>
-          <input
-            value={icon}
-            onChange={(e) => setIcon(e.target.value)}
-            className="rounded-xl border border-slate-300 px-4 py-3 text-lg outline-none focus:border-slate-500"
-          />
-          <div className="mt-1 flex flex-wrap gap-1.5">
-            {EMOJI_QUICK.map((e) => (
-              <button
-                key={e}
-                type="button"
-                onClick={() => setIcon(e)}
-                className={`flex h-9 w-9 items-center justify-center rounded-lg text-lg ${
-                  icon === e ? 'bg-slate-200' : 'bg-slate-50 hover:bg-slate-100'
-                }`}
-              >
-                {e}
-              </button>
-            ))}
-          </div>
-        </label>
+        <div className="flex flex-col gap-1">
+          <span className="text-xs text-slate-400">Icono</span>
+          <button
+            type="button"
+            onClick={() => setPickerOpen((v) => !v)}
+            className="flex items-center justify-between rounded-xl border border-slate-300 px-4 py-3 text-left outline-none focus:border-slate-500"
+          >
+            <span className="text-xl">{icon || '🏷️'}</span>
+            <span className="text-sm text-slate-500">
+              {pickerOpen ? 'Cerrar' : 'Elegir icono…'}
+            </span>
+          </button>
+          {pickerOpen && (
+            <Suspense fallback={<p className="py-3 text-sm text-slate-400">Cargando iconos…</p>}>
+              <EmojiPicker
+                onEmojiClick={(e) => {
+                  setIcon(e.emoji);
+                  setPickerOpen(false);
+                }}
+                emojiStyle={'native' as EmojiStyle}
+                width="100%"
+                height={340}
+                searchPlaceholder="Buscar icono…"
+                previewConfig={{ showPreview: false }}
+                skinTonesDisabled
+                lazyLoadEmojis
+              />
+            </Suspense>
+          )}
+        </div>
 
         <div className="flex flex-col gap-1">
           <span className="text-xs text-slate-400">Color</span>
