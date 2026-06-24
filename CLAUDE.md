@@ -699,6 +699,19 @@ código que los satisface. Mantener tanto **unit tests** (lógica de negocio pur
   ni `Generated with Claude Code` ni similares). El mensaje es solo el contenido del
   cambio.
 
+### 13.1.1 Flujo de trabajo: una rama por feature (obligatorio)
+- **Cada feature (o paso del plan §14) se implementa en su PROPIA rama**, nunca
+  directamente en `main`. Nombre descriptivo, p.ej. `feature/paso-8-dashboard`.
+- Crear la rama **desde `main` actualizado**, antes de empezar a programar el feature.
+- Trabajar el feature en su rama con commits granulares (§13.1) y dejar **tests en verde**.
+- Cuando el feature esté listo, **avisar al usuario** que está listo para **validar que
+  funciona**. NO mergear todavía.
+- **Solo después de que el usuario valide** que funciona, hacer **merge a `main`** (y
+  borrar la rama del feature). `main` siempre queda en un estado funcional y validado.
+- Repetir el ciclo por cada feature: rama → implementar → avisar → validar → merge a `main`.
+- Excepción: cambios de proceso/documentación menores (como este lineamiento) pueden ir
+  directo a `main`.
+
 ### 13.2 Calidad y legibilidad del código
 - **Estándares altos pero legible:** debe poder leerlo y debuggearlo hasta un junior.
 - Nombres descriptivos; funciones pequeñas con una sola responsabilidad; evitar
