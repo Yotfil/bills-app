@@ -57,8 +57,13 @@ export function LoansScreen() {
         ))}
       </ul>
 
-      <LoanForm open={creating} onClose={() => setCreating(false)} />
-      <LoanForm open={!!editing} loan={editing} onClose={() => setEditing(null)} />
+      <LoanForm key={`create-${creating}`} open={creating} onClose={() => setCreating(false)} />
+      <LoanForm
+        key={editing?.id ?? 'edit-none'}
+        open={!!editing}
+        loan={editing}
+        onClose={() => setEditing(null)}
+      />
       <PayLoanModal
         open={!!paying}
         loan={paying}

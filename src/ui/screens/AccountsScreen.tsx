@@ -125,11 +125,17 @@ export function AccountsScreen({ savingsBucket = false }: AccountsScreenProps) {
       </ul>
 
       <AccountForm
+        key={`create-${creating}`}
         open={creating}
         defaultSavingsBucket={savingsBucket}
         onClose={() => setCreating(false)}
       />
-      <AccountForm open={!!editing} account={editing} onClose={() => setEditing(null)} />
+      <AccountForm
+        key={editing?.id ?? 'edit-none'}
+        open={!!editing}
+        account={editing}
+        onClose={() => setEditing(null)}
+      />
       <ReconcileModal
         open={!!reconciling}
         account={reconciling}

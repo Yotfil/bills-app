@@ -97,6 +97,7 @@ export function FixedTemplatesScreen() {
       </ul>
 
       <FixedTemplateForm
+        key={`create-${creating}`}
         open={creating}
         accounts={accounts}
         cards={cards}
@@ -105,6 +106,7 @@ export function FixedTemplatesScreen() {
         onClose={() => setCreating(false)}
       />
       <FixedTemplateForm
+        key={editing?.id ?? 'edit-none'}
         open={!!editing}
         template={editing}
         accounts={accounts}

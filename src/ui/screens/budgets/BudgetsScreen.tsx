@@ -69,12 +69,14 @@ export function BudgetsScreen() {
       </ul>
 
       <BudgetForm
+        key={`create-${creating}`}
         open={creating}
         categories={categories}
         usedCategoryIds={active.map((b) => b.categoryId)}
         onClose={() => setCreating(false)}
       />
       <BudgetForm
+        key={editing?.id ?? 'edit-none'}
         open={!!editing}
         budget={editing}
         categories={categories}

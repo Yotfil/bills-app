@@ -85,8 +85,13 @@ export function CardsScreen() {
         ))}
       </ul>
 
-      <CardForm open={creating} onClose={() => setCreating(false)} />
-      <CardForm open={!!editing} card={editing} onClose={() => setEditing(null)} />
+      <CardForm key={`create-${creating}`} open={creating} onClose={() => setCreating(false)} />
+      <CardForm
+        key={editing?.id ?? 'edit-none'}
+        open={!!editing}
+        card={editing}
+        onClose={() => setEditing(null)}
+      />
     </div>
   );
 }
