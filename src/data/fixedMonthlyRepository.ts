@@ -85,6 +85,33 @@ export async function markFixedPaidWithoutTransaction(uid: string, id: string): 
   });
 }
 
+// Campos que se copian de la plantilla al snapshot mensual.
+type MonthlySnapshot = Pick<
+  FixedObligationMonthly,
+  'name' | 'budgetedAmount' | 'categoryId' | 'payKind' | 'debtTargetId' | 'paymentMethod'
+>;
+
+/**
+ * Propaga un cambio de la plantilla a los fijos de ESE mes que aún NO están pagados (§5.2):
+ * actualiza sus snapshots (nombre, monto, categoría, medio…). Los pagados conservan su
+ * registro histórico. Devuelve cuántos actualizó.
+ */
+export async function syncMonthlyToTemplate(
+  uid: string,
+  templateId: string,
+  month: string,
+  snapshot: MonthlySnapshot,
+): Promise<number> {
+  const snap = await getDocs(query(fixedMonthlyCol(uid), where('month', '==', month)));
+  const targets = snap.docs.filter(
+    (d) => d.data().templateId === templateId && d.data().status !== 'paid',
+  );
+  await Promise.all(
+    targets.map((d) => updateDoc(rawDoc(uid, d.id), { ...snapshot, updatedAt: serverTimestamp() })),
+  );
+  return targets.length;
+}
+
 /**
  * Destinado/Pendiente → Pagado (§5.2, §5.3): crea la transacción real (que baja el saldo de
  * forma atómica) y enlaza el fijo con ella. Guarda el monto real y el medio usado.

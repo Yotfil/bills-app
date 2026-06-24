@@ -3,7 +3,9 @@ import { Modal } from '../../components/Modal';
 import { SelectField } from '../../components/SelectField';
 import { useSessionStore } from '../../../store/sessionStore';
 import { refToValue, valueToRef } from '../../../lib/entityRef';
+import { currentMonthKey } from '../../../lib/date';
 import { createFixedTemplate, updateFixedTemplate } from '../../../data/fixedTemplateRepository';
+import { syncMonthlyToTemplate } from '../../../data/fixedMonthlyRepository';
 import type { FixedTemplateFormProps } from './FixedTemplateFormProps';
 import type { FixedPayKind } from '../../../domain/types';
 
@@ -62,6 +64,15 @@ export function FixedTemplateForm({
     try {
       if (isEdit && template) {
         await updateFixedTemplate(uid, template.id, data);
+        // Propaga el cambio a los fijos NO pagados de este mes (los pagados se conservan).
+        await syncMonthlyToTemplate(uid, template.id, currentMonthKey(), {
+          name: data.name,
+          budgetedAmount: data.budgetedAmount,
+          categoryId: data.categoryId,
+          payKind: data.payKind,
+          debtTargetId: data.debtTargetId,
+          paymentMethod: method,
+        });
       } else {
         await createFixedTemplate(uid, data);
       }
