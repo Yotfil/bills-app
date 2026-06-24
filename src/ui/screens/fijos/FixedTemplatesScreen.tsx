@@ -4,6 +4,7 @@ import { useSessionStore } from '../../../store/sessionStore';
 import { FixedTemplateForm } from './FixedTemplateForm';
 import { BackButton } from '../../components/BackButton';
 import { SearchBar } from '../../components/SearchBar';
+import { ActionMenu } from '../../components/ActionMenu';
 import { ConfirmDeleteModal } from '../../components/ConfirmDeleteModal';
 import { formatCop } from '../../../lib/currency';
 import { matchesQuery } from '../../../lib/text';
@@ -98,29 +99,19 @@ export function FixedTemplatesScreen() {
                   : (categoryName(template.categoryId) ?? 'Gasto')}
               </p>
             </div>
-            <div className="flex gap-2 text-sm">
-              <button
-                type="button"
-                onClick={() => setEditing(template)}
-                className="text-slate-500 underline"
-              >
-                Editar
-              </button>
-              <button
-                type="button"
-                onClick={() => handleArchive(template)}
-                className="text-slate-400 underline"
-              >
-                Archivar
-              </button>
-              <button
-                type="button"
-                onClick={() => setDeleting(template)}
-                className="text-red-500 underline"
-              >
-                Eliminar
-              </button>
-            </div>
+            <ActionMenu
+              ariaLabel={`Acciones de ${template.name}`}
+              items={[
+                { label: 'Editar', icon: '✏️', onSelect: () => setEditing(template) },
+                { label: 'Archivar', icon: '📦', onSelect: () => handleArchive(template) },
+                {
+                  label: 'Eliminar',
+                  icon: '🗑️',
+                  onSelect: () => setDeleting(template),
+                  danger: true,
+                },
+              ]}
+            />
           </li>
         ))}
       </ul>

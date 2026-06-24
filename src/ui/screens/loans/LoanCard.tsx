@@ -1,3 +1,4 @@
+import { ActionMenu } from '../../components/ActionMenu';
 import { formatCop } from '../../../lib/currency';
 import { loanProgress } from '../../../domain/derived';
 import { estimatePayoffMonths } from '../../../domain/loanProjection';
@@ -22,17 +23,14 @@ export function LoanCard({ loan, onPay, onEdit, onArchive, onDelete }: LoanCardP
     <li className="rounded-xl border border-slate-200 bg-white p-4">
       <div className="flex items-start justify-between gap-2">
         <p className="font-semibold text-slate-800">{loan.name}</p>
-        <div className="flex gap-2 text-sm">
-          <button type="button" onClick={onEdit} className="text-slate-500 underline">
-            Editar
-          </button>
-          <button type="button" onClick={onArchive} className="text-slate-400 underline">
-            Archivar
-          </button>
-          <button type="button" onClick={onDelete} className="text-red-500 underline">
-            Eliminar
-          </button>
-        </div>
+        <ActionMenu
+          ariaLabel={`Acciones de ${loan.name}`}
+          items={[
+            { label: 'Editar', icon: '✏️', onSelect: onEdit },
+            { label: 'Archivar', icon: '📦', onSelect: onArchive },
+            { label: 'Eliminar', icon: '🗑️', onSelect: onDelete, danger: true },
+          ]}
+        />
       </div>
 
       <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100">

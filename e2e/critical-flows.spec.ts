@@ -141,13 +141,14 @@ test('reconciliar una cuenta crea el movimiento de ajuste', async ({ page }) => 
   await signUpWithAccount(page, { name: 'Cuenta Test', balance: 1_000_000 });
 
   await openMore(page, 'Cuentas');
-  await page.getByRole('button', { name: 'Reconciliar' }).click();
+  // Las acciones de la tarjeta viven en el menú ⋮ (kebab): abrir y elegir "Reconciliar".
+  await page.getByRole('button', { name: 'Acciones de Cuenta Test' }).click();
+  await page.getByRole('menuitem', { name: 'Reconciliar' }).click();
   await page.getByLabel('Saldo real de la cuenta (COP)').fill('1200000');
   // Vista previa del ajuste por el desfase (+200.000).
   await expect(page.getByText(/Se creará un ajuste/)).toBeVisible();
-  // Con el modal abierto hay dos botones "Reconciliar" (el de la tarjeta y el de confirmar);
-  // el submit es el último en el DOM.
-  await page.getByRole('button', { name: 'Reconciliar' }).last().click();
+  // El menú ya se cerró; el único "Reconciliar" visible es el submit del modal.
+  await page.getByRole('button', { name: 'Reconciliar' }).click();
   // El modal se cierra al terminar (su campo desaparece): evita que su overlay intercepte el
   // siguiente clic de navegación.
   await expect(page.getByLabel('Saldo real de la cuenta (COP)')).toBeHidden();

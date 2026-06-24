@@ -3,6 +3,7 @@ import { useUserCollection } from '../hooks/useUserCollection';
 import { useSessionStore } from '../../store/sessionStore';
 import { CardForm } from './CardForm';
 import { BackButton } from '../components/BackButton';
+import { ActionMenu } from '../components/ActionMenu';
 import { ConfirmDeleteModal } from '../components/ConfirmDeleteModal';
 import { formatCop } from '../../lib/currency';
 import { cardAvailableCredit } from '../../domain/derived';
@@ -66,29 +67,19 @@ export function CardsScreen() {
           <li key={card.id} className="rounded-xl border border-slate-200 bg-white p-4">
             <div className="flex items-start justify-between">
               <p className="font-semibold text-slate-800">{card.name}</p>
-              <div className="flex gap-2 text-sm">
-                <button
-                  type="button"
-                  onClick={() => setEditing(card)}
-                  className="text-slate-500 underline"
-                >
-                  Editar
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleArchive(card)}
-                  className="text-slate-400 underline"
-                >
-                  Archivar
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setDeleting(card)}
-                  className="text-red-500 underline"
-                >
-                  Eliminar
-                </button>
-              </div>
+              <ActionMenu
+                ariaLabel={`Acciones de ${card.name}`}
+                items={[
+                  { label: 'Editar', icon: '✏️', onSelect: () => setEditing(card) },
+                  { label: 'Archivar', icon: '📦', onSelect: () => handleArchive(card) },
+                  {
+                    label: 'Eliminar',
+                    icon: '🗑️',
+                    onSelect: () => setDeleting(card),
+                    danger: true,
+                  },
+                ]}
+              />
             </div>
             <dl className="mt-3 grid grid-cols-3 gap-2 text-center">
               <div>
