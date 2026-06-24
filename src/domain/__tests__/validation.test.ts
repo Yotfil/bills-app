@@ -159,5 +159,28 @@ describe('Validación de transacciones (§11)', () => {
         ),
       ).toContain('adjustment_requires_direction');
     });
+
+    it('acepta source tarjeta o crédito (reconciliar deuda/saldo, §5.7)', () => {
+      expect(
+        validateTransaction(
+          makeTxn({
+            type: 'adjustment',
+            source: cardRef('card-1'),
+            categoryId: 'cat-ajuste',
+            adjustmentDirection: 'increase',
+          }),
+        ),
+      ).toEqual([]);
+      expect(
+        validateTransaction(
+          makeTxn({
+            type: 'adjustment',
+            source: loanRef('loan-1'),
+            categoryId: 'cat-ajuste',
+            adjustmentDirection: 'decrease',
+          }),
+        ),
+      ).toEqual([]);
+    });
   });
 });

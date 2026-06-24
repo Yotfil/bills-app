@@ -3,7 +3,7 @@ import type { EntityRef } from './types';
 
 // Opciones para construir el movimiento de ajuste de una reconciliación (CLAUDE.md §5.7).
 export interface BuildAdjustmentOptions {
-  account: EntityRef; // cuenta a reconciliar (origen del ajuste)
+  source: EntityRef; // entidad a reconciliar (cuenta, tarjeta o crédito): origen del ajuste
   adjustmentCategoryId: string; // id de la categoría de sistema "Ajuste / Reconciliación"
   date: Timestamp;
   note?: string | null;

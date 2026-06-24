@@ -5,11 +5,14 @@ import { CardForm } from './CardForm';
 import { BackButton } from '../components/BackButton';
 import { ActionMenu } from '../components/ActionMenu';
 import { ConfirmDeleteModal } from '../components/ConfirmDeleteModal';
+import { ReconcileModal } from './ReconcileModal';
 import { formatCop } from '../../lib/currency';
 import { cardAvailableCredit } from '../../domain/derived';
 import { entityHasMovements } from '../../domain/entityUsage';
 import { archiveCard, deleteCard, subscribeCards } from '../../data/cardRepository';
 import { subscribeTransactions } from '../../data/transactionRepository';
+import { reconcileCard } from '../../data/reconciliationService';
+import type { ReconcileTarget } from './ReconcileTarget';
 import type { CreditCard, Transaction } from '../../domain/types';
 
 export function CardsScreen() {
@@ -18,6 +21,7 @@ export function CardsScreen() {
   const { items: transactions } = useUserCollection<Transaction>(subscribeTransactions);
   const [editing, setEditing] = useState<CreditCard | null>(null);
   const [deleting, setDeleting] = useState<CreditCard | null>(null);
+  const [reconciling, setReconciling] = useState<CreditCard | null>(null);
   const [creating, setCreating] = useState(false);
 
   const cards = items.filter((c) => !c.archived).sort((a, b) => a.sortOrder - b.sortOrder);
@@ -42,6 +46,20 @@ export function CardsScreen() {
     await archiveCard(uid, deleting.id);
     setDeleting(null);
   }
+
+  // Reconciliar la DEUDA (§5.7): útil cuando los intereses la subieron o las pruebas la desfasaron.
+  const reconcileTarget: ReconcileTarget | null =
+    reconciling && uid
+      ? {
+          id: reconciling.id,
+          name: reconciling.name,
+          registeredValue: reconciling.cachedDebt,
+          registeredLabel: 'Deuda registrada',
+          inputLabel: 'Deuda real de la tarjeta (COP)',
+          goodDirection: 'decrease', // menos deuda = verde
+          reconcile: (real, note) => reconcileCard(uid, reconciling, real, note),
+        }
+      : null;
 
   return (
     <div className="mx-auto flex max-w-md flex-col gap-4 p-4 pb-24">
@@ -71,6 +89,7 @@ export function CardsScreen() {
                 ariaLabel={`Acciones de ${card.name}`}
                 items={[
                   { label: 'Editar', icon: '✏️', onSelect: () => setEditing(card) },
+                  { label: 'Reconciliar', icon: '⚖️', onSelect: () => setReconciling(card) },
                   { label: 'Archivar', icon: '📦', onSelect: () => handleArchive(card) },
                   {
                     label: 'Eliminar',
@@ -118,6 +137,11 @@ export function CardsScreen() {
         onConfirm={() => void handleDelete()}
         onArchive={() => void handleArchiveFromModal()}
         onClose={() => setDeleting(null)}
+      />
+      <ReconcileModal
+        open={!!reconciling}
+        target={reconcileTarget}
+        onClose={() => setReconciling(null)}
       />
     </div>
   );

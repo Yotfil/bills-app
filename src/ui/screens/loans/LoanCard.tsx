@@ -14,6 +14,7 @@ export function LoanCard({
   onPay,
   onUndoCuota,
   onEdit,
+  onReconcile,
   onArchive,
   onDelete,
 }: LoanCardProps) {
@@ -37,6 +38,7 @@ export function LoanCard({
           ariaLabel={`Acciones de ${loan.name}`}
           items={[
             { label: 'Editar', icon: '✏️', onSelect: onEdit },
+            { label: 'Reconciliar', icon: '⚖️', onSelect: onReconcile },
             { label: 'Archivar', icon: '📦', onSelect: onArchive },
             { label: 'Eliminar', icon: '🗑️', onSelect: onDelete, danger: true },
           ]}

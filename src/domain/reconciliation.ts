@@ -1,5 +1,6 @@
-// Reconciliación de cuentas (CLAUDE.md §5.7). Los saldos NO se editan a mano: el usuario
-// dice "el saldo real es X" y se crea un movimiento de AJUSTE por el desfase exacto.
+// Reconciliación de cuentas, tarjetas y créditos (CLAUDE.md §5.7). Los saldos/deudas NO se
+// editan a mano: el usuario dice "el valor real es X" y se crea un movimiento de AJUSTE por el
+// desfase exacto, que lleva el valor registrado al real.
 import type { TransactionDraft } from './types';
 import type { ReconciliationResult } from './ReconciliationResult';
 import type { BuildAdjustmentOptions } from './BuildAdjustmentOptions';
@@ -30,11 +31,11 @@ export function computeReconciliation(
  * "Ajuste" para NO contaminar los reportes de gasto (§5.7). Devuelve null si no hay desfase.
  */
 export function buildReconciliationAdjustment(
-  registeredBalance: number,
-  realBalance: number,
+  registeredValue: number,
+  realValue: number,
   options: BuildAdjustmentOptions,
 ): TransactionDraft | null {
-  const result = computeReconciliation(registeredBalance, realBalance);
+  const result = computeReconciliation(registeredValue, realValue);
   if (!result) return null;
 
   return {
@@ -43,7 +44,7 @@ export function buildReconciliationAdjustment(
     type: 'adjustment',
     amount: result.amount,
     categoryId: options.adjustmentCategoryId,
-    source: options.account,
+    source: options.source,
     destination: null,
     adjustmentDirection: result.direction,
     tags: [],
