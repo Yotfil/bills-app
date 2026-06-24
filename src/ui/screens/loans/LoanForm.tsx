@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { Modal } from '../../components/Modal';
 import { useSessionStore } from '../../../store/sessionStore';
 import { createLoan, updateLoan } from '../../../data/loanRepository';
-import { syncCuotaFromLoan } from '../../../data/loanCuotaService';
+import { syncCuotaFromLoan } from '../../../data/cuotaService';
 import { currentMonthKey } from '../../../lib/date';
 import type { LoanFormProps } from './LoanFormProps';
 

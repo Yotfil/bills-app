@@ -9,13 +9,13 @@ import { BackButton } from '../../components/BackButton';
 import { ConfirmDeleteModal } from '../../components/ConfirmDeleteModal';
 import { ReconcileModal } from '../ReconcileModal';
 import { entityHasMovements } from '../../../domain/entityUsage';
-import { linkedMonthlyCuota, loanHasLinkedFixed } from '../../../domain/loanCuota';
+import { cuotaMonthlyFor, hasLinkedCuota } from '../../../domain/debtCuota';
 import { archiveLoan, deleteLoan, subscribeLoans } from '../../../data/loanRepository';
 import { subscribeAccounts } from '../../../data/accountRepository';
 import { subscribeTransactions } from '../../../data/transactionRepository';
 import { subscribeFixedTemplates } from '../../../data/fixedTemplateRepository';
 import { revertFixedPayment, syncMonthlyAmount } from '../../../data/fixedMonthlyRepository';
-import { payLinkedCuota } from '../../../data/loanCuotaService';
+import { payLinkedCuota } from '../../../data/cuotaService';
 import { reconcileLoan } from '../../../data/reconciliationService';
 import { currentMonthKey, formatMonthLabel } from '../../../lib/date';
 import type { ReconcileTarget } from '../ReconcileTarget';
@@ -48,7 +48,7 @@ export function LoansScreen() {
     if (!uid) return;
     for (const loan of loans) {
       if (loan.archived) continue;
-      const cuota = linkedMonthlyCuota(loan, monthlyFixeds);
+      const cuota = cuotaMonthlyFor(loan.id, monthlyFixeds);
       if (!cuota || cuota.status === 'paid') continue;
       const template = templates.find((t) => t.id === cuota.templateId);
       if (template && template.budgetedAmount !== cuota.budgetedAmount) {
@@ -60,14 +60,14 @@ export function LoansScreen() {
   // Pagar la cuota: 1 toque si está ligada (marca el fijo del mes), o abrir el modal si no.
   function handlePay(loan: Loan, linked: boolean) {
     if (linked) {
-      if (uid) void payLinkedCuota(uid, loan, month);
+      if (uid) void payLinkedCuota(uid, { kind: 'loan', id: loan.id }, month);
     } else {
       setPaying(loan);
     }
   }
 
   function handleUndoCuota(loan: Loan) {
-    const cuota = linkedMonthlyCuota(loan, monthlyFixeds);
+    const cuota = cuotaMonthlyFor(loan.id, monthlyFixeds);
     if (uid && cuota) void revertFixedPayment(uid, cuota);
   }
 
@@ -127,8 +127,8 @@ export function LoansScreen() {
 
       <ul className="flex flex-col gap-3">
         {active.map((loan) => {
-          const linked = loanHasLinkedFixed(loan, templates);
-          const cuota = linkedMonthlyCuota(loan, monthlyFixeds);
+          const linked = hasLinkedCuota(loan.id, templates);
+          const cuota = cuotaMonthlyFor(loan.id, monthlyFixeds);
           return (
             <LoanCard
               key={loan.id}
