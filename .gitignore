@@ -37,3 +37,6 @@ test-results
 *.njsproj
 *.sln
 *.sw?
+
+# PWA (vite-plugin-pwa) dev output
+dev-dist
