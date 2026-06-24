@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { logout } from '../../data/authRepository';
 import { useSessionStore } from '../../store/sessionStore';
+import { RecalculateBalancesButton } from './RecalculateBalancesButton';
 import type { MenuItem } from './MenuItem';
 
 // Pantalla "Más": administración (CLAUDE.md §8.4). Cada enlace lleva a un CRUD. Los que
@@ -62,6 +63,8 @@ export function MoreScreen() {
           ),
         )}
       </ul>
+
+      <RecalculateBalancesButton />
 
       <div className="mt-4 rounded-xl border border-slate-200 bg-white p-4">
         <p className="text-sm text-slate-500">
