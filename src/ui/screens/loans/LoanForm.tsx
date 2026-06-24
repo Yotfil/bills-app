@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { Modal } from '../../components/Modal';
+import { MoneyInput } from '../../components/MoneyInput';
 import { useSessionStore } from '../../../store/sessionStore';
 import { createLoan, updateLoan } from '../../../data/loanRepository';
 import { syncCuotaFromLoan } from '../../../data/cuotaService';
@@ -67,30 +68,24 @@ export function LoanForm({ open, loan, onClose }: LoanFormProps) {
           onChange={(e) => setName(e.target.value)}
           className="rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-500"
         />
-        <input
-          type="number"
-          inputMode="numeric"
+        <MoneyInput
           placeholder="Monto original (COP)"
           value={originalAmount}
-          onChange={(e) => setOriginalAmount(e.target.value)}
+          onChange={setOriginalAmount}
           className="rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-500"
         />
         {!isEdit && (
-          <input
-            type="number"
-            inputMode="numeric"
+          <MoneyInput
             placeholder="Saldo actual (COP)"
             value={currentBalance}
-            onChange={(e) => setCurrentBalance(e.target.value)}
+            onChange={setCurrentBalance}
             className="rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-500"
           />
         )}
-        <input
-          type="number"
-          inputMode="numeric"
+        <MoneyInput
           placeholder="Cuota mensual (COP)"
           value={monthlyPayment}
-          onChange={(e) => setMonthlyPayment(e.target.value)}
+          onChange={setMonthlyPayment}
           className="rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-500"
         />
         <input

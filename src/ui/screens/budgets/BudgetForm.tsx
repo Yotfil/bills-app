@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { Modal } from '../../components/Modal';
+import { MoneyInput } from '../../components/MoneyInput';
 import { SelectField } from '../../components/SelectField';
 import { useSessionStore } from '../../../store/sessionStore';
 import { createBudget, updateBudget } from '../../../data/budgetRepository';
@@ -63,13 +64,11 @@ export function BudgetForm({
             placeholder="Selecciona categoría…"
           />
         )}
-        <input
+        <MoneyInput
           autoFocus
-          type="number"
-          inputMode="numeric"
           placeholder="Tope mensual (COP)"
           value={limit}
-          onChange={(e) => setLimit(e.target.value)}
+          onChange={setLimit}
           className="rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-500"
         />
         <button

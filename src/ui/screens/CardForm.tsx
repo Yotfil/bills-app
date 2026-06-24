@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { Modal } from '../components/Modal';
+import { MoneyInput } from '../components/MoneyInput';
 import { useSessionStore } from '../../store/sessionStore';
 import { createCard, updateCard } from '../../data/cardRepository';
 import type { CardFormProps } from './CardFormProps';
@@ -48,21 +49,17 @@ export function CardForm({ open, card, onClose }: CardFormProps) {
           onChange={(e) => setName(e.target.value)}
           className="rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-500"
         />
-        <input
-          type="number"
-          inputMode="numeric"
+        <MoneyInput
           placeholder="Cupo total (COP)"
           value={creditLimit}
-          onChange={(e) => setCreditLimit(e.target.value)}
+          onChange={setCreditLimit}
           className="rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-500"
         />
         {!isEdit && (
-          <input
-            type="number"
-            inputMode="numeric"
+          <MoneyInput
             placeholder="Deuda actual (COP)"
             value={initialDebt}
-            onChange={(e) => setInitialDebt(e.target.value)}
+            onChange={setInitialDebt}
             className="rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-500"
           />
         )}
