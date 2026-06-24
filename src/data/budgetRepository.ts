@@ -1,7 +1,16 @@
 // Repositorio de presupuestos por categoría (CLAUDE.md §5.9, §8.4). El consumo (Σ gastos de
 // la categoría en el mes) es DERIVADO; aquí solo se guarda el tope y la categoría.
 import { budgetsCol } from './collections';
-import { archive, create, subscribeAll, update, type CreateInput, type UpdateInput } from './crud';
+import {
+  archive,
+  create,
+  hardDelete,
+  subscribeAll,
+  unarchive,
+  update,
+  type CreateInput,
+  type UpdateInput,
+} from './crud';
 import type { NewBudget } from './NewBudget';
 import type { Budget } from '../domain/types';
 
@@ -28,3 +37,9 @@ export const updateBudget = (uid: string, id: string, data: UpdateInput<Budget>)
   update(budgetsCol(uid), id, data);
 
 export const archiveBudget = (uid: string, id: string) => archive(budgetsCol(uid), id);
+
+export const unarchiveBudget = (uid: string, id: string) => unarchive(budgetsCol(uid), id);
+
+// Un presupuesto es solo un tope: ningún movimiento lo referencia, así que se puede borrar
+// siempre sin romper el histórico (§8.4).
+export const deleteBudget = (uid: string, id: string) => hardDelete(budgetsCol(uid), id);

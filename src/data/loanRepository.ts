@@ -1,7 +1,16 @@
 // Repositorio de créditos grandes (CLAUDE.md §5.6, §8.4). El saldo (cachedBalance) es una
 // caché que baja con cada abono (debt_payment); la fuente de verdad son los movimientos.
 import { loansCol } from './collections';
-import { archive, create, subscribeAll, update, type CreateInput, type UpdateInput } from './crud';
+import {
+  archive,
+  create,
+  hardDelete,
+  subscribeAll,
+  unarchive,
+  update,
+  type CreateInput,
+  type UpdateInput,
+} from './crud';
 import type { NewLoan } from './NewLoan';
 import type { Loan } from '../domain/types';
 
@@ -37,3 +46,8 @@ export const updateLoan = (uid: string, id: string, data: EditableLoanFields) =>
   update(loansCol(uid), id, data);
 
 export const archiveLoan = (uid: string, id: string) => archive(loansCol(uid), id);
+
+export const unarchiveLoan = (uid: string, id: string) => unarchive(loansCol(uid), id);
+
+// Borrado físico: solo si el crédito NO tiene abonos (movimientos) asociados (§8.4).
+export const deleteLoan = (uid: string, id: string) => hardDelete(loansCol(uid), id);
