@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { buildAccountCreateInput } from './accountRepository';
 import { buildCardCreateInput } from './cardRepository';
+import { buildFixedTemplateCreateInput } from './fixedTemplateRepository';
 
 // Los repositorios arman el documento a crear con defaults sensatos (parte pura, testeable).
 
@@ -29,5 +30,22 @@ describe('buildCardCreateInput', () => {
     expect(input.creditLimit).toBe(2_000_000);
     expect(input.cachedDebt).toBe(350_000);
     expect(input.archived).toBe(false);
+  });
+});
+
+describe('buildFixedTemplateCreateInput', () => {
+  it('nace activa y sin archivar, con sus snapshots', () => {
+    const input = buildFixedTemplateCreateInput({
+      name: '  Luz ',
+      budgetedAmount: 230_000,
+      categoryId: 'cat-servicios',
+      defaultPaymentMethod: { kind: 'account', id: 'acc-1' },
+      payKind: 'expense',
+      debtTargetId: null,
+    });
+    expect(input.name).toBe('Luz');
+    expect(input.active).toBe(true);
+    expect(input.archived).toBe(false);
+    expect(input.payKind).toBe('expense');
   });
 });
