@@ -28,10 +28,14 @@ import {
   recomputeBalances,
   revertTransaction,
   transactionDelta,
+  type BalanceSeeds,
   type LedgerDelta,
 } from '../domain/ledger';
 import { listAll } from './crud';
 import type { TransactionDraft } from '../domain/types';
+import type { RecalculationCorrections } from './RecalculationCorrections';
+
+export type { RecalculationCorrections } from './RecalculationCorrections';
 
 function requireDb() {
   if (!db) throw new Error('Firestore no está configurado. Define las claves en .env.local.');
@@ -128,37 +132,81 @@ export async function deleteTransaction(uid: string, id: string): Promise<void> 
 }
 
 /**
- * Recálculo total de los saldos de CUENTAS (CLAUDE.md §9.3): reconstruye `cachedBalance`
- * desde la semilla (`initialBalance`) más todos los movimientos, y corrige las cachés que
- * hayan divergido. Devuelve las correcciones aplicadas (por si se quiere auditar/loguear).
+ * Recálculo total de TODOS los saldos (CLAUDE.md §9.3): reconstruye `cachedBalance` de cuentas
+ * y créditos y `cachedDebt` de tarjetas desde su semilla de onboarding más todos los movimientos,
+ * y corrige las cachés que hayan divergido. Devuelve las correcciones aplicadas por entidad (por
+ * si se quiere auditar/loguear). Es la válvula de seguridad cuando una caché incremental se desfasa.
  *
- * Nota: las tarjetas y créditos no guardan hoy una "semilla" separada de su deuda/saldo de
- * onboarding, así que su recálculo total queda pendiente hasta agregar ese campo (registrado
- * en MEMORY.md). Su caché se mantiene de forma incremental por movimiento, que es correcta.
+ * Semillas: las cuentas guardan `initialBalance`; tarjetas y créditos guardan `initialDebt` /
+ * `seedBalance`. Los docs creados ANTES de persistir esas semillas (tarjetas/créditos viejos) no
+ * la tienen: se RECUPERA asumiendo que la caché actual es correcta (semilla = caché − Σ deltas) y
+ * se PERSISTE de paso (backfill), para que a partir de aquí el recálculo detecte divergencias.
  */
-export async function recalculateAccountBalances(uid: string): Promise<Record<string, number>> {
-  const [accounts, transactions] = await Promise.all([
+export async function recalculateBalances(uid: string): Promise<RecalculationCorrections> {
+  const [accounts, cards, loans, transactions] = await Promise.all([
     listAll(accountsCol(uid)),
+    listAll(cardsCol(uid)),
+    listAll(loansCol(uid)),
     listAll(transactionsCol(uid)),
   ]);
 
-  const seeds = {
+  // Suma pura de los deltas (semillas en 0): sirve para recuperar la semilla de los docs viejos.
+  const deltaOnly = recomputeBalances({ accounts: {}, cards: {}, loans: {} }, transactions);
+
+  // Semilla a usar: la persistida si existe; si no (doc viejo), la derivada de la caché actual.
+  const seedFor = (cache: number, persisted: number | undefined, deltaSum: number): number =>
+    persisted ?? cache - deltaSum;
+
+  const seeds: BalanceSeeds = {
     accounts: Object.fromEntries(accounts.map((a) => [a.id, a.initialBalance])),
-    cards: {},
-    loans: {},
+    cards: Object.fromEntries(
+      cards.map((c) => [c.id, seedFor(c.cachedDebt, c.initialDebt, deltaOnly.cards[c.id] ?? 0)]),
+    ),
+    loans: Object.fromEntries(
+      loans.map((l) => [l.id, seedFor(l.cachedBalance, l.seedBalance, deltaOnly.loans[l.id] ?? 0)]),
+    ),
   };
+
   const recomputed = recomputeBalances(seeds, transactions);
 
-  const corrections: Record<string, number> = {};
+  const corrections: RecalculationCorrections = { accounts: {}, cards: {}, loans: {} };
   await runTransaction(requireDb(), async (tx) => {
     for (const account of accounts) {
       const correct = recomputed.accounts[account.id] ?? account.initialBalance;
       if (correct !== account.cachedBalance) {
-        corrections[account.id] = correct - account.cachedBalance;
+        corrections.accounts[account.id] = correct - account.cachedBalance;
         tx.update(rawDoc(accountsCol(uid), account.id), {
           cachedBalance: correct,
           updatedAt: serverTimestamp(),
         });
+      }
+    }
+    for (const card of cards) {
+      const seed = seeds.cards[card.id] ?? card.cachedDebt;
+      const correct = recomputed.cards[card.id] ?? seed;
+      const patch: Record<string, unknown> = {};
+      if (correct !== card.cachedDebt) {
+        corrections.cards[card.id] = correct - card.cachedDebt;
+        patch.cachedDebt = correct;
+      }
+      if (card.initialDebt === undefined) patch.initialDebt = seed; // backfill semilla del doc viejo
+      if (Object.keys(patch).length > 0) {
+        patch.updatedAt = serverTimestamp();
+        tx.update(rawDoc(cardsCol(uid), card.id), patch);
+      }
+    }
+    for (const loan of loans) {
+      const seed = seeds.loans[loan.id] ?? loan.cachedBalance;
+      const correct = recomputed.loans[loan.id] ?? seed;
+      const patch: Record<string, unknown> = {};
+      if (correct !== loan.cachedBalance) {
+        corrections.loans[loan.id] = correct - loan.cachedBalance;
+        patch.cachedBalance = correct;
+      }
+      if (loan.seedBalance === undefined) patch.seedBalance = seed; // backfill semilla del doc viejo
+      if (Object.keys(patch).length > 0) {
+        patch.updatedAt = serverTimestamp();
+        tx.update(rawDoc(loansCol(uid), loan.id), patch);
       }
     }
   });
