@@ -5,6 +5,7 @@ import { useSessionStore } from '../../store/sessionStore';
 import { Modal } from '../components/Modal';
 import { DisponibleRealBar } from '../components/DisponibleRealBar';
 import { TransactionForm } from './TransactionForm';
+import { TransactionFilters } from './TransactionFilters';
 import { formatCop } from '../../lib/currency';
 import { dayKey, formatDayLabel } from '../../lib/date';
 import { subscribeTransactions } from '../../data/transactionRepository';
@@ -14,6 +15,12 @@ import { subscribeLoans } from '../../data/loanRepository';
 import { subscribeCategories } from '../../data/categoryRepository';
 import { deleteTransaction } from '../../data/transactionService';
 import { totalSpend } from '../../domain/reports';
+import {
+  EMPTY_TRANSACTION_FILTER,
+  filterTransactions,
+  isFilterActive,
+} from '../../domain/transactionFilters';
+import type { TransactionFilter } from '../../domain/transactionFilters';
 import type {
   Account,
   Category,
@@ -51,9 +58,12 @@ export function RegistroScreen() {
   const { items: categories } = useUserCollection<Category>(subscribeCategories);
   const [editing, setEditing] = useState<Transaction | null>(null);
 
-  // Filtro por categoría que llega desde la dona del dashboard (§8.1, §8.2).
-  const [searchParams, setSearchParams] = useSearchParams();
-  const categoryFilter = searchParams.get('cat');
+  // El filtro (§8.2) arranca con la categoría que llega desde la dona del dashboard (§8.1).
+  const [searchParams] = useSearchParams();
+  const [filter, setFilter] = useState<TransactionFilter>(() => ({
+    ...EMPTY_TRANSACTION_FILTER,
+    categoryId: searchParams.get('cat'),
+  }));
 
   const entityName = useMemo(() => {
     const map = new Map<string, string>();
@@ -69,11 +79,9 @@ export function RegistroScreen() {
     return map;
   }, [categories]);
 
-  // Agrupar por día conservando el orden cronológico inverso que ya trae la consulta (§8.2).
+  // Aplicar filtros (§8.2) y agrupar por día conservando el orden cronológico inverso.
   const groups = useMemo(() => {
-    const visible = categoryFilter
-      ? transactions.filter((t) => t.categoryId === categoryFilter)
-      : transactions;
+    const visible = filterTransactions(transactions, filter);
     const byDay = new Map<string, Transaction[]>();
     for (const txn of visible) {
       const key = dayKey(txn.date);
@@ -82,7 +90,7 @@ export function RegistroScreen() {
       byDay.set(key, list);
     }
     return [...byDay.entries()];
-  }, [transactions, categoryFilter]);
+  }, [transactions, filter]);
 
   async function handleDelete(txn: Transaction) {
     if (!uid) return;
@@ -96,25 +104,35 @@ export function RegistroScreen() {
       <DisponibleRealBar />
       <h1 className="text-xl font-bold text-slate-800">Registro</h1>
 
-      {categoryFilter && (
-        <div className="flex items-center gap-2 text-sm">
-          <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-600">
-            Categoría: {categoryById.get(categoryFilter)?.name ?? categoryFilter}
-          </span>
-          <button
-            type="button"
-            onClick={() => setSearchParams({})}
-            className="text-slate-400 underline"
-          >
-            Quitar filtro
-          </button>
-        </div>
+      {transactions.length > 0 && (
+        <TransactionFilters
+          filter={filter}
+          onChange={setFilter}
+          categories={categories}
+          accounts={accounts}
+          cards={cards}
+          loans={loans}
+        />
       )}
 
       {loading && <p className="text-slate-400">Cargando…</p>}
       {!loading && transactions.length === 0 && (
         <p className="text-slate-500">
           Aún no hay movimientos. Toca “+” para registrar el primero.
+        </p>
+      )}
+      {!loading && transactions.length > 0 && groups.length === 0 && (
+        <p className="text-slate-500">
+          Ningún movimiento coincide con el filtro.{' '}
+          {isFilterActive(filter) && (
+            <button
+              type="button"
+              onClick={() => setFilter(EMPTY_TRANSACTION_FILTER)}
+              className="font-medium text-slate-700 underline"
+            >
+              Limpiar
+            </button>
+          )}
         </p>
       )}
 
