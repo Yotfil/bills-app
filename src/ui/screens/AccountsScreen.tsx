@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { useUserCollection } from '../hooks/useUserCollection';
+import { useFixedMonthly } from '../hooks/useFixedMonthly';
 import { useSessionStore } from '../../store/sessionStore';
 import { AccountForm } from './AccountForm';
 import { formatCop } from '../../lib/currency';
 import { accountAvailable, accountReserved } from '../../domain/derived';
+import { currentMonthKey } from '../../lib/date';
 import { archiveAccount, subscribeAccounts } from '../../data/accountRepository';
-import type { Account, AccountType, FixedObligationMonthly } from '../../domain/types';
+import type { Account, AccountType } from '../../domain/types';
 
 const TYPE_LABEL: Record<AccountType, string> = {
   savings: 'Ahorros',
@@ -20,8 +22,8 @@ export function AccountsScreen() {
   const [creating, setCreating] = useState(false);
 
   const accounts = items.filter((a) => !a.archived).sort((a, b) => a.sortOrder - b.sortOrder);
-  // El reservado real saldrá de los fijos del mes (§5.2); aún no hay fijos → 0.
-  const monthlyFixeds: FixedObligationMonthly[] = [];
+  // Reservado = fijos del mes actual en estado 'allocated' asignados a cada cuenta (§5.1, §5.2).
+  const { items: monthlyFixeds } = useFixedMonthly(currentMonthKey());
 
   async function handleArchive(account: Account) {
     if (!uid) return;

@@ -1,19 +1,21 @@
 import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useUserCollection } from '../../hooks/useUserCollection';
+import { useFixedMonthly } from '../../hooks/useFixedMonthly';
 import { subscribeAccounts } from '../../../data/accountRepository';
 import { subscribeCategories } from '../../../data/categoryRepository';
 import { subscribeTransactions } from '../../../data/transactionRepository';
 import { disponibleReal } from '../../../domain/derived';
+import { fixedTotals } from '../../../domain/fixed';
 import { spendByCategory } from '../../../domain/reports';
 import { monthlySummary } from '../../../domain/summary';
 import { addMonths, currentMonthKey, monthKey } from '../../../lib/date';
-import { MonthSelector } from './MonthSelector';
+import { MonthSelector } from '../../components/MonthSelector';
 import { HeroBalance } from './HeroBalance';
 import { MonthSummaryCard } from './MonthSummaryCard';
 import { FixedProgressCard } from './FixedProgressCard';
 import { CategoryDonut } from './CategoryDonut';
-import type { Account, Category, FixedObligationMonthly, Transaction } from '../../../domain/types';
+import type { Account, Category, Transaction } from '../../../domain/types';
 
 // Dashboard / Inicio (CLAUDE.md §8.1). Debe entenderse en < 5 segundos: número-héroe,
 // resumen del mes, fijos y dona por categoría, con selector de periodo (mes actual).
@@ -25,9 +27,11 @@ export function DashboardScreen() {
   const [month, setMonth] = useState(currentMonthKey());
 
   const activeAccounts = accounts.filter((a) => !a.archived);
-  // El reservado real saldrá de los fijos del mes (§5.2); llega con el Paso 9.
-  const monthlyFixeds: FixedObligationMonthly[] = [];
+  // El número-héroe y el progreso de fijos son del MES ACTUAL (no del periodo del selector,
+  // que solo filtra el resumen y la dona). El reservado se deriva de los fijos 'allocated'.
+  const { items: monthlyFixeds } = useFixedMonthly(currentMonthKey());
   const available = disponibleReal(activeAccounts, monthlyFixeds);
+  const ft = fixedTotals(monthlyFixeds);
 
   const monthTxns = useMemo(
     () => transactions.filter((t) => monthKey(t.date) === month),
@@ -61,7 +65,12 @@ export function DashboardScreen() {
 
       <HeroBalance amount={available} />
       <MonthSummaryCard summary={summary} />
-      <FixedProgressCard paid={0} allocated={0} pending={0} total={monthlyFixeds.length} />
+      <FixedProgressCard
+        paid={ft.counts.paid}
+        allocated={ft.counts.allocated}
+        pending={ft.counts.pending}
+        total={ft.counts.total}
+      />
       <CategoryDonut
         slices={slices}
         total={summary.expense}

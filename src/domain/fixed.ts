@@ -3,8 +3,33 @@
 // Los timestamps (allocatedAt/paidAt, date) los pone la capa de datos; aquí se reciben.
 import type { FixedObligationMonthly, FixedStatus, TransactionDraft } from './types';
 import type { PayFixedOptions } from './PayFixedOptions';
+import type { FixedTotals } from './FixedTotals';
 
 export type { PayFixedOptions } from './PayFixedOptions';
+export type { FixedTotals } from './FixedTotals';
+
+/** Totales del checklist mensual de fijos (§8.3): cuánto falta, destinado y pagado. */
+export function fixedTotals(monthlyFixeds: FixedObligationMonthly[]): FixedTotals {
+  const totals: FixedTotals = {
+    pendingAmount: 0,
+    allocatedAmount: 0,
+    paidAmount: 0,
+    counts: { pending: 0, allocated: 0, paid: 0, total: monthlyFixeds.length },
+  };
+  for (const fixed of monthlyFixeds) {
+    if (fixed.status === 'pending') {
+      totals.pendingAmount += fixed.budgetedAmount;
+      totals.counts.pending += 1;
+    } else if (fixed.status === 'allocated') {
+      totals.allocatedAmount += fixed.budgetedAmount;
+      totals.counts.allocated += 1;
+    } else {
+      totals.paidAmount += fixed.budgetedAmount;
+      totals.counts.paid += 1;
+    }
+  }
+  return totals;
+}
 
 // Transiciones permitidas (§5.2): pendiente→destinado, destinado→pagado, y el atajo
 // pendiente→pagado directo. No se permite "deshacer" hacia atrás desde aquí (editar un

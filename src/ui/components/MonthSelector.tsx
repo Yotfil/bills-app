@@ -1,7 +1,8 @@
-import { formatMonthLabel } from '../../../lib/date';
+import { formatMonthLabel } from '../../lib/date';
 import type { MonthSelectorProps } from './MonthSelectorProps';
 
-// Selector de periodo del dashboard (CLAUDE.md §8.1): mes actual por defecto, con flechas.
+// Selector de periodo por mes (CLAUDE.md §8.1, §8.3): mes actual por defecto, con flechas.
+// Compartido por el Dashboard y la pantalla de Fijos.
 export function MonthSelector({ month, onPrev, onNext }: MonthSelectorProps) {
   return (
     <div className="flex items-center justify-between">
