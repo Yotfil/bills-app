@@ -1,9 +1,21 @@
-// Repositorio de categorías (CLAUDE.md §6). Incluye el SET BASE de 14 categorías más la
-// categoría de sistema "Ajuste / Reconciliación", y la función para sembrarlas la primera
-// vez (las categorías "vienen con el set base", §7). El CRUD completo llega en el Paso 11.
+// Repositorio de categorías (CLAUDE.md §6, §8.4). Incluye el SET BASE de 14 categorías más la
+// categoría de sistema "Ajuste / Reconciliación", la siembra inicial y el CRUD del usuario.
 import { categoriesCol } from './collections';
-import { create, listAll, subscribeAll, type CreateInput } from './crud';
+import {
+  archive,
+  create,
+  hardDelete,
+  listAll,
+  subscribeAll,
+  unarchive,
+  update,
+  type CreateInput,
+  type UpdateInput,
+} from './crud';
 import type { Category } from '../domain/types';
+import type { NewCategory } from './NewCategory';
+
+export type { NewCategory } from './NewCategory';
 
 /** Id estable de la categoría de sistema de ajustes, útil para la reconciliación (§5.7). */
 export const ADJUSTMENT_CATEGORY_NAME = 'Ajuste / Reconciliación';
@@ -75,3 +87,33 @@ export async function seedBaseCategories(uid: string): Promise<void> {
     ),
   );
 }
+
+/** Construye el documento a crear (función pura). Las del usuario sí cuentan en reportes (§6). */
+export function buildCategoryCreateInput(input: NewCategory): CreateInput<Category> {
+  return {
+    name: input.name.trim(),
+    icon: input.icon.trim() || '🏷️',
+    color: input.color || '#64748b',
+    isSystem: false,
+    includeInSpendReports: true,
+    sortOrder: input.sortOrder ?? 0,
+    archived: false,
+    archivedAt: null,
+  };
+}
+
+export const createCategory = (uid: string, input: NewCategory) =>
+  create(categoriesCol(uid), buildCategoryCreateInput(input));
+
+// Solo metadatos editables; isSystem / includeInSpendReports no se tocan desde la UI.
+export type EditableCategoryFields = Pick<UpdateInput<Category>, 'name' | 'icon' | 'color'>;
+
+export const updateCategory = (uid: string, id: string, data: EditableCategoryFields) =>
+  update(categoriesCol(uid), id, data);
+
+export const archiveCategory = (uid: string, id: string) => archive(categoriesCol(uid), id);
+
+export const unarchiveCategory = (uid: string, id: string) => unarchive(categoriesCol(uid), id);
+
+// Borrado físico: solo si la categoría NO tiene movimientos asociados (§8.4).
+export const deleteCategory = (uid: string, id: string) => hardDelete(categoriesCol(uid), id);

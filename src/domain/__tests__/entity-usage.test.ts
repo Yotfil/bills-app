@@ -1,6 +1,6 @@
 import { Timestamp } from 'firebase/firestore';
 import { describe, expect, it } from 'vitest';
-import { entityHasMovements } from '../entityUsage';
+import { categoryHasMovements, entityHasMovements } from '../entityUsage';
 import type { Transaction } from '../types';
 import { accountRef, cardRef, makeTxn, STUB_TS } from './fixtures';
 
@@ -39,5 +39,18 @@ describe('entityHasMovements', () => {
     const txns = [txn({ source: accountRef('acc-1'), destination: null })];
     expect(entityHasMovements(txns, 'account', 'acc-2')).toBe(false);
     expect(entityHasMovements([], 'account', 'acc-1')).toBe(false);
+  });
+});
+
+describe('categoryHasMovements', () => {
+  it('true si algún movimiento usa la categoría', () => {
+    const txns = [txn({ categoryId: 'cat-comidas' })];
+    expect(categoryHasMovements(txns, 'cat-comidas')).toBe(true);
+  });
+
+  it('false si ninguno la usa', () => {
+    const txns = [txn({ categoryId: 'cat-comidas' })];
+    expect(categoryHasMovements(txns, 'cat-ocio')).toBe(false);
+    expect(categoryHasMovements([], 'cat-comidas')).toBe(false);
   });
 });
