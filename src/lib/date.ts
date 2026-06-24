@@ -63,6 +63,32 @@ export function addMonths(month: string, delta: number): string {
   return `${date.getFullYear()}-${mm}`;
 }
 
+/**
+ * Milisegundos del inicio del día local ('YYYY-MM-DD' → 00:00:00.000). Cota inferior
+ * inclusiva del filtro por rango de fechas del Registro (§8.2).
+ */
+export function dayStartMillis(dateInput: string): number {
+  const [year, month, day] = dateInput.split('-').map(Number);
+  return new Date(year ?? 1970, (month ?? 1) - 1, day ?? 1, 0, 0, 0, 0).getTime();
+}
+
+/**
+ * Milisegundos del fin del día local ('YYYY-MM-DD' → 23:59:59.999). Cota superior
+ * inclusiva del filtro por rango de fechas del Registro (§8.2).
+ */
+export function dayEndMillis(dateInput: string): number {
+  const [year, month, day] = dateInput.split('-').map(Number);
+  return new Date(year ?? 1970, (month ?? 1) - 1, day ?? 1, 23, 59, 59, 999).getTime();
+}
+
+/** Milisegundos → 'YYYY-MM-DD' local, para rehidratar un `<input type="date">`. */
+export function millisToDateInput(ms: number): string {
+  const d = new Date(ms);
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${month}-${day}`;
+}
+
 /** Etiqueta de mes: "junio 2026" a partir de 'YYYY-MM'. */
 export function formatMonthLabel(month: string): string {
   const [year, m] = month.split('-').map(Number);
