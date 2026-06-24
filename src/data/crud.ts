@@ -93,6 +93,18 @@ export async function archive<T extends BaseDoc & Archivable>(
   });
 }
 
+/** Deshace el archivado: vuelve a las listas activas. Inverso de `archive`. */
+export async function unarchive<T extends BaseDoc & Archivable>(
+  col: Col<T>,
+  id: string,
+): Promise<void> {
+  await updateDoc(rawDoc(col, id), {
+    archived: false,
+    archivedAt: null,
+    updatedAt: serverTimestamp(),
+  });
+}
+
 /** Borrado físico. Usar solo cuando NO hay histórico asociado (si lo hay, usar archive). */
 export async function hardDelete<T extends BaseDoc>(col: Col<T>, id: string): Promise<void> {
   await deleteDoc(doc(col, id));
