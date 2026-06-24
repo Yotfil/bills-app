@@ -25,6 +25,13 @@ vi.mock('../../data/accountRepository', () => ({
   updateAccount: vi.fn(),
 }));
 
+vi.mock('../../data/fixedMonthlyRepository', () => ({
+  subscribeFixedMonthly: (_uid: string, _month: string, cb: (items: unknown[]) => void) => {
+    cb([]);
+    return () => {};
+  },
+}));
+
 beforeEach(() => {
   useSessionStore.setState({
     user: { uid: 'u1', email: 'a@b.co', displayName: null },

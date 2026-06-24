@@ -10,7 +10,7 @@ const ITEMS: MenuItem[] = [
   { to: '/mas/tarjetas', label: 'Tarjetas', hint: 'Cupo y deuda', ready: true },
   { to: '/mas/creditos', label: 'Créditos', hint: 'Amortización y progreso', ready: false },
   { to: '/mas/categorias', label: 'Categorías', hint: 'Administrar categorías', ready: false },
-  { to: '/mas/fijos', label: 'Obligaciones fijas', hint: 'Plantilla mensual', ready: false },
+  { to: '/mas/fijos', label: 'Obligaciones fijas', hint: 'Plantilla mensual', ready: true },
   { to: '/mas/presupuestos', label: 'Presupuestos', hint: 'Topes por categoría', ready: false },
 ];
 

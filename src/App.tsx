@@ -9,7 +9,8 @@ import { CardsScreen } from './ui/screens/CardsScreen';
 import { AddTransactionScreen } from './ui/screens/AddTransactionScreen';
 import { RegistroScreen } from './ui/screens/RegistroScreen';
 import { DashboardScreen } from './ui/screens/dashboard/DashboardScreen';
-import { Placeholder } from './ui/screens/Placeholder';
+import { FijosScreen } from './ui/screens/fijos/FijosScreen';
+import { FixedTemplatesScreen } from './ui/screens/fijos/FixedTemplatesScreen';
 
 // Raíz: decide qué mostrar según el estado de la sesión (CLAUDE.md §3).
 //   loading         → splash mientras Firebase resuelve si hay sesión
@@ -38,10 +39,11 @@ function App() {
             <Route path="/" element={<DashboardScreen />} />
             <Route path="/registro" element={<RegistroScreen />} />
             <Route path="/agregar" element={<AddTransactionScreen />} />
-            <Route path="/fijos" element={<Placeholder title="Fijos" step="Paso 9" />} />
+            <Route path="/fijos" element={<FijosScreen />} />
             <Route path="/mas" element={<MoreScreen />} />
             <Route path="/mas/cuentas" element={<AccountsScreen />} />
             <Route path="/mas/tarjetas" element={<CardsScreen />} />
+            <Route path="/mas/fijos" element={<FixedTemplatesScreen />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         </Routes>

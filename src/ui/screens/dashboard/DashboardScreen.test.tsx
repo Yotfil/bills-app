@@ -39,6 +39,12 @@ vi.mock('../../../data/transactionRepository', () => ({
     return () => {};
   },
 }));
+vi.mock('../../../data/fixedMonthlyRepository', () => ({
+  subscribeFixedMonthly: (_uid: string, _month: string, cb: (i: unknown[]) => void) => {
+    cb([]);
+    return () => {};
+  },
+}));
 
 beforeEach(() => {
   useSessionStore.setState({
