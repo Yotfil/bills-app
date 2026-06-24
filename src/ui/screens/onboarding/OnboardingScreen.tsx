@@ -59,15 +59,17 @@ export function OnboardingScreen() {
 
   // Termina (o salta) el onboarding: lo marca completado para no quedar atrapado y entra a la
   // app. Se puede volver luego desde el dashboard (ruta /onboarding).
-  async function handleFinish() {
+  //
+  // Navegamos de INMEDIATO según la intención del usuario y persistimos el flag en segundo
+  // plano. Si esperáramos el ACK del servidor antes de `navigate('/')`, ese await (lento bajo
+  // mala señal) dispararía un navigate('/') TARDÍO que sacaría al usuario de donde ya navegó
+  // (entró a la app vía el snapshot local optimista). La persistencia offline garantiza que
+  // la escritura se sincroniza igual.
+  function handleFinish() {
     if (!uid) return;
     setFinishing(true);
-    try {
-      await completeOnboarding(uid);
-      navigate('/');
-    } finally {
-      setFinishing(false);
-    }
+    void completeOnboarding(uid);
+    navigate('/');
   }
 
   return (
