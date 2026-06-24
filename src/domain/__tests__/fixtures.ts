@@ -88,6 +88,7 @@ export function makeLoan(partial: Partial<Loan> = {}): Loan {
     monthlyPayment: 500_000,
     annualRate: null,
     startDate: null,
+    linkedFixedTemplateId: null,
     ...partial,
   };
 }

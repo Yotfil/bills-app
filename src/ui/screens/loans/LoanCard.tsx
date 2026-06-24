@@ -6,7 +6,17 @@ import { addMonths, currentMonthKey, formatMonthLabel } from '../../../lib/date'
 import type { LoanCardProps } from './LoanCardProps';
 
 // Crédito grande con barra de amortización y fecha estimada de pago (CLAUDE.md §5.6).
-export function LoanCard({ loan, onPay, onEdit, onArchive, onDelete }: LoanCardProps) {
+export function LoanCard({
+  loan,
+  linked,
+  cuotaPaid,
+  monthLabel,
+  onPay,
+  onUndoCuota,
+  onEdit,
+  onArchive,
+  onDelete,
+}: LoanCardProps) {
   const progress = loanProgress(loan);
   const pct = Math.round(progress * 100);
   const paid = loan.originalAmount - loan.cachedBalance;
@@ -55,13 +65,41 @@ export function LoanCard({ loan, onPay, onEdit, onArchive, onDelete }: LoanCardP
         </div>
       </dl>
 
-      <button
-        type="button"
-        onClick={onPay}
-        className="mt-3 w-full rounded-lg bg-slate-800 py-2 text-sm font-medium text-white"
-      >
-        Pagar cuota
-      </button>
+      {/* Cuota del mes ligada a un fijo (§5.6): muestra a qué mes corresponde y si está paga. */}
+      {linked && (
+        <div className="mt-3 flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2">
+          <span className="text-xs text-slate-500">
+            Cuota de <span className="capitalize">{monthLabel}</span>
+          </span>
+          {cuotaPaid ? (
+            <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-700">
+              Pagada
+            </span>
+          ) : (
+            <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-700">
+              Pendiente
+            </span>
+          )}
+        </div>
+      )}
+
+      {linked && cuotaPaid ? (
+        <button
+          type="button"
+          onClick={onUndoCuota}
+          className="mt-2 w-full rounded-lg border border-slate-300 py-2 text-sm font-medium text-slate-600"
+        >
+          Deshacer pago de la cuota
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={onPay}
+          className="mt-2 w-full rounded-lg bg-slate-800 py-2 text-sm font-medium text-white"
+        >
+          Pagar cuota
+        </button>
+      )}
     </li>
   );
 }
