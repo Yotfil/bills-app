@@ -24,7 +24,6 @@ const ITEMS: MenuItem[] = [
     hint: 'Restaurar o eliminar lo archivado',
     ready: true,
   },
-  { to: '/mas/datos', label: 'Sembrar mis datos', hint: 'Carga inicial (temporal)', ready: true },
 ];
 
 export function MoreScreen() {
