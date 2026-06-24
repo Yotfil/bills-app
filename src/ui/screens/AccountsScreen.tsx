@@ -3,6 +3,7 @@ import { useUserCollection } from '../hooks/useUserCollection';
 import { useFixedMonthly } from '../hooks/useFixedMonthly';
 import { useSessionStore } from '../../store/sessionStore';
 import { AccountForm } from './AccountForm';
+import { ReconcileModal } from './ReconcileModal';
 import { formatCop } from '../../lib/currency';
 import { accountAvailable, accountReserved } from '../../domain/derived';
 import { currentMonthKey } from '../../lib/date';
@@ -19,6 +20,7 @@ export function AccountsScreen() {
   const uid = useSessionStore((s) => s.user?.uid);
   const { items, loading } = useUserCollection<Account>(subscribeAccounts);
   const [editing, setEditing] = useState<Account | null>(null);
+  const [reconciling, setReconciling] = useState<Account | null>(null);
   const [creating, setCreating] = useState(false);
 
   const accounts = items.filter((a) => !a.archived).sort((a, b) => a.sortOrder - b.sortOrder);
@@ -93,6 +95,13 @@ export function AccountsScreen() {
                   <dd className="text-sm font-semibold text-emerald-600">{formatCop(available)}</dd>
                 </div>
               </dl>
+              <button
+                type="button"
+                onClick={() => setReconciling(account)}
+                className="mt-3 w-full rounded-lg border border-slate-200 py-2 text-sm text-slate-500"
+              >
+                Reconciliar saldo
+              </button>
             </li>
           );
         })}
@@ -100,6 +109,11 @@ export function AccountsScreen() {
 
       <AccountForm open={creating} onClose={() => setCreating(false)} />
       <AccountForm open={!!editing} account={editing} onClose={() => setEditing(null)} />
+      <ReconcileModal
+        open={!!reconciling}
+        account={reconciling}
+        onClose={() => setReconciling(null)}
+      />
     </div>
   );
 }
