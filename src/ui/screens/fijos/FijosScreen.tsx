@@ -19,6 +19,7 @@ import {
   markFixedPaidWithoutTransaction,
   markFixedPending,
   payFixed,
+  revertFixedPayment,
 } from '../../../data/fixedMonthlyRepository';
 import type { PayFixedInput } from '../../../data/PayFixedInput';
 import type {
@@ -76,6 +77,15 @@ export function FijosScreen() {
   async function handlePay(input: PayFixedInput) {
     if (!uid || !paying) return;
     await payFixed(uid, paying, input);
+  }
+
+  async function handleRevert(fixed: FixedObligationMonthly) {
+    if (!uid) return;
+    const msg = fixed.transactionId
+      ? '¿Deshacer el pago? Se eliminará el movimiento y el dinero volverá a la cuenta de origen.'
+      : '¿Deshacer? Volverá a pendiente (no hubo movimiento, no se devuelve dinero).';
+    if (!confirm(msg)) return;
+    await revertFixedPayment(uid, fixed);
   }
 
   return (
@@ -141,6 +151,7 @@ export function FijosScreen() {
             onUnallocate={() => uid && markFixedPending(uid, fixed.id)}
             onPay={() => setPaying(fixed)}
             onMarkPaid={() => uid && markFixedPaidWithoutTransaction(uid, fixed.id)}
+            onRevert={() => handleRevert(fixed)}
           />
         ))}
       </ul>

@@ -12,7 +12,7 @@ import {
 } from 'firebase/firestore';
 import { fixedMonthlyCol, fixedTemplatesCol } from './collections';
 import { create, listAll } from './crud';
-import { createTransaction } from './transactionService';
+import { createTransaction, deleteTransaction } from './transactionService';
 import { generateMonthlyFixeds } from '../domain/rollover';
 import { buildTransactionFromFixed } from '../domain/fixed';
 import { nowTimestamp } from '../lib/date';
@@ -134,6 +134,26 @@ export async function payFixed(
     paymentMethod: input.paymentMethod,
     transactionId,
     paidAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+}
+
+/**
+ * Deshace el pago de un fijo (Pagado → Pendiente). Si el pago creó un movimiento, lo elimina:
+ * eso DEVUELVE el dinero a la cuenta de origen (revierte el efecto en los saldos, §9.3). Si se
+ * marcó con "Ya estaba pagado" (sin movimiento), no hay nada que devolver.
+ */
+export async function revertFixedPayment(
+  uid: string,
+  fixed: FixedObligationMonthly,
+): Promise<void> {
+  if (fixed.transactionId) {
+    await deleteTransaction(uid, fixed.transactionId);
+  }
+  await updateDoc(rawDoc(uid, fixed.id), {
+    status: 'pending',
+    transactionId: null,
+    paidAt: null,
     updatedAt: serverTimestamp(),
   });
 }

@@ -6,4 +6,5 @@ export interface FixedRowProps {
   onUnallocate: () => void; // destinado → pendiente (deshacer)
   onPay: () => void; // abrir el flujo de pago (crea movimiento)
   onMarkPaid: () => void; // marcar pagado SIN movimiento ("ya estaba pagado")
+  onRevert: () => void; // deshacer el pago (devuelve el dinero si hubo movimiento)
 }
