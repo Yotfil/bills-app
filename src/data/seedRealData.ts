@@ -28,6 +28,8 @@ export async function seedRealData(uid: string): Promise<SeedResult> {
       type: a.type,
       initialBalance: a.balance,
       savingsBucket: a.savingsBucket ?? false,
+      foreignCurrency: a.foreignCurrency ?? null,
+      foreignAmount: a.foreignAmount ?? null,
     });
     refByName.set(a.name, { kind: 'account', id });
   }

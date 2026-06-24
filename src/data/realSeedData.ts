@@ -8,6 +8,8 @@ export type SeedAccount = {
   type: AccountType;
   balance: number;
   savingsBucket?: boolean;
+  foreignCurrency?: string;
+  foreignAmount?: number;
 };
 export type SeedCard = { name: string; creditLimit: number; debt: number };
 export type SeedLoan = {
@@ -33,8 +35,16 @@ export const SEED_ACCOUNTS: SeedAccount[] = [
   { name: 'Cajitas Nu', type: 'term_deposit', balance: 5_650_428, savingsBucket: true },
   { name: 'Davivienda', type: 'savings', balance: 19_020 },
   { name: 'AV Villas', type: 'savings', balance: 40_967 },
-  // Global66 está en USD; la app es COP, así que guardamos el equivalente (9.918 USD × ~3.433).
-  { name: 'Global66', type: 'savings', balance: 34_051_370 },
+  // Global66 está en USD; el saldo se guarda en COP (9.918 USD × ~3.433) y va a la bolsa de
+  // ahorro (no cuenta en el disponible). El monto en USD queda como referencia.
+  {
+    name: 'Global66',
+    type: 'savings',
+    balance: 34_051_370,
+    savingsBucket: true,
+    foreignCurrency: 'USD',
+    foreignAmount: 9_918,
+  },
   { name: 'Efectivo', type: 'cash', balance: 150_000 },
   { name: 'Ahorros billetes 2mil', type: 'cash', balance: 200_000, savingsBucket: true },
 ];
