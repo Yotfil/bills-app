@@ -23,7 +23,12 @@ export async function seedRealData(uid: string): Promise<SeedResult> {
   const refByName = new Map<string, EntityRef>();
 
   for (const a of SEED_ACCOUNTS) {
-    const id = await createAccount(uid, { name: a.name, type: a.type, initialBalance: a.balance });
+    const id = await createAccount(uid, {
+      name: a.name,
+      type: a.type,
+      initialBalance: a.balance,
+      savingsBucket: a.savingsBucket ?? false,
+    });
     refByName.set(a.name, { kind: 'account', id });
   }
   for (const c of SEED_CARDS) {

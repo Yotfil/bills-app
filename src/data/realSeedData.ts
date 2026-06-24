@@ -3,7 +3,12 @@
 // Nota: Global66 = 9.918 (pendiente confirmar si es COP o USD).
 import type { AccountType, FixedPayKind } from '../domain/types';
 
-export type SeedAccount = { name: string; type: AccountType; balance: number };
+export type SeedAccount = {
+  name: string;
+  type: AccountType;
+  balance: number;
+  savingsBucket?: boolean;
+};
 export type SeedCard = { name: string; creditLimit: number; debt: number };
 export type SeedLoan = {
   name: string;
@@ -25,12 +30,12 @@ export type SeedFixed = {
 export const SEED_ACCOUNTS: SeedAccount[] = [
   { name: 'Bancolombia', type: 'savings', balance: 1_475_049 },
   { name: 'Nu', type: 'savings', balance: 1_708 },
-  { name: 'Cajitas Nu', type: 'term_deposit', balance: 5_650_428 },
+  { name: 'Cajitas Nu', type: 'term_deposit', balance: 5_650_428, savingsBucket: true },
   { name: 'Davivienda', type: 'savings', balance: 19_020 },
   { name: 'AV Villas', type: 'savings', balance: 40_967 },
   { name: 'Global66', type: 'savings', balance: 9_918 },
   { name: 'Efectivo', type: 'cash', balance: 150_000 },
-  { name: 'Ahorros billetes 2mil', type: 'cash', balance: 200_000 },
+  { name: 'Ahorros billetes 2mil', type: 'cash', balance: 200_000, savingsBucket: true },
 ];
 
 export const SEED_CARDS: SeedCard[] = [

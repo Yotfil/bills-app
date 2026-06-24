@@ -17,6 +17,7 @@ export function buildAccountCreateInput(input: NewAccount): CreateInput<Account>
     type: input.type,
     initialBalance: input.initialBalance,
     cachedBalance: input.initialBalance,
+    savingsBucket: input.savingsBucket ?? false,
     color: input.color ?? '#64748b',
     icon: input.icon ?? 'wallet',
     sortOrder: input.sortOrder ?? 0,
@@ -34,7 +35,7 @@ export const createAccount = (uid: string, input: NewAccount) =>
 // El saldo no se edita a mano (se corrige reconciliando, §5.7). Aquí solo metadatos.
 export type EditableAccountFields = Pick<
   UpdateInput<Account>,
-  'name' | 'type' | 'color' | 'icon' | 'sortOrder'
+  'name' | 'type' | 'savingsBucket' | 'color' | 'icon' | 'sortOrder'
 >;
 
 export const updateAccount = (uid: string, id: string, data: EditableAccountFields) =>

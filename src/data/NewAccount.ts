@@ -5,6 +5,7 @@ export interface NewAccount {
   name: string;
   type: AccountType;
   initialBalance: number; // semilla del onboarding
+  savingsBucket?: boolean; // true = bolsa de ahorro (sección Ahorros, no cuenta en disponible)
   color?: string;
   icon?: string;
   sortOrder?: number;
