@@ -8,7 +8,7 @@
 > `CLAUDE.md`. Este archivo solo lleva el **estado de avance**.
 
 **Última actualización:** 2026-06-23
-**Estado general:** 🟢 Pasos 1–6 completos. Siguiente: Paso 7 (Registro de transacciones: captura cero fricción + efectos en saldos).
+**Estado general:** 🟢 Pasos 1–7 completos. Siguiente: Paso 8 (Dashboard: número-héroe + resumen + dona por categoría).
 
 ---
 
@@ -30,7 +30,7 @@
 | 4 | Capa de dominio: tipos (§9.1), validación (§11), funciones puras de saldos/estados | ✅ | `types.ts`, `validation.ts`, `ledger.ts`, `derived.ts`, `fixed.ts`, `reconciliation.ts`, `reports.ts`. 58 unit tests en verde (catálogo convertido). Pura, sin React/Firebase. Quedan `it.todo`: rollover (→Paso 9) y exchange-rate (→Paso 13). |
 | 5 | Capa de datos: repositorios + converters Firestore (§9.2) | ✅ | `converters.ts` (genérico, quita/rehidrata `id`), `collections.ts` (refs tipadas por uid), `crud.ts` (list/subscribe/get/create/update/archive), `transactionService.ts` (create/edit/delete con `runTransaction` + `increment` + recálculo de cuentas). 3 tests de converter. Integración con emulador = pendiente. |
 | 6 | Cuentas y tarjetas (CRUD) + saldos derivados | ✅ | `accountRepository`/`cardRepository` + hook `useUserCollection` (tiempo real). Pantallas `AccountsScreen`/`CardsScreen` (CRUD + saldo/reservado/disponible y cupo/deuda). **Esqueleto de navegación**: router + `AppLayout` (barra inferior §8) + `MoreScreen`. 4 tests. Reservado=0 hasta el Paso 9. |
-| 7 | Registro de transacciones (captura cero fricción) + efectos en saldos | ⬜ | — |
+| 7 | Registro de transacciones (captura cero fricción) + efectos en saldos | ✅ | `TransactionForm` (4 tipos, gasto por defecto, monto→categoría→resto, hormiga, último medio recordado), `AddTransactionScreen`, `RegistroScreen` (agrupado por día + editar/eliminar). Categorías base (§6) sembradas en 1er login. `transactionRepository` (lista), `buildManualTransactionDraft` (puro, 6 tests). Falta: filtros/búsqueda §8.2; pagos a crédito (loans→Paso 12). |
 | 8 | Dashboard (número-héroe + resumen + dona por categoría) | ⬜ | — |
 | 9 | Fijos: plantilla, instancia mensual, 3 estados, reservado, fijo→registro al pagar | ⬜ | — |
 | 10 | Reconciliación por cuenta | ⬜ | — |
@@ -64,6 +64,25 @@ asumir y anotar la respuesta aquí.)*
   Firestore vía la capa `data/`; los stores **orquestan, no contienen reglas de negocio**
   (esas viven en `domain/`). Primer store de referencia: `sessionStore.ts` (sesión/auth),
   con test. Se alimentará desde Firebase Auth en el Paso 3.
+- **2026-06-23 — Organización de archivos (lineamiento nuevo, §13.2.1):** **un componente
+  por archivo** y **una interfaz por archivo** (dominio, props y servicios). Los type alias
+  van junto a su interfaz. Se reorganizó todo: `domain/types/` (carpeta + barrel), interfaces
+  de servicio del dominio (`LedgerDelta`, `BudgetStatus`, etc.) extraídas y reexportadas
+  desde su módulo; props de componentes en `XProps.ts`; `AccountForm`/`CardForm`/`SelectField`
+  separados de sus pantallas; stores con sus interfaces aparte. Lineamiento agregado al
+  CLAUDE.md (§13.2.1). Helpers (funciones) no requieren archivo propio.
+- **2026-06-23 — Fix login:** el formulario se estiraba a todo el ancho en escritorio; se
+  envolvió en un contenedor `mx-auto w-full max-w-sm` centrado.
+- **2026-06-23 — Registro (Paso 7):** la captura arma un `TransactionDraft` con
+  `buildManualTransactionDraft` (puro), valida (§11) y escribe vía `transactionService`
+  (efectos atómicos en saldos). Tipos soportados en captura manual: expense/income/
+  transfer/debt_payment (adjustment va por reconciliación §5.7; abonos a **crédito** llegan
+  con loans en Paso 12). **Categorías base (§6) se siembran en el primer login** desde
+  `ensureUserSettings`. Preferencias de captura (`entryPrefsStore`, persistido en
+  localStorage) recuerdan último tipo y medio de pago. RegistroScreen agrupa por día con
+  subtotal de gasto y permite editar/eliminar (recalcula/revierte saldos).
+  - **Pendiente (seguimiento):** filtros/búsqueda del Registro (§8.2) y prueba e2e real del
+    flujo "registrar gasto" (necesita Firebase con claves).
 - **2026-06-23 — Cuentas/Tarjetas + navegación (Paso 6):** patrón UI confirmado: datos de
   servidor vía hook `useUserCollection(subscribeFn)` (tiempo real, toma `uid` de la sesión);
   los componentes nunca tocan Firestore directo. Repos exponen `buildXCreateInput` puros
