@@ -25,7 +25,6 @@ export function buildLoanCreateInput(input: NewLoan): CreateInput<Loan> {
     monthlyPayment: input.monthlyPayment,
     annualRate: input.annualRate ?? null,
     startDate: null,
-    linkedFixedTemplateId: input.linkedFixedTemplateId ?? null,
     archived: false,
     archivedAt: null,
   };
@@ -40,7 +39,7 @@ export const createLoan = (uid: string, input: NewLoan) =>
 // El saldo no se edita a mano: baja con abonos. Aquí solo metadatos y parámetros del crédito.
 export type EditableLoanFields = Pick<
   UpdateInput<Loan>,
-  'name' | 'originalAmount' | 'monthlyPayment' | 'annualRate' | 'linkedFixedTemplateId'
+  'name' | 'originalAmount' | 'monthlyPayment' | 'annualRate'
 >;
 
 export const updateLoan = (uid: string, id: string, data: EditableLoanFields) =>

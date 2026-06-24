@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useUserCollection } from '../../hooks/useUserCollection';
 import { useFixedMonthly } from '../../hooks/useFixedMonthly';
 import { useSessionStore } from '../../../store/sessionStore';
@@ -8,12 +8,12 @@ import { PayLoanModal } from './PayLoanModal';
 import { BackButton } from '../../components/BackButton';
 import { ConfirmDeleteModal } from '../../components/ConfirmDeleteModal';
 import { entityHasMovements } from '../../../domain/entityUsage';
-import { linkedMonthlyCuota } from '../../../domain/loanCuota';
+import { linkedMonthlyCuota, loanHasLinkedFixed } from '../../../domain/loanCuota';
 import { archiveLoan, deleteLoan, subscribeLoans } from '../../../data/loanRepository';
 import { subscribeAccounts } from '../../../data/accountRepository';
 import { subscribeTransactions } from '../../../data/transactionRepository';
 import { subscribeFixedTemplates } from '../../../data/fixedTemplateRepository';
-import { revertFixedPayment } from '../../../data/fixedMonthlyRepository';
+import { revertFixedPayment, syncMonthlyAmount } from '../../../data/fixedMonthlyRepository';
 import { payLinkedCuota } from '../../../data/loanCuotaService';
 import { currentMonthKey, formatMonthLabel } from '../../../lib/date';
 import type { Account, FixedObligationTemplate, Loan, Transaction } from '../../../domain/types';
@@ -36,9 +36,26 @@ export function LoansScreen() {
 
   const active = loans.filter((l) => !l.archived);
 
+  // Auto-reconciliación (§5.6): la cuota ligada del mes (no pagada) debe reflejar el monto de su
+  // plantilla. Si quedó desfasada —p.ej. una instancia generada con el valor viejo que una
+  // sincronización previa no alcanzó—, se realinea sola. Converge: tras escribir, la suscripción
+  // la trae ya igual y no se vuelve a disparar. Los fijos pagados se respetan (status === 'paid').
+  useEffect(() => {
+    if (!uid) return;
+    for (const loan of loans) {
+      if (loan.archived) continue;
+      const cuota = linkedMonthlyCuota(loan, monthlyFixeds);
+      if (!cuota || cuota.status === 'paid') continue;
+      const template = templates.find((t) => t.id === cuota.templateId);
+      if (template && template.budgetedAmount !== cuota.budgetedAmount) {
+        void syncMonthlyAmount(uid, cuota.templateId, month, template.budgetedAmount);
+      }
+    }
+  }, [uid, loans, templates, monthlyFixeds, month]);
+
   // Pagar la cuota: 1 toque si está ligada (marca el fijo del mes), o abrir el modal si no.
-  function handlePay(loan: Loan) {
-    if (loan.linkedFixedTemplateId) {
+  function handlePay(loan: Loan, linked: boolean) {
+    if (linked) {
       if (uid) void payLinkedCuota(uid, loan, month);
     } else {
       setPaying(loan);
@@ -92,15 +109,16 @@ export function LoansScreen() {
 
       <ul className="flex flex-col gap-3">
         {active.map((loan) => {
+          const linked = loanHasLinkedFixed(loan, templates);
           const cuota = linkedMonthlyCuota(loan, monthlyFixeds);
           return (
             <LoanCard
               key={loan.id}
               loan={loan}
-              linked={!!loan.linkedFixedTemplateId}
+              linked={linked}
               cuotaPaid={cuota?.status === 'paid'}
               monthLabel={monthLabel}
-              onPay={() => handlePay(loan)}
+              onPay={() => handlePay(loan, linked)}
               onUndoCuota={() => handleUndoCuota(loan)}
               onEdit={() => setEditing(loan)}
               onArchive={() => handleArchive(loan)}
@@ -110,17 +128,11 @@ export function LoansScreen() {
         })}
       </ul>
 
-      <LoanForm
-        key={`create-${creating}`}
-        open={creating}
-        templates={templates}
-        onClose={() => setCreating(false)}
-      />
+      <LoanForm key={`create-${creating}`} open={creating} onClose={() => setCreating(false)} />
       <LoanForm
         key={editing?.id ?? 'edit-none'}
         open={!!editing}
         loan={editing}
-        templates={templates}
         onClose={() => setEditing(null)}
       />
       <PayLoanModal
