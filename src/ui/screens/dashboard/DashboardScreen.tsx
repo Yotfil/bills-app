@@ -15,6 +15,7 @@ import { HeroBalance } from './HeroBalance';
 import { MonthSummaryCard } from './MonthSummaryCard';
 import { FixedProgressCard } from './FixedProgressCard';
 import { CategoryDonut } from './CategoryDonut';
+import { ExchangeRateNote } from './ExchangeRateNote';
 import type { Account, Category, Transaction } from '../../../domain/types';
 
 // Dashboard / Inicio (CLAUDE.md §8.1). Debe entenderse en < 5 segundos: número-héroe,
@@ -81,8 +82,8 @@ export function DashboardScreen() {
         Ver todo el registro
       </Link>
 
-      {/* Tasa del dólar (USD→COP): referencia discreta. Servicio con caché llega en el Paso 13. */}
-      <p className="text-center text-xs text-slate-300">Tasa USD→COP · disponible pronto</p>
+      {/* Tasa del dólar (USD→COP): referencia discreta, informativa (§5.11). */}
+      <ExchangeRateNote />
     </div>
   );
 }
