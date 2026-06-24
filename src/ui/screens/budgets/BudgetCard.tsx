@@ -3,7 +3,7 @@ import type { BudgetCardProps } from './BudgetCardProps';
 
 // Tarjeta de presupuesto con progreso y aviso suave (CLAUDE.md §5.9). Calma, no culpa (§2):
 // verde mientras hay margen, ámbar cerca del tope, rojo si se superó.
-export function BudgetCard({ categoryName, status, onEdit, onArchive }: BudgetCardProps) {
+export function BudgetCard({ categoryName, status, onEdit, onArchive, onDelete }: BudgetCardProps) {
   const ratio = status.limit > 0 ? status.consumed / status.limit : 0;
   const pct = Math.min(100, Math.round(ratio * 100));
   const near = ratio >= 0.8 && !status.exceeded;
@@ -20,6 +20,9 @@ export function BudgetCard({ categoryName, status, onEdit, onArchive }: BudgetCa
           </button>
           <button type="button" onClick={onArchive} className="text-slate-400 underline">
             Archivar
+          </button>
+          <button type="button" onClick={onDelete} className="text-red-500 underline">
+            Eliminar
           </button>
         </div>
       </div>

@@ -4,9 +4,10 @@ import { useSessionStore } from '../../../store/sessionStore';
 import { BudgetCard } from './BudgetCard';
 import { BudgetForm } from './BudgetForm';
 import { BackButton } from '../../components/BackButton';
+import { ConfirmDeleteModal } from '../../components/ConfirmDeleteModal';
 import { budgetStatus } from '../../../domain/reports';
 import { currentMonthKey, monthKey } from '../../../lib/date';
-import { archiveBudget, subscribeBudgets } from '../../../data/budgetRepository';
+import { archiveBudget, deleteBudget, subscribeBudgets } from '../../../data/budgetRepository';
 import { subscribeCategories } from '../../../data/categoryRepository';
 import { subscribeTransactions } from '../../../data/transactionRepository';
 import type { Budget, Category, Transaction } from '../../../domain/types';
@@ -19,6 +20,7 @@ export function BudgetsScreen() {
   const { items: categories } = useUserCollection<Category>(subscribeCategories);
   const { items: transactions } = useUserCollection<Transaction>(subscribeTransactions);
   const [editing, setEditing] = useState<Budget | null>(null);
+  const [deleting, setDeleting] = useState<Budget | null>(null);
   const [creating, setCreating] = useState(false);
 
   const active = budgets.filter((b) => !b.archived && b.active);
@@ -33,6 +35,13 @@ export function BudgetsScreen() {
     if (!uid) return;
     if (!confirm('¿Archivar este presupuesto?')) return;
     await archiveBudget(uid, budget.id);
+  }
+
+  // Un presupuesto es solo un tope: ningún movimiento lo referencia, así que se borra siempre (§8.4).
+  async function handleDelete() {
+    if (!uid || !deleting) return;
+    await deleteBudget(uid, deleting.id);
+    setDeleting(null);
   }
 
   return (
@@ -64,6 +73,7 @@ export function BudgetsScreen() {
             status={budgetStatus(monthTxns, budget.categoryId, budget.monthlyLimit)}
             onEdit={() => setEditing(budget)}
             onArchive={() => handleArchive(budget)}
+            onDelete={() => setDeleting(budget)}
           />
         ))}
       </ul>
@@ -82,6 +92,13 @@ export function BudgetsScreen() {
         categories={categories}
         usedCategoryIds={active.map((b) => b.categoryId)}
         onClose={() => setEditing(null)}
+      />
+      <ConfirmDeleteModal
+        open={!!deleting}
+        itemLabel={deleting ? categoryName(deleting.categoryId) : ''}
+        itemKind="el presupuesto"
+        onConfirm={() => void handleDelete()}
+        onClose={() => setDeleting(null)}
       />
     </div>
   );

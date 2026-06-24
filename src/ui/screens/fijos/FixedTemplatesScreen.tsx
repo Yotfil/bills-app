@@ -4,6 +4,7 @@ import { useSessionStore } from '../../../store/sessionStore';
 import { FixedTemplateForm } from './FixedTemplateForm';
 import { BackButton } from '../../components/BackButton';
 import { SearchBar } from '../../components/SearchBar';
+import { ConfirmDeleteModal } from '../../components/ConfirmDeleteModal';
 import { formatCop } from '../../../lib/currency';
 import { matchesQuery } from '../../../lib/text';
 import { subscribeAccounts } from '../../../data/accountRepository';
@@ -12,6 +13,7 @@ import { subscribeLoans } from '../../../data/loanRepository';
 import { subscribeCategories } from '../../../data/categoryRepository';
 import {
   archiveFixedTemplate,
+  deleteFixedTemplate,
   subscribeFixedTemplates,
 } from '../../../data/fixedTemplateRepository';
 import type {
@@ -33,6 +35,7 @@ export function FixedTemplatesScreen() {
   const { items: loans } = useUserCollection<Loan>(subscribeLoans);
   const { items: categories } = useUserCollection<Category>(subscribeCategories);
   const [editing, setEditing] = useState<FixedObligationTemplate | null>(null);
+  const [deleting, setDeleting] = useState<FixedObligationTemplate | null>(null);
   const [creating, setCreating] = useState(false);
   const [search, setSearch] = useState('');
 
@@ -44,6 +47,14 @@ export function FixedTemplatesScreen() {
     if (!uid) return;
     if (!confirm(`¿Archivar el fijo "${template.name}"? No se generará en próximos meses.`)) return;
     await archiveFixedTemplate(uid, template.id);
+  }
+
+  // La plantilla es solo el molde del rollover; las instancias mensuales son snapshots
+  // autocontenidos, así que borrarla no rompe el histórico (§8.4): se puede eliminar siempre.
+  async function handleDelete() {
+    if (!uid || !deleting) return;
+    await deleteFixedTemplate(uid, deleting.id);
+    setDeleting(null);
   }
 
   return (
@@ -102,6 +113,13 @@ export function FixedTemplatesScreen() {
               >
                 Archivar
               </button>
+              <button
+                type="button"
+                onClick={() => setDeleting(template)}
+                className="text-red-500 underline"
+              >
+                Eliminar
+              </button>
             </div>
           </li>
         ))}
@@ -125,6 +143,13 @@ export function FixedTemplatesScreen() {
         loans={loans}
         categories={categories}
         onClose={() => setEditing(null)}
+      />
+      <ConfirmDeleteModal
+        open={!!deleting}
+        itemLabel={deleting?.name ?? ''}
+        itemKind="la obligación fija"
+        onConfirm={() => void handleDelete()}
+        onClose={() => setDeleting(null)}
       />
     </div>
   );
