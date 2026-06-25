@@ -121,7 +121,7 @@ export function FixedTemplatesScreen() {
         totalCount={active.length}
         allSelected={allVisibleSelected}
         onToggleAll={toggleAllVisible}
-        onDelete={() => setBulkDeleting(true)}
+        actions={[{ label: 'Limpiar', danger: true, onClick: () => setBulkDeleting(true) }]}
       />
 
       {loading && <p className="text-slate-400">Cargando…</p>}
