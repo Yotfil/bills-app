@@ -165,11 +165,11 @@ export function TransactionForm({ existing, onDone }: TransactionFormProps) {
                 key={cat.id}
                 type="button"
                 onClick={() => setCategoryId(cat.id)}
-                className={`flex flex-col items-center gap-1 rounded-xl border p-2 text-[11px] ${
+                className={`flex flex-col items-center gap-0.5 rounded-lg border px-1 py-1.5 text-[10px] ${
                   categoryId === cat.id ? 'border-slate-800 bg-slate-50' : 'border-slate-200'
                 }`}
               >
-                <span className="text-lg">{cat.icon}</span>
+                <span className="text-sm">{cat.icon}</span>
                 <span className="text-center leading-tight text-slate-600">{cat.name}</span>
               </button>
             ))}
