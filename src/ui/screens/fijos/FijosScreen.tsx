@@ -6,6 +6,7 @@ import { useSessionStore } from '../../../store/sessionStore';
 import { MonthSelector } from '../../components/MonthSelector';
 import { DisponibleRealBar } from '../../components/DisponibleRealBar';
 import { SearchBar } from '../../components/SearchBar';
+import { BulkSelectBar } from '../../components/BulkSelectBar';
 import { matchesQuery } from '../../../lib/text';
 import { FixedTotalsBar } from './FixedTotalsBar';
 import { FixedRow } from './FixedRow';
@@ -17,6 +18,7 @@ import { subscribeCards } from '../../../data/cardRepository';
 import { subscribeLoans } from '../../../data/loanRepository';
 import { subscribeFixedTemplates } from '../../../data/fixedTemplateRepository';
 import {
+  deleteFixedMonthly,
   generateFixedMonthly,
   markFixedAllocated,
   markFixedPaidWithoutTransaction,
@@ -48,6 +50,9 @@ export function FijosScreen() {
   const [paying, setPaying] = useState<FixedObligationMonthly | null>(null);
   const [generating, setGenerating] = useState(false);
   const [search, setSearch] = useState('');
+  // Selección para acciones masivas (§8.3): mismo patrón que la plantilla. Aquí hay DOS acciones,
+  // eliminar y marcar pagados sin movimiento.
+  const [selected, setSelected] = useState<Set<string>>(new Set());
 
   const sorted = [...fijos]
     .filter((f) => matchesQuery(search, f.name))
@@ -57,6 +62,64 @@ export function FijosScreen() {
   const totals = fixedTotals(fijos);
   const activeTemplates = templates.filter((t) => t.active && !t.archived);
   const unpaid = fijos.filter((f) => f.status !== 'paid');
+
+  // La selección se cuenta solo sobre lo VISIBLE (respeta el buscador).
+  const selectedFijos = sorted.filter((f) => selected.has(f.id));
+  const allVisibleSelected = sorted.length > 0 && selectedFijos.length === sorted.length;
+
+  function toggleOne(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleAllVisible() {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (allVisibleSelected) sorted.forEach((f) => next.delete(f.id));
+      else sorted.forEach((f) => next.add(f.id));
+      return next;
+    });
+  }
+
+  function clearSelection() {
+    setSelected(new Set());
+  }
+
+  async function handleBulkMarkPaid() {
+    if (!uid) return;
+    // Solo aplica a los que NO están pagados (marcar pagado uno ya pagado no tiene sentido).
+    const targets = selectedFijos.filter((f) => f.status !== 'paid');
+    if (targets.length === 0) {
+      clearSelection();
+      return;
+    }
+    if (
+      !confirm(
+        `¿Marcar ${targets.length} fijo(s) como pagados, sin crear movimientos ni tocar saldos?`,
+      )
+    ) {
+      return;
+    }
+    await Promise.all(targets.map((f) => markFixedPaidWithoutTransaction(uid, f.id)));
+    clearSelection();
+  }
+
+  async function handleBulkDelete() {
+    if (!uid || selectedFijos.length === 0) return;
+    if (
+      !confirm(
+        `¿Eliminar ${selectedFijos.length} fijo(s) de este mes? Si alguno tenía movimiento, se revertirá (el dinero vuelve a su cuenta). No se puede deshacer.`,
+      )
+    ) {
+      return;
+    }
+    await Promise.all(selectedFijos.map((f) => deleteFixedMonthly(uid, f)));
+    clearSelection();
+  }
 
   async function handleMarkAllPaid() {
     if (!uid || unpaid.length === 0) return;
@@ -115,7 +178,7 @@ export function FijosScreen() {
         <SearchBar value={search} onChange={setSearch} placeholder="Buscar fijo…" />
       )}
 
-      {unpaid.length > 1 && (
+      {unpaid.length > 1 && selected.size === 0 && (
         <button
           type="button"
           onClick={handleMarkAllPaid}
@@ -124,6 +187,17 @@ export function FijosScreen() {
           Marcar los {unpaid.length} como pagados (sin movimiento)
         </button>
       )}
+
+      <BulkSelectBar
+        selectedCount={selectedFijos.length}
+        totalCount={sorted.length}
+        allSelected={allVisibleSelected}
+        onToggleAll={toggleAllVisible}
+        actions={[
+          { label: 'Marcar pagados', onClick: () => void handleBulkMarkPaid() },
+          { label: 'Eliminar', danger: true, onClick: () => void handleBulkDelete() },
+        ]}
+      />
 
       {loading && <p className="text-slate-400">Cargando…</p>}
 
@@ -162,6 +236,8 @@ export function FijosScreen() {
           <FixedRow
             key={fixed.id}
             fixed={fixed}
+            selected={selected.has(fixed.id)}
+            onToggleSelect={() => toggleOne(fixed.id)}
             onAllocate={() => uid && markFixedAllocated(uid, fixed.id)}
             onUnallocate={() => uid && markFixedPending(uid, fixed.id)}
             onPay={() => setPaying(fixed)}
