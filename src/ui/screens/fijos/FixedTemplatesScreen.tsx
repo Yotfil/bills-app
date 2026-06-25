@@ -5,6 +5,7 @@ import { FixedTemplateForm } from './FixedTemplateForm';
 import { BackButton } from '../../components/BackButton';
 import { SearchBar } from '../../components/SearchBar';
 import { ActionMenu } from '../../components/ActionMenu';
+import { BulkSelectBar } from '../../components/BulkSelectBar';
 import { ConfirmDeleteModal } from '../../components/ConfirmDeleteModal';
 import { formatCop } from '../../../lib/currency';
 import { matchesQuery } from '../../../lib/text';
@@ -39,10 +40,49 @@ export function FixedTemplatesScreen() {
   const [deleting, setDeleting] = useState<FixedObligationTemplate | null>(null);
   const [creating, setCreating] = useState(false);
   const [search, setSearch] = useState('');
+  // Selección para acciones masivas (§8.4). Guarda los ids marcados; el borrado masivo los
+  // elimina en paralelo. Las plantillas se pueden borrar siempre (son moldes, no histórico).
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
 
   const allActive = templates.filter((t) => !t.archived).sort((a, b) => a.sortOrder - b.sortOrder);
   const active = allActive.filter((t) => matchesQuery(search, t.name));
   const categoryName = (id: string) => categories.find((c) => c.id === id)?.name;
+
+  // La selección se cuenta solo sobre lo VISIBLE (respeta el filtro de búsqueda): así
+  // "seleccionar todas" y el conteo no incluyen ítems ocultos por el buscador.
+  const visibleSelectedCount = active.filter((t) => selected.has(t.id)).length;
+  const allVisibleSelected = active.length > 0 && visibleSelectedCount === active.length;
+
+  function toggleOne(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleAllVisible() {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (allVisibleSelected) active.forEach((t) => next.delete(t.id));
+      else active.forEach((t) => next.add(t.id));
+      return next;
+    });
+  }
+
+  function clearSelection() {
+    setSelected(new Set());
+  }
+
+  async function handleBulkDelete() {
+    if (!uid) return;
+    const ids = active.filter((t) => selected.has(t.id)).map((t) => t.id);
+    await Promise.all(ids.map((id) => deleteFixedTemplate(uid, id)));
+    clearSelection();
+    setBulkDeleting(false);
+  }
 
   async function handleArchive(template: FixedObligationTemplate) {
     if (!uid) return;
@@ -76,6 +116,14 @@ export function FixedTemplatesScreen() {
         <SearchBar value={search} onChange={setSearch} placeholder="Buscar obligación…" />
       )}
 
+      <BulkSelectBar
+        selectedCount={visibleSelectedCount}
+        totalCount={active.length}
+        allSelected={allVisibleSelected}
+        onToggleAll={toggleAllVisible}
+        actions={[{ label: 'Limpiar', danger: true, onClick: () => setBulkDeleting(true) }]}
+      />
+
       {loading && <p className="text-slate-400">Cargando…</p>}
       {!loading && allActive.length === 0 && (
         <p className="text-slate-500">Aún no tienes obligaciones fijas. Crea la primera.</p>
@@ -88,9 +136,18 @@ export function FixedTemplatesScreen() {
         {active.map((template) => (
           <li
             key={template.id}
-            className="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-4"
+            className={`flex items-center gap-3 rounded-xl border bg-white p-4 ${
+              selected.has(template.id) ? 'border-slate-800 ring-1 ring-slate-800' : 'border-slate-200'
+            }`}
           >
-            <div className="min-w-0">
+            <input
+              type="checkbox"
+              checked={selected.has(template.id)}
+              onChange={() => toggleOne(template.id)}
+              aria-label={`Seleccionar ${template.name}`}
+              className="h-5 w-5 shrink-0 accent-slate-800"
+            />
+            <div className="min-w-0 flex-1">
               <p className="truncate font-semibold text-slate-800">{template.name}</p>
               <p className="text-xs text-slate-400">
                 {formatCop(template.budgetedAmount)} ·{' '}
@@ -141,6 +198,13 @@ export function FixedTemplatesScreen() {
         itemKind="la obligación fija"
         onConfirm={() => void handleDelete()}
         onClose={() => setDeleting(null)}
+      />
+      <ConfirmDeleteModal
+        open={bulkDeleting}
+        itemLabel={`${visibleSelectedCount} obligaciones fijas seleccionadas`}
+        itemKind="obligaciones fijas"
+        onConfirm={() => void handleBulkDelete()}
+        onClose={() => setBulkDeleting(false)}
       />
     </div>
   );
