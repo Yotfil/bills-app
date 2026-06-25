@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { registerNewUser, uniqueEmail } from './helpers';
+import { allowEmail, registerNewUser, uniqueEmail } from './helpers';
 
 // Login (CLAUDE.md §12.2). Contra el Auth emulator: registramos un usuario nuevo y luego
 // iniciamos sesión con sus credenciales. El flujo de Google usa el widget del emulador.
@@ -42,11 +42,15 @@ test('inicio de sesión con Google (widget del emulador)', async ({ page, contex
   const popup = await popupPromise;
   await popup.waitForLoadState();
 
-  // Widget del emulador: agregar una cuenta nueva y autogenerar sus datos.
+  // Widget del emulador: agregar una cuenta nueva. Autogeneramos los datos y luego leemos el
+  // correo del formulario para APROBARLO en la allowlist (early access) antes de firmar; si no,
+  // el usuario de Google caería en la pantalla "sin acceso" en vez del onboarding.
   await popup.getByRole('button', { name: 'Add new account' }).click();
   await popup.getByRole('button', { name: 'Auto-generate user information' }).click();
+  const email = await popup.locator('#email-input').inputValue();
+  await allowEmail(email);
   await popup.getByRole('button', { name: /Sign in with/ }).click();
 
-  // De vuelta en la app: usuario nuevo → onboarding.
+  // De vuelta en la app: usuario nuevo aprobado → onboarding.
   await expect(page.getByRole('button', { name: 'Empecemos' })).toBeVisible();
 });

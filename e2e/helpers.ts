@@ -12,11 +12,33 @@ export function uniqueEmail(): string {
 
 const PASSWORD = 'test1234';
 
+const FIRESTORE_EMULATOR_HOST = '127.0.0.1:8080';
+const EMULATOR_PROJECT = 'demo-bills';
+
+/**
+ * Aprueba un correo en la allowlist (early access) saltándose las reglas vía la REST API del
+ * emulador de Firestore (`Authorization: Bearer owner` = admin). En producción la lista la
+ * administra el dueño desde la consola; en los e2e la sembramos para que el usuario de prueba
+ * pase el candado y llegue al onboarding/app en vez de la pantalla "sin acceso".
+ */
+export async function allowEmail(email: string): Promise<void> {
+  const path = `projects/${EMULATOR_PROJECT}/databases/(default)/documents/allowlist/${encodeURIComponent(email)}`;
+  const res = await fetch(`http://${FIRESTORE_EMULATOR_HOST}/v1/${path}`, {
+    method: 'PATCH',
+    headers: { Authorization: 'Bearer owner', 'Content-Type': 'application/json' },
+    body: JSON.stringify({ fields: {} }),
+  });
+  if (!res.ok) throw new Error(`No se pudo sembrar la allowlist (${res.status})`);
+}
+
 /**
  * Registra un usuario nuevo por correo/contraseña y espera a aterrizar en el onboarding
  * (todo usuario nuevo arranca con `onboardingCompleted = false`).
  */
 export async function registerNewUser(page: Page, email = uniqueEmail()): Promise<string> {
+  // Aprueba el correo ANTES de registrarse, para que el chequeo de allowlist (al autenticarse)
+  // lo deje pasar al onboarding en vez de la pantalla "sin acceso".
+  await allowEmail(email);
   await page.goto('/');
   await page.getByRole('button', { name: 'Regístrate' }).click();
   await page.getByPlaceholder('Correo').fill(email);
