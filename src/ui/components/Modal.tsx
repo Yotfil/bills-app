@@ -5,8 +5,10 @@ export function Modal({ open, title, onClose, children }: ModalProps) {
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center">
-      <div className="w-full max-w-md rounded-t-2xl bg-white p-5 shadow-xl sm:rounded-2xl">
-        <div className="mb-4 flex items-center justify-between">
+      {/* Altura máxima del 80% del viewport: el header queda fijo y el cuerpo hace scroll si el
+          contenido es más alto (evita que el modal toque los bordes superior/inferior). */}
+      <div className="flex max-h-[80vh] w-full max-w-md flex-col rounded-t-2xl bg-white shadow-xl sm:rounded-2xl">
+        <div className="flex shrink-0 items-center justify-between p-5 pb-3">
           <h2 className="text-lg font-semibold text-slate-800">{title}</h2>
           <button
             type="button"
@@ -17,7 +19,7 @@ export function Modal({ open, title, onClose, children }: ModalProps) {
             ✕
           </button>
         </div>
-        {children}
+        <div className="min-h-0 overflow-y-auto px-5 pb-5">{children}</div>
       </div>
     </div>
   );
