@@ -96,18 +96,23 @@ export function AccountForm({ open, account, defaultSavingsBucket, onClose }: Ac
         {/* Moneda extranjera (opcional): el saldo se lleva en COP; esto es solo referencia. */}
         <div className="flex gap-2">
           <input
-            placeholder="Moneda (p.ej. USD)"
+            placeholder="Moneda"
             value={foreignCurrency}
             onChange={(e) => setForeignCurrency(e.target.value)}
-            className="w-28 rounded-xl border border-slate-300 px-3 py-3 uppercase outline-none focus:border-slate-500"
+            className="w-24 rounded-xl border border-slate-300 px-3 py-3 uppercase outline-none focus:border-slate-500"
           />
           <MoneyInput
-            placeholder="Monto en esa moneda"
+            placeholder="Monto"
             value={foreignAmount}
             onChange={setForeignAmount}
             className="flex-1 rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-500"
           />
         </div>
+        <p className="text-xs text-slate-400">
+          Opcional. Si la cuenta está en otra moneda (p.ej. USD), anótala aquí solo como referencia:
+          la app sigue en pesos y <span className="font-medium">no convierte nada</span>. Verás una
+          nota tipo «≈ 9.918 USD» bajo el saldo en COP.
+        </p>
         {isEdit && (
           <p className="text-xs text-slate-400">
             El saldo no se edita aquí: se corrige reconciliando la cuenta (§5.7).
