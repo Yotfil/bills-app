@@ -14,7 +14,7 @@ test('registro e inicio de sesión con correo/contraseña', async ({ page }) => 
 
   // 2) Cerrar sesión desde el onboarding y volver al login.
   await page.getByRole('button', { name: 'Cerrar sesión' }).click();
-  await expect(page.getByRole('heading', { name: 'Finanzas' })).toBeVisible();
+  await expect(page.getByText('Mis Luks')).toBeVisible();
 
   // 3) Iniciar sesión con las mismas credenciales (modo login por defecto).
   await page.getByPlaceholder('Correo').fill(email);

@@ -83,7 +83,7 @@ export function OnboardingScreen() {
 
         {step === 0 && (
           <OnboardingStep
-            title="Bienvenido a Finanzas"
+            title="Bienvenido a Mis Luks"
             subtitle="Vamos a sembrar tus datos para que el “Disponible real” refleje tu vida. Toma 2 minutos y puedes ajustar todo después."
           >
             <Button onClick={() => setStep(1)}>Empecemos</Button>

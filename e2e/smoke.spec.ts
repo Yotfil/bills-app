@@ -4,5 +4,5 @@ import { test, expect } from '@playwright/test';
 // gasto, fijos, reconciliar — CLAUDE.md §12.2) se agregan en sus pasos del plan.
 test('la app carga y muestra el título', async ({ page }) => {
   await page.goto('/');
-  await expect(page.getByRole('heading', { name: 'Finanzas' })).toBeVisible();
+  await expect(page.getByText('Mis Luks')).toBeVisible();
 });
