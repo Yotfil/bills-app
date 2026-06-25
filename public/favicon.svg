@@ -1,8 +1,9 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#3498db" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-  <line x1="3" y1="20" x2="21" y2="20"></line>
-  <line x1="3" y1="20" x2="3" y2="4"></line>
-  
-  <polyline points="7 15 12 9 16 13 21 5"></polyline>
-  
-  <polyline points="16 5 21 5 21 10"></polyline>
+<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="App de finanzas">
+  <title>Finanzas</title>
+  <rect width="64" height="64" rx="15" fill="#064e3b"/>
+  <g transform="rotate(-90 32 32)" fill="none" stroke-width="8">
+    <circle cx="32" cy="32" r="19" stroke="#34d399" stroke-dasharray="50 69.38"/>
+    <circle cx="32" cy="32" r="19" stroke="#a7f3d0" stroke-dasharray="35 84.38" stroke-dashoffset="-54"/>
+    <circle cx="32" cy="32" r="19" stroke="#fbbf24" stroke-dasharray="22.38 97" stroke-dashoffset="-93"/>
+  </g>
 </svg>
