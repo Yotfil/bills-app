@@ -19,6 +19,9 @@ export const useSessionStore = create<SessionState>((set) => ({
   user: null,
   // Arranca en 'loading': la UI muestra un spinner hasta que Auth resuelva (Paso 3).
   status: 'loading',
-  setUser: (user) => set({ user, status: 'authenticated' }),
-  clearUser: () => set({ user: null, status: 'unauthenticated' }),
+  access: 'unknown',
+  // Al autenticarse, el acceso pasa a 'checking' hasta confirmar la allowlist (useAuthSync).
+  setUser: (user) => set({ user, status: 'authenticated', access: 'checking' }),
+  setAccess: (access) => set({ access }),
+  clearUser: () => set({ user: null, status: 'unauthenticated', access: 'unknown' }),
 }));

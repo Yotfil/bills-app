@@ -11,34 +11,56 @@ service cloud.firestore {
       return request.auth != null && request.auth.uid == uid;
     }
 
+    // Early access (allowlist por correo): el correo del usuario debe estar en /allowlist.
+    // El candado vive AQUÍ (no en la UI): sin estar en la lista, todo dato queda denegado,
+    // así que la cuenta —aunque se cree saltándose el formulario— no puede leer ni escribir.
+    function isAllowed() {
+      return request.auth != null
+        && request.auth.token.email != null
+        && exists(/databases/$(database)/documents/allowlist/$(request.auth.token.email));
+    }
+
+    // Acceso a los datos propios = ser el dueño Y estar aprobado.
+    function canAccess(uid) {
+      return isOwner(uid) && isAllowed();
+    }
+
+    // Lista de correos aprobados. El dueño la administra desde la consola / Admin SDK; la
+    // app solo LEE la entrada propia (para saber si tiene acceso). Nadie escribe desde el
+    // cliente. `exists()` dentro de isAllowed() funciona aunque `list`/`write` estén negados.
+    match /allowlist/{email} {
+      allow get: if request.auth != null && request.auth.token.email == email;
+      allow list, write: if false;
+    }
+
     match /users/{uid} {
-      // Perfil y ajustes del propio usuario.
-      allow read, write: if isOwner(uid);
+      // Perfil y ajustes del propio usuario (solo si está aprobado).
+      allow read, write: if canAccess(uid);
 
       // Subcolecciones privadas del usuario (§9.2).
       match /accounts/{accountId} {
-        allow read, write: if isOwner(uid);
+        allow read, write: if canAccess(uid);
       }
       match /cards/{cardId} {
-        allow read, write: if isOwner(uid);
+        allow read, write: if canAccess(uid);
       }
       match /loans/{loanId} {
-        allow read, write: if isOwner(uid);
+        allow read, write: if canAccess(uid);
       }
       match /categories/{categoryId} {
-        allow read, write: if isOwner(uid);
+        allow read, write: if canAccess(uid);
       }
       match /fixedTemplates/{templateId} {
-        allow read, write: if isOwner(uid);
+        allow read, write: if canAccess(uid);
       }
       match /fixedMonthly/{fixedId} {
-        allow read, write: if isOwner(uid);
+        allow read, write: if canAccess(uid);
       }
       match /budgets/{budgetId} {
-        allow read, write: if isOwner(uid);
+        allow read, write: if canAccess(uid);
       }
       match /transactions/{txnId} {
-        allow read, write: if isOwner(uid);
+        allow read, write: if canAccess(uid);
       }
     }
   }
