@@ -3,6 +3,7 @@ import { useAuthSync } from './ui/hooks/useAuthSync';
 import { useUserSettings } from './ui/hooks/useUserSettings';
 import { useSessionStore } from './store/sessionStore';
 import { LoginScreen } from './ui/screens/LoginScreen';
+import { NoAccessScreen } from './ui/screens/NoAccessScreen';
 import { OnboardingScreen } from './ui/screens/onboarding/OnboardingScreen';
 import { Splash } from './ui/components/Splash';
 import { AppLayout } from './ui/AppLayout';
@@ -27,6 +28,7 @@ import { ReportsScreen } from './ui/screens/reports/ReportsScreen';
 function App() {
   useAuthSync();
   const status = useSessionStore((s) => s.status);
+  const access = useSessionStore((s) => s.access);
   const { settings, loading: settingsLoading } = useUserSettings();
 
   if (status === 'loading') return <Splash />;
@@ -44,7 +46,14 @@ function App() {
     );
   }
 
-  // Autenticado: esperamos el doc de ajustes. El onboarding NO atrapa: se puede saltar (queda
+  // Autenticado pero aún verificando la allowlist (early access): spinner hasta resolver.
+  if (access === 'checking' || access === 'unknown') return <Splash />;
+
+  // Autenticado pero sin acceso aprobado: pantalla de "acceso por invitación" (la cuenta
+  // existe en Auth, pero las reglas le niegan todo dato hasta que el dueño habilite su correo).
+  if (access === 'denied') return <NoAccessScreen />;
+
+  // Aprobado: esperamos el doc de ajustes. El onboarding NO atrapa: se puede saltar (queda
   // marcado como completado) y volver luego a `/onboarding` desde el dashboard (§7).
   if (settingsLoading || !settings) return <Splash />;
 

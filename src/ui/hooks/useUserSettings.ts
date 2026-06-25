@@ -7,11 +7,14 @@ import type { UserSettings } from '../../domain/types';
 // es true hasta la primera respuesta; `settings` es null si el doc aún no existe.
 export function useUserSettings(): { settings: UserSettings | null; loading: boolean } {
   const uid = useSessionStore((s) => s.user?.uid);
+  const access = useSessionStore((s) => s.access);
   const [settings, setSettings] = useState<UserSettings | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!uid) return;
+    // Solo nos suscribimos si el usuario está aprobado (early access): leer users/{uid} de un
+    // usuario no aprobado lo niegan las reglas, así que ni lo intentamos.
+    if (!uid || access !== 'allowed') return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
     const unsubscribe = subscribeUserSettings(uid, (s) => {
@@ -19,7 +22,7 @@ export function useUserSettings(): { settings: UserSettings | null; loading: boo
       setLoading(false);
     });
     return unsubscribe;
-  }, [uid]);
+  }, [uid, access]);
 
   return { settings, loading };
 }
