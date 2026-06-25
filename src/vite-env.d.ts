@@ -12,3 +12,8 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv;
 }
+
+// Constantes de versión inyectadas por Vite en build (ver vite.config.ts → define).
+declare const __APP_VERSION__: string;
+declare const __APP_COMMIT__: string;
+declare const __APP_BUILD_TIME__: string;

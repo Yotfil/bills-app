@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { logout } from '../../data/authRepository';
 import { useSessionStore } from '../../store/sessionStore';
 import { RecalculateBalancesButton } from './RecalculateBalancesButton';
+import { VersionTag } from '../components/VersionTag';
 import type { MenuItem } from './MenuItem';
 
 // Pantalla "Más": administración (CLAUDE.md §8.4). Cada enlace lleva a un CRUD. Los que
@@ -91,6 +92,8 @@ export function MoreScreen() {
           Cerrar sesión
         </button>
       </div>
+
+      <VersionTag />
     </div>
   );
 }
