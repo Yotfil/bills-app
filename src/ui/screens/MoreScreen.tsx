@@ -31,6 +31,12 @@ const ITEMS: MenuItem[] = [
     hint: 'Restaurar o eliminar lo archivado',
     ready: true,
   },
+  {
+    to: '/onboarding',
+    label: 'Configurar mis datos',
+    hint: 'Volver a los 5 pasos del onboarding',
+    ready: true,
+  },
 ];
 
 export function MoreScreen() {

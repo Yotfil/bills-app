@@ -32,6 +32,18 @@ vi.mock('../../../data/accountRepository', () => ({
     return () => {};
   },
 }));
+vi.mock('../../../data/cardRepository', () => ({
+  subscribeCards: (_uid: string, cb: (i: unknown[]) => void) => {
+    cb([]);
+    return () => {};
+  },
+}));
+vi.mock('../../../data/loanRepository', () => ({
+  subscribeLoans: (_uid: string, cb: (i: unknown[]) => void) => {
+    cb([]);
+    return () => {};
+  },
+}));
 vi.mock('../../../data/categoryRepository', () => ({
   subscribeCategories: (_uid: string, cb: (i: Category[]) => void) => {
     cb([category]);
@@ -81,5 +93,14 @@ describe('DashboardScreen', () => {
     );
     expect(screen.getByText('¿En qué se me va?')).toBeInTheDocument();
     expect(screen.getByText('Comidas')).toBeInTheDocument();
+  });
+
+  it('oculta el acceso al onboarding cuando ya hay algo registrado (hay una cuenta)', () => {
+    render(
+      <MemoryRouter>
+        <DashboardScreen />
+      </MemoryRouter>,
+    );
+    expect(screen.queryByText(/Configurar mis datos/)).not.toBeInTheDocument();
   });
 });
