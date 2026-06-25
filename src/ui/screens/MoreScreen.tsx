@@ -20,6 +20,12 @@ const ITEMS: MenuItem[] = [
   { to: '/mas/fijos', label: 'Obligaciones fijas', hint: 'Plantilla mensual', ready: true },
   { to: '/mas/presupuestos', label: 'Presupuestos', hint: 'Topes por categoría', ready: true },
   {
+    to: '/mas/reportes',
+    label: 'Reportes',
+    hint: 'Tendencias, top categorías y gasto hormiga',
+    ready: true,
+  },
+  {
     to: '/mas/archivados',
     label: 'Archivados',
     hint: 'Restaurar o eliminar lo archivado',
