@@ -16,15 +16,32 @@ export function FixedRow({
   onPay,
   onMarkPaid,
   onRevert,
+  selected = false,
+  onToggleSelect,
 }: FixedRowProps) {
   const badge = STATUS_BADGE[fixed.status];
 
   return (
-    <li className="rounded-xl border border-slate-200 bg-white p-4">
+    <li
+      className={`rounded-xl border bg-white p-4 ${
+        selected ? 'border-slate-800 ring-1 ring-slate-800' : 'border-slate-200'
+      }`}
+    >
       <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <p className="truncate font-semibold text-slate-800">{fixed.name}</p>
-          <p className="text-sm text-slate-500">{formatCop(fixed.budgetedAmount)}</p>
+        <div className="flex min-w-0 items-start gap-3">
+          {onToggleSelect && (
+            <input
+              type="checkbox"
+              checked={selected}
+              onChange={onToggleSelect}
+              aria-label={`Seleccionar ${fixed.name}`}
+              className="mt-0.5 h-5 w-5 shrink-0 accent-slate-800"
+            />
+          )}
+          <div className="min-w-0">
+            <p className="truncate font-semibold text-slate-800">{fixed.name}</p>
+            <p className="text-sm text-slate-500">{formatCop(fixed.budgetedAmount)}</p>
+          </div>
         </div>
         <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${badge.className}`}>
           {badge.label}

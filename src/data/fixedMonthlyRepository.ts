@@ -11,7 +11,7 @@ import {
   type DocumentReference,
 } from 'firebase/firestore';
 import { fixedMonthlyCol, fixedTemplatesCol } from './collections';
-import { create, listAll } from './crud';
+import { create, hardDelete, listAll } from './crud';
 import { createTransaction, deleteTransaction } from './transactionService';
 import { generateMonthlyFixeds } from '../domain/rollover';
 import { buildTransactionFromFixed } from '../domain/fixed';
@@ -168,6 +168,22 @@ export async function payFixed(
     paidAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
+}
+
+/**
+ * Elimina la instancia mensual de un fijo (lo quita del checklist del mes). Si el fijo había
+ * creado un movimiento al pagarse, primero lo elimina: eso REVIERTE su efecto en los saldos
+ * (§9.3), para no dejar un movimiento huérfano. No toca la plantilla (el molde sigue), así que
+ * el fijo puede volver a generarse el próximo mes (o regenerarse este con "Generar fijos").
+ */
+export async function deleteFixedMonthly(
+  uid: string,
+  fixed: FixedObligationMonthly,
+): Promise<void> {
+  if (fixed.transactionId) {
+    await deleteTransaction(uid, fixed.transactionId);
+  }
+  await hardDelete(fixedMonthlyCol(uid), fixed.id);
 }
 
 /**
