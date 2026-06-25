@@ -73,6 +73,31 @@ export function DashboardScreen() {
       .sort((a, b) => b.value - a.value);
   }, [monthTxns, categoryById]);
 
+  // Estado vacío (§7): mientras no haya NADA registrado, el Inicio se enfoca en una sola acción
+  // —configurar los datos— y oculta el resto del dashboard (resumen, fijos, dona…), que aún no
+  // tendría nada que mostrar. El acceso sigue siempre disponible desde Más.
+  if (nothingRegistered) {
+    return (
+      <div className="mx-auto flex max-w-md flex-col gap-3 p-4 pb-24">
+        <MonthSelector
+          month={month}
+          onPrev={() => setMonth(addMonths(month, -1))}
+          onNext={() => setMonth(addMonths(month, 1))}
+        />
+        <HeroBalance amount={available} total={totalBalance} />
+        <p className="px-4 pt-2 text-center text-sm text-slate-400">
+          Aún no tienes nada registrado. Empieza configurando tus cuentas, tarjetas y créditos.
+        </p>
+        <Link
+          to="/onboarding"
+          className="rounded-2xl border border-dashed border-slate-600 bg-slate-800 p-3.5 text-center text-sm font-medium text-white"
+        >
+          ⚙️ Configurar mis datos · volver a los 5 pasos
+        </Link>
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto flex max-w-md flex-col gap-3 p-4 pb-24">
       <MonthSelector
@@ -82,17 +107,6 @@ export function DashboardScreen() {
       />
 
       <HeroBalance amount={available} total={totalBalance} />
-
-      {/* Acceso al onboarding SOLO cuando no hay nada registrado (§7). Una vez se crea cualquier
-          cuenta/tarjeta/crédito desaparece; sigue accesible desde Más. */}
-      {nothingRegistered && (
-        <Link
-          to="/onboarding"
-          className="rounded-2xl border border-dashed border-slate-300 bg-white p-3 text-center text-sm font-medium text-slate-600"
-        >
-          ⚙️ Configurar mis datos · volver a los 5 pasos
-        </Link>
-      )}
 
       <MonthSummaryCard summary={summary} />
       <FixedProgressCard
