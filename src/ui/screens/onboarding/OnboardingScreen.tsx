@@ -37,6 +37,7 @@ export function OnboardingScreen() {
   const [showForm, setShowForm] = useState(false);
   const [finishing, setFinishing] = useState(false);
   const [seeding, setSeeding] = useState(false);
+  const [seedNote, setSeedNote] = useState<string | null>(null);
 
   const { items: accounts } = useUserCollection<Account>(subscribeAccounts);
   const { items: cards } = useUserCollection<CreditCard>(subscribeCards);
@@ -50,8 +51,27 @@ export function OnboardingScreen() {
     const firstAccount = activeAccounts[0];
     if (!uid || !firstAccount) return;
     setSeeding(true);
+    setSeedNote(null);
     try {
-      await seedSuggestedFixedTemplates(uid, { kind: 'account', id: firstAccount.id }, categories);
+      const created = await seedSuggestedFixedTemplates(
+        uid,
+        { kind: 'account', id: firstAccount.id },
+        categories,
+      );
+      // Si no se creó nada, decir POR QUÉ en vez de quedarse mudo (era el bug: el botón no daba
+      // ninguna señal). Las dos causas silenciosas: ya hay plantilla, o las categorías base aún
+      // no cargaron (el filtro las necesita por nombre).
+      if (created === 0) {
+        setSeedNote(
+          categories.length === 0
+            ? 'Tus categorías aún se están cargando. Espera un segundo y vuelve a intentar.'
+            : 'Ya tienes una plantilla cargada (no se duplicó nada).',
+        );
+      }
+    } catch (err) {
+      setSeedNote(
+        `No se pudo cargar la plantilla: ${err instanceof Error ? err.message : String(err)}`,
+      );
     } finally {
       setSeeding(false);
     }
@@ -165,13 +185,25 @@ export function OnboardingScreen() {
             subtitle="Carga una plantilla sugerida de gastos fijos mensuales. Luego ajustas montos, medios y agregas los abonos a deuda."
           >
             {templates.length === 0 ? (
-              <Button
-                variant="secondary"
-                onClick={handleSeedSuggested}
-                disabled={seeding || activeAccounts.length === 0}
-              >
-                {seeding ? 'Cargando…' : 'Cargar plantilla sugerida'}
-              </Button>
+              <>
+                <Button
+                  variant="secondary"
+                  onClick={handleSeedSuggested}
+                  disabled={seeding || activeAccounts.length === 0}
+                >
+                  {seeding ? 'Cargando…' : 'Cargar plantilla sugerida'}
+                </Button>
+                {activeAccounts.length === 0 && (
+                  <p className="text-center text-xs text-slate-400">
+                    Primero agrega una cuenta (paso 1) para poder asignar el medio de pago.
+                  </p>
+                )}
+                {seedNote && (
+                  <p className="rounded-xl bg-amber-50 p-3 text-center text-sm text-amber-700">
+                    {seedNote}
+                  </p>
+                )}
+              </>
             ) : (
               <p className="rounded-xl bg-emerald-50 p-3 text-center text-sm text-emerald-700">
                 Tienes {templates.length} fijos en tu plantilla. ✅
