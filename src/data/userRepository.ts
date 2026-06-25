@@ -20,18 +20,23 @@ export async function ensureUserSettings(uid: string): Promise<void> {
   if (!db) return; // Firebase no configurado: nada que sembrar todavía.
   const ref = doc(db, 'users', uid);
   const snapshot = await getDoc(ref);
-  if (snapshot.exists()) return;
 
-  await setDoc(ref, {
-    currency: 'COP',
-    locale: 'es-CO',
-    onboardingCompleted: false,
-    schemaVersion: CURRENT_SCHEMA_VERSION,
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-  });
+  if (!snapshot.exists()) {
+    await setDoc(ref, {
+      currency: 'COP',
+      locale: 'es-CO',
+      onboardingCompleted: false,
+      schemaVersion: CURRENT_SCHEMA_VERSION,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+  }
 
-  // Las categorías vienen con el set base desde el primer arranque (§6, §7).
+  // Sembrar el set base SIEMPRE, no solo cuando se crea el doc del usuario (§6, §7).
+  // seedBaseCategories es idempotente (no duplica si ya existen), pero antes solo se llamaba
+  // en el primer login: una cuenta que perdiera sus categorías (p.ej. tras una limpieza de
+  // datos que borró las categorías pero dejó `users/{uid}`) quedaba atrapada sin ellas y la
+  // plantilla sugerida no podía crear nada. Llamarla siempre la hace auto-reparable.
   await seedBaseCategories(uid);
 }
 
