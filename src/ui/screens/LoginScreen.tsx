@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { loginWithEmail, loginWithGoogle, registerWithEmail } from '../../data/authRepository';
+import { Brand } from '../components/Brand';
 
 // Pantalla de inicio de sesión (CLAUDE.md §7, paso 1 del onboarding).
 // Soporta Google y correo/contraseña (ambos, §3). El listener de sesión
@@ -67,8 +68,8 @@ export function LoginScreen() {
   return (
     <main className="flex min-h-dvh flex-col items-center justify-center bg-slate-50 px-6 py-10">
       <div className="flex w-full max-w-sm flex-col gap-6">
-        <header className="text-center">
-          <h1 className="text-2xl font-bold text-slate-800">Finanzas</h1>
+        <header className="flex flex-col items-center gap-2 text-center">
+          <Brand size="lg" />
           <p className="mt-1 text-sm text-slate-500">
             {mode === 'login' ? 'Inicia sesión para continuar' : 'Crea tu cuenta'}
           </p>

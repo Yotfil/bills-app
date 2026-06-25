@@ -1,1 +1,8 @@
 @import 'tailwindcss';
+
+/* Color de marca: se redefine el token slate-800 de Tailwind (lo usa toda la app en botones,
+   títulos y acentos oscuros) para teñir todo de un verde oscuro acorde al logo "Mis Luks".
+   Al sobreescribir el token, cada utilidad *-slate-800 (bg/text/border…) toma el nuevo color. */
+@theme {
+  --color-slate-800: rgb(26 60 59);
+}

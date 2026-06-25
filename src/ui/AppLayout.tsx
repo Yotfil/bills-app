@@ -1,4 +1,5 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { Brand } from './components/Brand';
 
 // Esqueleto de la app autenticada: contenido + barra inferior con 5 destinos (CLAUDE.md §8).
 // Las pantallas de cada destino se van completando en sus pasos del plan. El botón central
@@ -14,6 +15,13 @@ export function AppLayout() {
 
   return (
     <div className="min-h-dvh bg-slate-50">
+      {/* Header de marca: visible en toda la app una vez logueado (logo + "Mis Luks"). */}
+      <header className="sticky top-0 z-30 border-b border-slate-200 bg-white">
+        <div className="mx-auto flex max-w-md items-center justify-center px-4 py-3">
+          <Brand size="sm" />
+        </div>
+      </header>
+
       <main className="mx-auto max-w-md">
         <Outlet />
       </main>
