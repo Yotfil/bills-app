@@ -1,0 +1,19 @@
+# Configuración de despliegue en Netlify (build desde GitHub).
+# Las variables VITE_FIREBASE_* se definen en el panel de Netlify (Site settings →
+# Environment variables), NO aquí: el .env.local está gitignored y no viaja al repo.
+
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  # Node moderno para Vite 9 / React 19.
+  NODE_VERSION = "22"
+
+# SPA (react-router): cualquier ruta cae en index.html para que recargar /mas/reportes,
+# /registro, etc. no dé 404. Los assets con extensión se sirven tal cual (Netlify los
+# resuelve antes que este comodín).
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
