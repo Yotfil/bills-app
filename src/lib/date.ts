@@ -97,3 +97,20 @@ export function formatMonthLabel(month: string): string {
     year: 'numeric',
   });
 }
+
+/** Etiqueta de mes corta para ejes de gráficas: "jun" a partir de 'YYYY-MM'. */
+export function formatMonthShort(month: string): string {
+  const [year, m] = month.split('-').map(Number);
+  return new Date(year ?? 1970, (m ?? 1) - 1, 1).toLocaleDateString('es-CO', { month: 'short' });
+}
+
+/**
+ * Lista de las últimas `count` claves de mes ('YYYY-MM') en orden cronológico ascendente,
+ * terminando en `endMonth` (por defecto el mes actual). Sirve para las tendencias mes a mes
+ * de Reportes (§15). Ej.: recentMonthKeys(3, '2026-06') → ['2026-04','2026-05','2026-06'].
+ */
+export function recentMonthKeys(count: number, endMonth: string = currentMonthKey()): string[] {
+  const months: string[] = [];
+  for (let i = count - 1; i >= 0; i--) months.push(addMonths(endMonth, -i));
+  return months;
+}
