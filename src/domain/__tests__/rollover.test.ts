@@ -72,4 +72,15 @@ describe('fixedTotals', () => {
     expect(totals.paidAmount).toBe(300);
     expect(totals.counts).toEqual({ pending: 2, allocated: 1, paid: 1, total: 4 });
   });
+
+  it('un fijo pagado con monto real distinto suma el real, no el presupuestado (§5.3)', () => {
+    // Apple Music: presupuestado 14.000 pero Apple cobró 16.900.
+    const fixeds = [makeFixed({ status: 'paid', budgetedAmount: 14_000, paidAmount: 16_900 })];
+    expect(fixedTotals(fixeds).paidAmount).toBe(16_900);
+  });
+
+  it('un fijo pagado sin monto real (ya estaba pagado) cae al presupuestado', () => {
+    const fixeds = [makeFixed({ status: 'paid', budgetedAmount: 14_000, paidAmount: null })];
+    expect(fixedTotals(fixeds).paidAmount).toBe(14_000);
+  });
 });

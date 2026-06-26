@@ -111,6 +111,7 @@ export async function markFixedPending(uid: string, id: string): Promise<void> {
 export async function markFixedPaidWithoutTransaction(uid: string, id: string): Promise<void> {
   await updateDoc(rawDoc(uid, id), {
     status: 'paid',
+    paidAmount: null, // sin monto real: se muestra/suma el presupuestado (§5.3)
     transactionId: null,
     paidAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
@@ -164,6 +165,7 @@ export async function payFixed(
   await updateDoc(rawDoc(uid, fixed.id), {
     status: 'paid',
     paymentMethod: input.paymentMethod,
+    paidAmount: input.amount, // monto REAL pagado (§5.3): puede diferir del presupuestado
     transactionId,
     paidAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
@@ -200,6 +202,7 @@ export async function revertFixedPayment(
   }
   await updateDoc(rawDoc(uid, fixed.id), {
     status: 'pending',
+    paidAmount: null, // al volver a pendiente se olvida el monto real previo
     transactionId: null,
     paidAt: null,
     updatedAt: serverTimestamp(),

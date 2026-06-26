@@ -40,7 +40,10 @@ export function FixedRow({
           )}
           <div className="min-w-0">
             <p className="truncate font-semibold text-slate-800">{fixed.name}</p>
-            <p className="text-sm text-slate-500">{formatCop(fixed.budgetedAmount)}</p>
+            <p className="text-sm text-slate-500">
+              {/* Si se pagó con un monto real distinto al presupuestado, se muestra el real (§5.3). */}
+              {formatCop(fixed.paidAmount ?? fixed.budgetedAmount)}
+            </p>
           </div>
         </div>
         <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${badge.className}`}>
