@@ -110,6 +110,7 @@ export function makeFixed(partial: Partial<FixedObligationMonthly> = {}): FixedO
     debtTargetId: null,
     paymentMethod: accountRef('acc-1'),
     status: 'pending',
+    paidAmount: null,
     transactionId: null,
     allocatedAt: null,
     paidAt: null,

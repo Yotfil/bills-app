@@ -33,6 +33,7 @@ export function generateMonthlyFixeds(
       paymentMethod: t.defaultPaymentMethod,
       // Estado inicial:
       status: 'pending',
+      paidAmount: null,
       transactionId: null,
       allocatedAt: null,
       paidAt: null,

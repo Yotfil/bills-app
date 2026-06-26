@@ -24,7 +24,8 @@ export function fixedTotals(monthlyFixeds: FixedObligationMonthly[]): FixedTotal
       totals.allocatedAmount += fixed.budgetedAmount;
       totals.counts.allocated += 1;
     } else {
-      totals.paidAmount += fixed.budgetedAmount;
+      // El total pagado refleja lo REALMENTE pagado (puede diferir del presupuestado, §5.3).
+      totals.paidAmount += fixed.paidAmount ?? fixed.budgetedAmount;
       totals.counts.paid += 1;
     }
   }
