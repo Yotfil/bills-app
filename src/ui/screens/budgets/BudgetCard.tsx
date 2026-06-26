@@ -1,3 +1,4 @@
+import { Pencil, Archive, Trash2 } from 'lucide-react';
 import { ActionMenu } from '../../components/ActionMenu';
 import { formatCop } from '../../../lib/currency';
 import type { BudgetCardProps } from './BudgetCardProps';
@@ -18,9 +19,9 @@ export function BudgetCard({ categoryName, status, onEdit, onArchive, onDelete }
         <ActionMenu
           ariaLabel={`Acciones de ${categoryName}`}
           items={[
-            { label: 'Editar', icon: '✏️', onSelect: onEdit },
-            { label: 'Archivar', icon: '📦', onSelect: onArchive },
-            { label: 'Eliminar', icon: '🗑️', onSelect: onDelete, danger: true },
+            { label: 'Editar', icon: Pencil, onSelect: onEdit },
+            { label: 'Archivar', icon: Archive, onSelect: onArchive },
+            { label: 'Eliminar', icon: Trash2, onSelect: onDelete, danger: true },
           ]}
         />
       </div>

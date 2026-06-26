@@ -5,6 +5,7 @@ import { useSessionStore } from '../../store/sessionStore';
 import { AccountForm } from './AccountForm';
 import { ReconcileModal } from './ReconcileModal';
 import { BackButton } from '../components/BackButton';
+import { Pencil, Scale, Archive, Trash2 } from 'lucide-react';
 import { ActionMenu } from '../components/ActionMenu';
 import { ConfirmDeleteModal } from '../components/ConfirmDeleteModal';
 import { formatCop, formatCopPlain } from '../../lib/currency';
@@ -116,12 +117,12 @@ export function AccountsScreen({ savingsBucket = false }: AccountsScreenProps) {
                 <ActionMenu
                   ariaLabel={`Acciones de ${account.name}`}
                   items={[
-                    { label: 'Editar', icon: '✏️', onSelect: () => setEditing(account) },
-                    { label: 'Reconciliar', icon: '⚖️', onSelect: () => setReconciling(account) },
-                    { label: 'Archivar', icon: '📦', onSelect: () => handleArchive(account) },
+                    { label: 'Editar', icon: Pencil, onSelect: () => setEditing(account) },
+                    { label: 'Reconciliar', icon: Scale, onSelect: () => setReconciling(account) },
+                    { label: 'Archivar', icon: Archive, onSelect: () => handleArchive(account) },
                     {
                       label: 'Eliminar',
-                      icon: '🗑️',
+                      icon: Trash2,
                       onSelect: () => setDeleting(account),
                       danger: true,
                     },

@@ -6,6 +6,7 @@ import type {
   CreditCard,
   EntityRef,
   FixedObligationMonthly,
+  FixedObligationTemplate,
   Loan,
   TransactionDraft,
 } from '../types';
@@ -112,6 +113,28 @@ export function makeFixed(partial: Partial<FixedObligationMonthly> = {}): FixedO
     transactionId: null,
     allocatedAt: null,
     paidAt: null,
+    ...partial,
+  };
+}
+
+export function makeTemplate(
+  partial: Partial<FixedObligationTemplate> = {},
+): FixedObligationTemplate {
+  return {
+    id: 'tpl-1',
+    createdAt: STUB_TS,
+    updatedAt: STUB_TS,
+    schemaVersion: 1,
+    archived: false,
+    archivedAt: null,
+    name: 'Luz',
+    budgetedAmount: 230_000,
+    categoryId: 'cat-servicios',
+    defaultPaymentMethod: accountRef('acc-1'),
+    payKind: 'expense',
+    debtTargetId: null,
+    active: true,
+    sortOrder: 0,
     ...partial,
   };
 }

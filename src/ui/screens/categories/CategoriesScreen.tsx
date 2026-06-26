@@ -3,6 +3,7 @@ import { useUserCollection } from '../../hooks/useUserCollection';
 import { useSessionStore } from '../../../store/sessionStore';
 import { CategoryForm } from './CategoryForm';
 import { BackButton } from '../../components/BackButton';
+import { Pencil, Archive, Trash2 } from 'lucide-react';
 import { ActionMenu } from '../../components/ActionMenu';
 import { ConfirmDeleteModal } from '../../components/ConfirmDeleteModal';
 import { categoryHasMovements } from '../../../domain/entityUsage';
@@ -84,11 +85,11 @@ export function CategoriesScreen() {
             <ActionMenu
               ariaLabel={`Acciones de ${category.name}`}
               items={[
-                { label: 'Editar', icon: '✏️', onSelect: () => setEditing(category) },
-                { label: 'Archivar', icon: '📦', onSelect: () => handleArchive(category) },
+                { label: 'Editar', icon: Pencil, onSelect: () => setEditing(category) },
+                { label: 'Archivar', icon: Archive, onSelect: () => handleArchive(category) },
                 {
                   label: 'Eliminar',
-                  icon: '🗑️',
+                  icon: Trash2,
                   onSelect: () => setDeleting(category),
                   danger: true,
                 },

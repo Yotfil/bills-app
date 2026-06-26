@@ -1,3 +1,4 @@
+import { Check } from 'lucide-react';
 import type { OnboardingStepperProps } from './OnboardingStepperProps';
 
 // Stepper del onboarding (CLAUDE.md §7): muestra TODOS los pasos para que el usuario vea lo que
@@ -43,7 +44,7 @@ export function OnboardingStepper({ steps, current, enabled, onSelect }: Onboard
                     aria-current={isCurrent ? 'step' : undefined}
                     className={circleClass(isCurrent, isDone, enabled)}
                   >
-                    {isDone ? '✓' : n}
+                    {isDone ? <Check className="h-4 w-4" /> : n}
                   </button>
                   <span
                     className={`h-0.5 flex-1 ${isLast ? 'invisible' : n < current ? 'bg-slate-800' : 'bg-slate-200'}`}
@@ -84,7 +85,7 @@ export function OnboardingStepper({ steps, current, enabled, onSelect }: Onboard
                     aria-current={isCurrent ? 'step' : undefined}
                     className={circleClass(isCurrent, isDone, enabled)}
                   >
-                    {isDone ? '✓' : n}
+                    {isDone ? <Check className="h-4 w-4" /> : n}
                   </button>
                   {!isLast && <span className="my-1 w-0.5 flex-1 bg-slate-200" />}
                 </div>
