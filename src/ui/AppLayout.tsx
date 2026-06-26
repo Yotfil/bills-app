@@ -2,6 +2,7 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { Home, Receipt, Pin, MoreHorizontal, Plus } from 'lucide-react';
 import { Brand } from './components/Brand';
 import { BudgetAlertWatcher } from './components/BudgetAlertWatcher';
+import { MonthlyRolloverWatcher } from './components/MonthlyRolloverWatcher';
 
 // Esqueleto de la app autenticada: contenido + barra inferior con 5 destinos (CLAUDE.md §8).
 // Las pantallas de cada destino se van completando en sus pasos del plan. El botón central
@@ -28,7 +29,8 @@ export function AppLayout() {
         <Outlet />
       </main>
 
-      {/* Vigila los topes en toda la app: pop-up apenas un presupuesto alcanza/excede el 80% (§5.9). */}
+      {/* Carga automática de los fijos del mes si faltan (§5.10) + aviso de topes (§5.9). */}
+      <MonthlyRolloverWatcher />
       <BudgetAlertWatcher />
 
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white">
