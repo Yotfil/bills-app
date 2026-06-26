@@ -9,11 +9,15 @@ import { subscribeCategories } from '../../../data/categoryRepository';
 import { subscribeTransactions } from '../../../data/transactionRepository';
 import { disponibleReal } from '../../../domain/derived';
 import { fixedTotals } from '../../../domain/fixed';
-import { spendByCategory } from '../../../domain/reports';
+import { budgetStatus, spendByCategory } from '../../../domain/reports';
+import { exceededBudgetBacked, nearLimitBudgetBacked } from '../../../domain/budgetBackedFixed';
 import { monthlySummary } from '../../../domain/summary';
 import { addMonths, currentMonthKey, monthKey } from '../../../lib/date';
+import { NEAR_LIMIT_RATIO } from '../../../lib/progress';
 import { MonthSelector } from '../../components/MonthSelector';
 import { HeroBalance } from './HeroBalance';
+import { ExceededBudgetsAlert } from './ExceededBudgetsAlert';
+import { NearLimitBudgetsAlert } from './NearLimitBudgetsAlert';
 import { MonthSummaryCard } from './MonthSummaryCard';
 import { FixedProgressCard } from './FixedProgressCard';
 import { CategoryDonut } from './CategoryDonut';
@@ -63,6 +67,39 @@ export function DashboardScreen() {
     return map;
   }, [categories]);
 
+  // Topes excedidos del MES ACTUAL (no el del selector): fijos respaldados cuyo gasto superó el tope
+  // (§5.9). Alimenta la alerta del Inicio, que solo aparece si la lista no está vacía.
+  const curMonthTxns = useMemo(
+    () => transactions.filter((t) => monthKey(t.date) === currentMonthKey()),
+    [transactions],
+  );
+  const exceededItems = useMemo(
+    () =>
+      exceededBudgetBacked(
+        monthlyFixeds,
+        (categoryId) => budgetStatus(curMonthTxns, categoryId, 0).consumed,
+      ).map((e) => ({
+        id: e.fixed.id,
+        categoryName: categoryById.get(e.fixed.categoryId)?.name ?? 'Categoría',
+        overspend: e.overspend,
+      })),
+    [monthlyFixeds, curMonthTxns, categoryById],
+  );
+  // Topes muy cerca de excederse (sin pasarse aún): alerta preventiva (naranja).
+  const nearLimitItems = useMemo(
+    () =>
+      nearLimitBudgetBacked(
+        monthlyFixeds,
+        (categoryId) => budgetStatus(curMonthTxns, categoryId, 0).consumed,
+        NEAR_LIMIT_RATIO,
+      ).map((n) => ({
+        id: n.fixed.id,
+        categoryName: categoryById.get(n.fixed.categoryId)?.name ?? 'Categoría',
+        remaining: n.remaining,
+      })),
+    [monthlyFixeds, curMonthTxns, categoryById],
+  );
+
   const slices = useMemo(() => {
     const byCat = spendByCategory(monthTxns);
     return Object.entries(byCat)
@@ -107,6 +144,11 @@ export function DashboardScreen() {
       />
 
       <HeroBalance amount={available} total={totalBalance} />
+
+      {/* Alertas de topes: excedidos (rojo) y cerca de excederse (naranja). Arriba para máxima
+          visibilidad; cada una solo aparece si tiene ítems. */}
+      <ExceededBudgetsAlert items={exceededItems} />
+      <NearLimitBudgetsAlert items={nearLimitItems} />
 
       <MonthSummaryCard summary={summary} />
       <FixedProgressCard

@@ -19,6 +19,7 @@ export type { FixedTotals } from './FixedTotals';
 export function fixedTotals(
   monthlyFixeds: FixedObligationMonthly[],
   statusOf: (fixed: FixedObligationMonthly) => FixedStatus = (f) => f.status,
+  amountOf: (fixed: FixedObligationMonthly) => number = (f) => f.paidAmount ?? f.budgetedAmount,
 ): FixedTotals {
   const totals: FixedTotals = {
     pendingAmount: 0,
@@ -28,16 +29,17 @@ export function fixedTotals(
   };
   for (const fixed of monthlyFixeds) {
     const status = statusOf(fixed);
+    const amount = amountOf(fixed);
     if (status === 'pending') {
-      totals.pendingAmount += fixed.budgetedAmount;
+      totals.pendingAmount += amount;
       totals.counts.pending += 1;
     } else if (status === 'allocated') {
-      totals.allocatedAmount += fixed.budgetedAmount;
+      totals.allocatedAmount += amount;
       totals.counts.allocated += 1;
     } else {
-      // El total pagado refleja lo REALMENTE pagado (puede diferir del presupuestado, §5.3). Los
-      // respaldados no tienen paidAmount: aportan su tope (budgetedAmount).
-      totals.paidAmount += fixed.paidAmount ?? fixed.budgetedAmount;
+      // El total pagado refleja lo REALMENTE pagado (§5.3). Para un respaldado lleno/excedido,
+      // `amountOf` devuelve el gasto real (incluye el sobrepaso, §5.9); para uno normal, su pagado.
+      totals.paidAmount += amount;
       totals.counts.paid += 1;
     }
   }
