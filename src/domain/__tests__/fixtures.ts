@@ -3,6 +3,7 @@
 import type { Timestamp } from 'firebase/firestore';
 import type {
   Account,
+  Budget,
   CreditCard,
   EntityRef,
   FixedObligationMonthly,
@@ -108,6 +109,7 @@ export function makeFixed(partial: Partial<FixedObligationMonthly> = {}): FixedO
     categoryId: 'cat-servicios',
     payKind: 'expense',
     debtTargetId: null,
+    budgetBacked: false,
     paymentMethod: accountRef('acc-1'),
     status: 'pending',
     paidAmount: null,
@@ -134,8 +136,24 @@ export function makeTemplate(
     defaultPaymentMethod: accountRef('acc-1'),
     payKind: 'expense',
     debtTargetId: null,
+    budgetBacked: false,
     active: true,
     sortOrder: 0,
+    ...partial,
+  };
+}
+
+export function makeBudget(partial: Partial<Budget> = {}): Budget {
+  return {
+    id: 'bud-1',
+    createdAt: STUB_TS,
+    updatedAt: STUB_TS,
+    schemaVersion: 1,
+    archived: false,
+    archivedAt: null,
+    categoryId: 'cat-ocio',
+    monthlyLimit: 400_000,
+    active: true,
     ...partial,
   };
 }

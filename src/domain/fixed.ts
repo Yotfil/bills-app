@@ -8,8 +8,18 @@ import type { FixedTotals } from './FixedTotals';
 export type { PayFixedOptions } from './PayFixedOptions';
 export type { FixedTotals } from './FixedTotals';
 
-/** Totales del checklist mensual de fijos (§8.3): cuánto falta, destinado y pagado. */
-export function fixedTotals(monthlyFixeds: FixedObligationMonthly[]): FixedTotals {
+/**
+ * Totales del checklist mensual de fijos (§8.3): cuánto falta, destinado y pagado.
+ *
+ * `statusOf` permite usar un estado EFECTIVO en vez del guardado: los fijos respaldados por
+ * presupuesto (§5.9) derivan su estado del consumo (pending mientras no se llenan, paid al
+ * llenarse), así que su TOPE pasa de "Por destinar" a "Pagado" sin crear movimiento ni duplicar
+ * (los totales solo suman fijos). Por defecto se usa `fixed.status`.
+ */
+export function fixedTotals(
+  monthlyFixeds: FixedObligationMonthly[],
+  statusOf: (fixed: FixedObligationMonthly) => FixedStatus = (f) => f.status,
+): FixedTotals {
   const totals: FixedTotals = {
     pendingAmount: 0,
     allocatedAmount: 0,
@@ -17,14 +27,16 @@ export function fixedTotals(monthlyFixeds: FixedObligationMonthly[]): FixedTotal
     counts: { pending: 0, allocated: 0, paid: 0, total: monthlyFixeds.length },
   };
   for (const fixed of monthlyFixeds) {
-    if (fixed.status === 'pending') {
+    const status = statusOf(fixed);
+    if (status === 'pending') {
       totals.pendingAmount += fixed.budgetedAmount;
       totals.counts.pending += 1;
-    } else if (fixed.status === 'allocated') {
+    } else if (status === 'allocated') {
       totals.allocatedAmount += fixed.budgetedAmount;
       totals.counts.allocated += 1;
     } else {
-      // El total pagado refleja lo REALMENTE pagado (puede diferir del presupuestado, §5.3).
+      // El total pagado refleja lo REALMENTE pagado (puede diferir del presupuestado, §5.3). Los
+      // respaldados no tienen paidAmount: aportan su tope (budgetedAmount).
       totals.paidAmount += fixed.paidAmount ?? fixed.budgetedAmount;
       totals.counts.paid += 1;
     }

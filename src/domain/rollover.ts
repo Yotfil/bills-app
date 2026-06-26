@@ -30,6 +30,7 @@ export function generateMonthlyFixeds(
       categoryId: t.categoryId,
       payKind: t.payKind,
       debtTargetId: t.debtTargetId,
+      budgetBacked: t.budgetBacked,
       paymentMethod: t.defaultPaymentMethod,
       // Estado inicial:
       status: 'pending',

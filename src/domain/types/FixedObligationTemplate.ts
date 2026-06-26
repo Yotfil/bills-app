@@ -11,6 +11,10 @@ export interface FixedObligationTemplate extends BaseDoc, Archivable {
   defaultPaymentMethod: EntityRef; // cuenta o tarjeta por defecto
   payKind: FixedPayKind; // 'debt_payment' para abonos a tarjeta/crédito
   debtTargetId: string | null; // tarjeta/crédito destino si es abono
+  // Fijo "respaldado por presupuesto" (§5.9): no se paga con movimiento; se marca lleno solo cuando
+  // el presupuesto de su categoría llega a 0. Su valor va en espejo con el tope del presupuesto.
+  // Solo aplica a payKind 'expense' y a categorías que YA tienen presupuesto.
+  budgetBacked: boolean;
   active: boolean; // si entra en el rollover mensual
   sortOrder: number;
 }

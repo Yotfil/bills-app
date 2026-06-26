@@ -31,6 +31,7 @@ function changedFields(
   if (fixed.categoryId !== template.categoryId) changed.push('categoryId');
   if (fixed.payKind !== template.payKind) changed.push('payKind');
   if (fixed.debtTargetId !== template.debtTargetId) changed.push('debtTargetId');
+  if (fixed.budgetBacked !== template.budgetBacked) changed.push('budgetBacked');
   if (
     comparePaymentMethod &&
     (fixed.paymentMethod.kind !== template.defaultPaymentMethod.kind ||
