@@ -9,11 +9,13 @@ import { subscribeCategories } from '../../../data/categoryRepository';
 import { subscribeTransactions } from '../../../data/transactionRepository';
 import { disponibleReal } from '../../../domain/derived';
 import { fixedTotals } from '../../../domain/fixed';
-import { spendByCategory } from '../../../domain/reports';
+import { budgetStatus, spendByCategory } from '../../../domain/reports';
+import { exceededBudgetBacked } from '../../../domain/budgetBackedFixed';
 import { monthlySummary } from '../../../domain/summary';
 import { addMonths, currentMonthKey, monthKey } from '../../../lib/date';
 import { MonthSelector } from '../../components/MonthSelector';
 import { HeroBalance } from './HeroBalance';
+import { ExceededBudgetsAlert } from './ExceededBudgetsAlert';
 import { MonthSummaryCard } from './MonthSummaryCard';
 import { FixedProgressCard } from './FixedProgressCard';
 import { CategoryDonut } from './CategoryDonut';
@@ -63,6 +65,25 @@ export function DashboardScreen() {
     return map;
   }, [categories]);
 
+  // Topes excedidos del MES ACTUAL (no el del selector): fijos respaldados cuyo gasto superó el tope
+  // (§5.9). Alimenta la alerta del Inicio, que solo aparece si la lista no está vacía.
+  const curMonthTxns = useMemo(
+    () => transactions.filter((t) => monthKey(t.date) === currentMonthKey()),
+    [transactions],
+  );
+  const exceededItems = useMemo(
+    () =>
+      exceededBudgetBacked(
+        monthlyFixeds,
+        (categoryId) => budgetStatus(curMonthTxns, categoryId, 0).consumed,
+      ).map((e) => ({
+        id: e.fixed.id,
+        categoryName: categoryById.get(e.fixed.categoryId)?.name ?? 'Categoría',
+        overspend: e.overspend,
+      })),
+    [monthlyFixeds, curMonthTxns, categoryById],
+  );
+
   const slices = useMemo(() => {
     const byCat = spendByCategory(monthTxns);
     return Object.entries(byCat)
@@ -107,6 +128,9 @@ export function DashboardScreen() {
       />
 
       <HeroBalance amount={available} total={totalBalance} />
+
+      {/* Alerta de topes excedidos: arriba para máxima visibilidad; solo aparece si hay alguno. */}
+      <ExceededBudgetsAlert items={exceededItems} />
 
       <MonthSummaryCard summary={summary} />
       <FixedProgressCard
