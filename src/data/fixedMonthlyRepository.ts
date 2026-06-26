@@ -113,6 +113,7 @@ export async function updateMonthlyFromTemplate(
     categoryId: template.categoryId,
     payKind: template.payKind,
     debtTargetId: template.debtTargetId,
+    budgetBacked: template.budgetBacked,
     paymentMethod: template.defaultPaymentMethod,
     updatedAt: serverTimestamp(),
   });
@@ -157,7 +158,13 @@ export async function markFixedPaidWithoutTransaction(uid: string, id: string): 
 // Campos que se copian de la plantilla al snapshot mensual.
 type MonthlySnapshot = Pick<
   FixedObligationMonthly,
-  'name' | 'budgetedAmount' | 'categoryId' | 'payKind' | 'debtTargetId' | 'paymentMethod'
+  | 'name'
+  | 'budgetedAmount'
+  | 'categoryId'
+  | 'payKind'
+  | 'debtTargetId'
+  | 'budgetBacked'
+  | 'paymentMethod'
 >;
 
 /**

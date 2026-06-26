@@ -26,6 +26,7 @@ export function buildFixedTemplateCreateInput(
     defaultPaymentMethod: input.defaultPaymentMethod,
     payKind: input.payKind,
     debtTargetId: input.debtTargetId,
+    budgetBacked: input.budgetBacked ?? false,
     active: input.active ?? true,
     sortOrder: input.sortOrder ?? 0,
     archived: false,
