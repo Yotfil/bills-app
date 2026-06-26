@@ -17,7 +17,7 @@ import { generateMonthlyFixeds } from '../domain/rollover';
 import { buildTransactionFromFixed } from '../domain/fixed';
 import { nowTimestamp } from '../lib/date';
 import type { PayFixedInput } from './PayFixedInput';
-import type { FixedObligationMonthly } from '../domain/types';
+import type { FixedObligationMonthly, FixedObligationTemplate } from '../domain/types';
 
 export type { PayFixedInput } from './PayFixedInput';
 
@@ -80,6 +80,42 @@ export async function generateFixedMonthly(uid: string, month: string): Promise<
   const drafts = generateMonthlyFixeds(templates, month, existingTemplateIds);
   await Promise.all(drafts.map((draft) => create(fixedMonthlyCol(uid), draft)));
   return drafts.length;
+}
+
+/**
+ * Agrega al mes los fijos de las plantillas dadas (sincronización plantilla→mes, §5.10). Se usa
+ * cuando se crearon plantillas DESPUÉS de generar el mes y el usuario decide sumarlas. Reusa la
+ * función pura `generateMonthlyFixeds` (que ya filtra activas/no archivadas). Devuelve cuántos creó.
+ */
+export async function addFixedMonthlyFromTemplates(
+  uid: string,
+  month: string,
+  templates: FixedObligationTemplate[],
+): Promise<number> {
+  const drafts = generateMonthlyFixeds(templates, month, []);
+  await Promise.all(drafts.map((draft) => create(fixedMonthlyCol(uid), draft)));
+  return drafts.length;
+}
+
+/**
+ * Reescribe el snapshot de UN fijo del mes con los valores actuales de su plantilla (§5.2): nombre,
+ * monto, categoría, tipo, deuda destino y medio por defecto. Lo usa la sincronización plantilla→mes
+ * al "Actualizar" un fijo desfasado. No valida estado: la UI solo lo ofrece para fijos no pagados.
+ */
+export async function updateMonthlyFromTemplate(
+  uid: string,
+  fixedId: string,
+  template: FixedObligationTemplate,
+): Promise<void> {
+  await updateDoc(rawDoc(uid, fixedId), {
+    name: template.name,
+    budgetedAmount: template.budgetedAmount,
+    categoryId: template.categoryId,
+    payKind: template.payKind,
+    debtTargetId: template.debtTargetId,
+    paymentMethod: template.defaultPaymentMethod,
+    updatedAt: serverTimestamp(),
+  });
 }
 
 /**
