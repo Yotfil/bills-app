@@ -30,7 +30,9 @@ export function generateMonthlyFixeds(
       categoryId: t.categoryId,
       payKind: t.payKind,
       debtTargetId: t.debtTargetId,
-      budgetBacked: t.budgetBacked,
+      // Coalesce: las plantillas creadas antes de esta feature no tienen el campo (undefined);
+      // Firestore rechaza undefined al escribir, así que se normaliza a false.
+      budgetBacked: t.budgetBacked ?? false,
       paymentMethod: t.defaultPaymentMethod,
       // Estado inicial:
       status: 'pending',
