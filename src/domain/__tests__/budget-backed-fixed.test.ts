@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
   budgetBackedFilled,
+  budgetBackedTotalAmount,
   budgetForCategory,
   effectiveFixedStatus,
+  exceededBudgetBacked,
   linkedBudgetBackedFixed,
 } from '../budgetBackedFixed';
 import { fixedTotals } from '../fixed';
@@ -67,5 +69,34 @@ describe('budgetBackedFixed', () => {
     expect(lleno.pendingAmount).toBe(0);
     expect(lleno.paidAmount).toBe(500); // 100 normal + 400 tope del respaldado lleno
     expect(lleno.allocatedAmount).toBe(0); // un respaldado nunca queda en destinado
+  });
+
+  it('budgetBackedTotalAmount: en curso aporta el tope; lleno/excedido aporta el gasto real', () => {
+    expect(budgetBackedTotalAmount(300, 400)).toBe(400); // en curso → tope
+    expect(budgetBackedTotalAmount(400, 400)).toBe(400); // lleno exacto → tope = gasto
+    expect(budgetBackedTotalAmount(450, 400)).toBe(450); // excedido → gasto real (incluye sobrepaso)
+  });
+
+  it('fixedTotals con amountOf: Pagado incluye el sobrepaso del respaldado excedido', () => {
+    const fixeds = [
+      makeFixed({ id: 'b', budgetBacked: true, categoryId: 'cat-ocio', budgetedAmount: 400 }),
+    ];
+    const statusOf = () => 'paid' as const; // lleno/excedido
+    const amountOf = (f: (typeof fixeds)[number]) => budgetBackedTotalAmount(450, f.budgetedAmount);
+    expect(fixedTotals(fixeds, statusOf, amountOf).paidAmount).toBe(450);
+  });
+
+  it('exceededBudgetBacked: lista solo respaldados con gasto > tope, con el sobrepaso', () => {
+    const monthlies = [
+      makeFixed({ id: 'ok', budgetBacked: true, categoryId: 'cat-ocio', budgetedAmount: 400 }),
+      makeFixed({ id: 'over', budgetBacked: true, categoryId: 'cat-comidas', budgetedAmount: 400 }),
+      makeFixed({ id: 'normal', budgetBacked: false, categoryId: 'cat-x', budgetedAmount: 100 }),
+    ];
+    const consumedOf = (cat: string) =>
+      cat === 'cat-comidas' ? 450 : cat === 'cat-ocio' ? 200 : 999;
+    const exceeded = exceededBudgetBacked(monthlies, consumedOf);
+    expect(exceeded).toHaveLength(1);
+    expect(exceeded[0]?.fixed.id).toBe('over');
+    expect(exceeded[0]?.overspend).toBe(50);
   });
 });

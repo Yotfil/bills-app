@@ -32,6 +32,40 @@ export function budgetBackedFilled(consumed: number, cap: number): boolean {
 }
 
 /**
+ * Monto que un fijo respaldado aporta a los totales (§5.9): el gasto real (`consumed`) si está
+ * lleno/excedido (así Pagado incluye el sobrepaso), o el tope (`cap`) si en curso (Por destinar).
+ */
+export function budgetBackedTotalAmount(consumed: number, cap: number): number {
+  return budgetBackedFilled(consumed, cap) ? consumed : cap;
+}
+
+/** Un tope excedido: el fijo respaldado, su gasto y por cuánto se pasó del tope. */
+export interface ExceededBudgetBacked {
+  fixed: FixedObligationMonthly;
+  consumed: number;
+  overspend: number; // consumed - cap (> 0)
+}
+
+/**
+ * Fijos respaldados cuyo gasto SUPERÓ el tope (consumed > cap), con el sobrepaso. Para la alerta del
+ * dashboard (§8.1). `consumedOf` da el gasto del mes por categoría.
+ */
+export function exceededBudgetBacked(
+  monthlies: FixedObligationMonthly[],
+  consumedOf: (categoryId: string) => number,
+): ExceededBudgetBacked[] {
+  const result: ExceededBudgetBacked[] = [];
+  for (const fixed of monthlies) {
+    if (!fixed.budgetBacked) continue;
+    const consumed = consumedOf(fixed.categoryId);
+    if (consumed > fixed.budgetedAmount) {
+      result.push({ fixed, consumed, overspend: consumed - fixed.budgetedAmount });
+    }
+  }
+  return result;
+}
+
+/**
  * Estado EFECTIVO de un fijo para los totales (§8.3). Un fijo respaldado no usa la máquina de
  * estados normal: deriva su estado del consumo del presupuesto ('paid' si está lleno, 'pending' si
  * no; nunca 'allocated', no se "destina" un tope). Un fijo normal conserva su `status` guardado.
