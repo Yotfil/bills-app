@@ -1,3 +1,4 @@
+import { X } from 'lucide-react';
 import type { ModalProps } from './ModalProps';
 
 // Modal simple, mobile-first: hoja inferior en móvil, centrado cómodo en pantallas grandes.
@@ -14,9 +15,9 @@ export function Modal({ open, title, onClose, children }: ModalProps) {
             type="button"
             onClick={onClose}
             aria-label="Cerrar"
-            className="rounded-lg px-2 py-1 text-slate-400 hover:bg-slate-100"
+            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100"
           >
-            ✕
+            <X className="h-5 w-5" />
           </button>
         </div>
         <div className="min-h-0 overflow-y-auto px-5 pb-5">{children}</div>

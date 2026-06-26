@@ -1,4 +1,5 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { Home, Receipt, Pin, MoreHorizontal, Plus } from 'lucide-react';
 import { Brand } from './components/Brand';
 
 // Esqueleto de la app autenticada: contenido + barra inferior con 5 destinos (CLAUDE.md §8).
@@ -29,11 +30,11 @@ export function AppLayout() {
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white">
         <div className="mx-auto flex max-w-md items-center">
           <NavLink to="/" end className={navItemClass}>
-            <span>🏠</span>
+            <Home className="h-5 w-5" />
             Inicio
           </NavLink>
           <NavLink to="/registro" className={navItemClass}>
-            <span>📋</span>
+            <Receipt className="h-5 w-5" />
             Registro
           </NavLink>
 
@@ -42,17 +43,17 @@ export function AppLayout() {
             type="button"
             onClick={() => navigate('/agregar')}
             aria-label="Agregar movimiento"
-            className="mx-1 -mt-5 flex h-14 w-14 items-center justify-center rounded-full bg-slate-800 text-2xl text-white shadow-lg"
+            className="mx-1 -mt-5 flex h-14 w-14 items-center justify-center rounded-full bg-slate-800 text-white shadow-lg"
           >
-            +
+            <Plus className="h-7 w-7" />
           </button>
 
           <NavLink to="/fijos" className={navItemClass}>
-            <span>📌</span>
+            <Pin className="h-5 w-5" />
             Fijos
           </NavLink>
           <NavLink to="/mas" className={navItemClass}>
-            <span>⋯</span>
+            <MoreHorizontal className="h-5 w-5" />
             Más
           </NavLink>
         </div>

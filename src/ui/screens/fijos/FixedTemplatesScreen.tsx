@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useUserCollection } from '../../hooks/useUserCollection';
 import { useSessionStore } from '../../../store/sessionStore';
 import { FixedTemplateForm } from './FixedTemplateForm';
+import { Pencil, Archive, Trash2 } from 'lucide-react';
 import { BackButton } from '../../components/BackButton';
 import { SearchBar } from '../../components/SearchBar';
 import { ActionMenu } from '../../components/ActionMenu';
@@ -159,11 +160,11 @@ export function FixedTemplatesScreen() {
             <ActionMenu
               ariaLabel={`Acciones de ${template.name}`}
               items={[
-                { label: 'Editar', icon: '✏️', onSelect: () => setEditing(template) },
-                { label: 'Archivar', icon: '📦', onSelect: () => handleArchive(template) },
+                { label: 'Editar', icon: Pencil, onSelect: () => setEditing(template) },
+                { label: 'Archivar', icon: Archive, onSelect: () => handleArchive(template) },
                 {
                   label: 'Eliminar',
-                  icon: '🗑️',
+                  icon: Trash2,
                   onSelect: () => setDeleting(template),
                   danger: true,
                 },

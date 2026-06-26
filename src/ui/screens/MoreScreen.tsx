@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { ChevronRight } from 'lucide-react';
 import { logout } from '../../data/authRepository';
 import { useSessionStore } from '../../store/sessionStore';
 import { RecalculateBalancesButton } from './RecalculateBalancesButton';
@@ -59,7 +60,7 @@ export function MoreScreen() {
                   <span className="block font-medium text-slate-800">{item.label}</span>
                   <span className="block text-xs text-slate-400">{item.hint}</span>
                 </span>
-                <span className="text-slate-300">›</span>
+                <ChevronRight className="h-4 w-4 text-slate-300" />
               </Link>
             </li>
           ) : (
