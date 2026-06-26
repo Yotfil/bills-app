@@ -65,6 +65,36 @@ export function exceededBudgetBacked(
   return result;
 }
 
+/** Un tope cerca de excederse: el fijo respaldado, su gasto y cuánto le queda al tope. */
+export interface NearLimitBudgetBacked {
+  fixed: FixedObligationMonthly;
+  consumed: number;
+  remaining: number; // cap - consumed (>= 0)
+}
+
+/**
+ * Fijos respaldados MUY CERCA de excederse: gasto por encima de `ratio` del tope pero **sin** pasarse
+ * (consumed ≤ cap). Para la alerta preventiva del dashboard (§8.1). Excluye los ya excedidos (esos
+ * van en `exceededBudgetBacked`), así cada tope aparece en una sola sección.
+ */
+export function nearLimitBudgetBacked(
+  monthlies: FixedObligationMonthly[],
+  consumedOf: (categoryId: string) => number,
+  ratio: number,
+): NearLimitBudgetBacked[] {
+  const result: NearLimitBudgetBacked[] = [];
+  for (const fixed of monthlies) {
+    if (!fixed.budgetBacked) continue;
+    const cap = fixed.budgetedAmount;
+    if (cap <= 0) continue;
+    const consumed = consumedOf(fixed.categoryId);
+    if (consumed > ratio * cap && consumed <= cap) {
+      result.push({ fixed, consumed, remaining: cap - consumed });
+    }
+  }
+  return result;
+}
+
 /**
  * Estado EFECTIVO de un fijo para los totales (§8.3). Un fijo respaldado no usa la máquina de
  * estados normal: deriva su estado del consumo del presupuesto ('paid' si está lleno, 'pending' si

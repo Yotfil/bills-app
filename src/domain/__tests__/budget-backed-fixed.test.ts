@@ -6,6 +6,7 @@ import {
   effectiveFixedStatus,
   exceededBudgetBacked,
   linkedBudgetBackedFixed,
+  nearLimitBudgetBacked,
 } from '../budgetBackedFixed';
 import { fixedTotals } from '../fixed';
 import { makeBudget, makeFixed } from './fixtures';
@@ -98,5 +99,19 @@ describe('budgetBackedFixed', () => {
     expect(exceeded).toHaveLength(1);
     expect(exceeded[0]?.fixed.id).toBe('over');
     expect(exceeded[0]?.overspend).toBe(50);
+  });
+
+  it('nearLimitBudgetBacked: lista los que pasan el ratio sin exceder (excluye los ya excedidos)', () => {
+    const monthlies = [
+      makeFixed({ id: 'low', budgetBacked: true, categoryId: 'cat-a', budgetedAmount: 400 }), // 50%
+      makeFixed({ id: 'near', budgetBacked: true, categoryId: 'cat-b', budgetedAmount: 400 }), // 90%
+      makeFixed({ id: 'over', budgetBacked: true, categoryId: 'cat-c', budgetedAmount: 400 }), // 112%
+    ];
+    const consumedOf = (cat: string) =>
+      cat === 'cat-a' ? 200 : cat === 'cat-b' ? 360 : 450;
+    const near = nearLimitBudgetBacked(monthlies, consumedOf, 0.8);
+    expect(near).toHaveLength(1);
+    expect(near[0]?.fixed.id).toBe('near'); // 'low' no llega al 80%, 'over' ya se pasó
+    expect(near[0]?.remaining).toBe(40);
   });
 });

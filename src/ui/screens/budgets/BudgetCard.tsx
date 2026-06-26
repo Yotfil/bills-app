@@ -1,7 +1,7 @@
 import { Pencil, Archive, Trash2 } from 'lucide-react';
 import { ActionMenu } from '../../components/ActionMenu';
 import { formatCop } from '../../../lib/currency';
-import { progressBarColor } from '../../../lib/progress';
+import { NEAR_LIMIT_RATIO, progressBarColor } from '../../../lib/progress';
 import type { BudgetCardProps } from './BudgetCardProps';
 
 // Tarjeta de presupuesto con progreso y aviso suave (CLAUDE.md §5.9). Calma, no culpa (§2):
@@ -16,7 +16,7 @@ export function BudgetCard({
 }: BudgetCardProps) {
   const ratio = status.limit > 0 ? status.consumed / status.limit : 0;
   const pct = Math.min(100, Math.round(ratio * 100));
-  const near = ratio > 0.7 && !status.exceeded;
+  const near = ratio > NEAR_LIMIT_RATIO && !status.exceeded;
 
   const barColor = progressBarColor(ratio);
 
