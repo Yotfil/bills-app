@@ -20,6 +20,7 @@ import type {
   EntityRef,
   LedgerEntityKind,
   Loan,
+  TransactionDraft,
 } from '../../domain/types';
 
 type EntryType = ManualEntryInput['type'];
@@ -54,6 +55,11 @@ export function TransactionForm({ existing, onDone }: TransactionFormProps) {
   const spendCategories = categories.filter((c) => !c.archived && !c.isSystem);
 
   const isEdit = !!existing;
+  // Los ajustes (reconciliación, §5.7) no se capturan a mano; pero un ajuste creado por accidente en
+  // la entidad equivocada sí debe poder corregirse: se edita conservando su tipo, su categoría de
+  // sistema y su dirección, dejando cambiar monto, cuenta/medio (cuenta, tarjeta o crédito), nota y
+  // fecha. No pasa por el builder manual (que no contempla 'adjustment').
+  const isAdjustment = existing?.type === 'adjustment';
   const [type, setType] = useState<EntryType>(
     (existing?.type as EntryType) ?? (lastType === 'adjustment' ? 'expense' : lastType),
   );
@@ -74,34 +80,60 @@ export function TransactionForm({ existing, onDone }: TransactionFormProps) {
       value: refToValue({ kind: 'account', id: a.id }),
       label: a.name,
     }));
-    if (type === 'expense') {
-      const cardOpts = activeCards.map((c) => ({
-        value: refToValue({ kind: 'card', id: c.id }),
-        label: `${c.name} (TC)`,
+    const cardOpts = activeCards.map((c) => ({
+      value: refToValue({ kind: 'card', id: c.id }),
+      label: `${c.name} (TC)`,
+    }));
+    // Un ajuste reconcilia una cuenta, una tarjeta o un crédito (§5.7): se puede mover a cualquiera.
+    if (isAdjustment) {
+      const loanOpts = activeLoans.map((l) => ({
+        value: refToValue({ kind: 'loan', id: l.id }),
+        label: `${l.name} (crédito)`,
       }));
+      return [...accountOpts, ...cardOpts, ...loanOpts];
+    }
+    if (type === 'expense') {
       return [...accountOpts, ...cardOpts];
     }
     return accountOpts; // income/transfer/debt_payment salen/entran a cuentas
-  }, [type, activeAccounts, activeCards]);
+  }, [type, isAdjustment, activeAccounts, activeCards, activeLoans]);
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     if (!uid) return;
     setError(null);
 
-    const input: ManualEntryInput = {
-      type,
-      amount: Math.round(Number(amount) || 0),
-      date: fromDateInputValue(dateValue),
-      concept: concept || conceptFallback(type, spendCategories, categoryId),
-      categoryId: type === 'expense' ? categoryId : null,
-      source: type === 'income' ? null : source,
-      destination:
-        type === 'income' || type === 'transfer' || type === 'debt_payment' ? destination : null,
-      hormiga,
-      note,
-    };
-    const draft = buildManualTransactionDraft(input);
+    // El ajuste conserva su tipo, su categoría de sistema y su dirección; solo cambian monto, cuenta,
+    // nota y fecha. No pasa por el builder manual (no contempla 'adjustment').
+    const draft: TransactionDraft =
+      isAdjustment && existing
+        ? {
+            date: fromDateInputValue(dateValue),
+            concept: concept.trim() || existing.concept,
+            type: 'adjustment',
+            amount: Math.round(Number(amount) || 0),
+            categoryId: existing.categoryId,
+            source,
+            destination: null,
+            adjustmentDirection: existing.adjustmentDirection,
+            tags: [],
+            note: note.trim() ? note.trim() : null,
+            fixedMonthlyId: null,
+          }
+        : buildManualTransactionDraft({
+            type,
+            amount: Math.round(Number(amount) || 0),
+            date: fromDateInputValue(dateValue),
+            concept: concept || conceptFallback(type, spendCategories, categoryId),
+            categoryId: type === 'expense' ? categoryId : null,
+            source: type === 'income' ? null : source,
+            destination:
+              type === 'income' || type === 'transfer' || type === 'debt_payment'
+                ? destination
+                : null,
+            hormiga,
+            note,
+          });
 
     const errors = validateTransaction(draft);
     if (errors.length > 0) {
@@ -116,7 +148,7 @@ export function TransactionForm({ existing, onDone }: TransactionFormProps) {
       } else {
         await createTransaction(uid, draft);
       }
-      rememberPrefs(type, input.source);
+      if (!isAdjustment) rememberPrefs(type, draft.source);
       onDone();
     } catch {
       setError('No se pudo guardar. Intenta de nuevo.');
@@ -127,21 +159,27 @@ export function TransactionForm({ existing, onDone }: TransactionFormProps) {
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-      {/* Selector de tipo: gasto primero (§5.4). */}
-      <div className="flex gap-2 overflow-x-auto">
-        {(Object.keys(TYPE_LABELS) as EntryType[]).map((t) => (
-          <button
-            key={t}
-            type="button"
-            onClick={() => setType(t)}
-            className={`rounded-full px-4 py-1.5 text-sm whitespace-nowrap ${
-              type === t ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-600'
-            }`}
-          >
-            {TYPE_LABELS[t]}
-          </button>
-        ))}
-      </div>
+      {/* Selector de tipo: gasto primero (§5.4). En un ajuste no se ofrece (no se cambia de tipo). */}
+      {isAdjustment ? (
+        <span className="w-fit rounded-full bg-slate-100 px-4 py-1.5 text-sm text-slate-600">
+          Ajuste por reconciliación
+        </span>
+      ) : (
+        <div className="flex gap-2 overflow-x-auto">
+          {(Object.keys(TYPE_LABELS) as EntryType[]).map((t) => (
+            <button
+              key={t}
+              type="button"
+              onClick={() => setType(t)}
+              className={`rounded-full px-4 py-1.5 text-sm whitespace-nowrap ${
+                type === t ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-600'
+              }`}
+            >
+              {TYPE_LABELS[t]}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Monto: lo primero y con teclado numérico (§5.4). */}
       <label className="flex flex-col gap-1">
@@ -180,7 +218,13 @@ export function TransactionForm({ existing, onDone }: TransactionFormProps) {
       {/* Origen (de dónde sale): expense/transfer/debt_payment. */}
       {type !== 'income' && (
         <SelectField
-          label={type === 'transfer' ? 'Desde' : 'Medio de pago'}
+          label={
+            isAdjustment
+              ? 'Cuenta / medio del ajuste'
+              : type === 'transfer'
+                ? 'Desde'
+                : 'Medio de pago'
+          }
           value={refToValue(source)}
           onChange={(v) => setSource(valueToRef(v))}
           options={sourceOptions}
