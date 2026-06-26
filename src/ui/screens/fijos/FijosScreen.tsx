@@ -18,7 +18,7 @@ import { FixedSyncModal } from './FixedSyncModal';
 import { EditCapModal } from './EditCapModal';
 import { fixedTotals } from '../../../domain/fixed';
 import { budgetStatus } from '../../../domain/reports';
-import { budgetBackedFilled, budgetForCategory } from '../../../domain/budgetBackedFixed';
+import { budgetBackedFilled } from '../../../domain/budgetBackedFixed';
 import {
   computeFixedSyncDiff,
   fixedSyncChangeCount,
@@ -29,7 +29,6 @@ import { subscribeAccounts } from '../../../data/accountRepository';
 import { subscribeCards } from '../../../data/cardRepository';
 import { subscribeLoans } from '../../../data/loanRepository';
 import { subscribeCategories } from '../../../data/categoryRepository';
-import { subscribeBudgets } from '../../../data/budgetRepository';
 import { subscribeTransactions } from '../../../data/transactionRepository';
 import { alignBudgetToTemplate, syncBudgetFromMonthly } from '../../../data/budgetFixedService';
 import { subscribeFixedTemplates } from '../../../data/fixedTemplateRepository';
@@ -42,6 +41,7 @@ import {
   markFixedPending,
   payFixed,
   revertFixedPayment,
+  setMonthlyBudgetBacked,
   syncMonthlyAmount,
   updateMonthlyFromTemplate,
 } from '../../../data/fixedMonthlyRepository';
@@ -49,7 +49,6 @@ import type { PayFixedInput } from '../../../data/PayFixedInput';
 import type { FixedSyncSelection } from './FixedSyncModalProps';
 import type {
   Account,
-  Budget,
   Category,
   CreditCard,
   FixedObligationMonthly,
@@ -71,7 +70,6 @@ export function FijosScreen() {
   const { items: loans } = useUserCollection<Loan>(subscribeLoans);
   const { items: categories } = useUserCollection<Category>(subscribeCategories);
   const { items: templates } = useUserCollection<FixedObligationTemplate>(subscribeFixedTemplates);
-  const { items: budgets } = useUserCollection<Budget>(subscribeBudgets);
   const { items: transactions } = useUserCollection<Transaction>(subscribeTransactions);
   const [paying, setPaying] = useState<FixedObligationMonthly | null>(null);
   const [editingCap, setEditingCap] = useState<FixedObligationMonthly | null>(null);
@@ -92,8 +90,9 @@ export function FijosScreen() {
   const monthTxns = transactions.filter((t) => monthKey(t.date) === month);
   const consumedForCategory = (categoryId: string) =>
     budgetStatus(monthTxns, categoryId, 0).consumed;
-  const capForFixed = (f: FixedObligationMonthly) =>
-    budgetForCategory(f.categoryId, budgets)?.monthlyLimit ?? f.budgetedAmount;
+  // El tope POR MES de un respaldado es su propio monto (M): así la barra de progreso y los totales
+  // usan el MISMO valor (antes la barra usaba el tope global del presupuesto y se contradecían).
+  const capForFixed = (f: FixedObligationMonthly) => f.budgetedAmount;
   const effectiveStatusOf = (f: FixedObligationMonthly): FixedStatus => {
     if (!f.budgetBacked) return f.status;
     return budgetBackedFilled(consumedForCategory(f.categoryId), capForFixed(f))
@@ -124,6 +123,21 @@ export function FijosScreen() {
   useEffect(() => {
     if (!hasSyncChanges && dismissed) undismissSync(month);
   }, [hasSyncChanges, dismissed, month, undismissSync]);
+
+  // Auto-sincroniza el MODO respaldado al abrir el mes (§5.9): si la plantilla activa pasó a (o dejó
+  // de ser) respaldada y el snapshot del fijo quedó desfasado, se realinea solo el flag (no el monto
+  // por-mes ni el resto: eso va por el banner). Mismo patrón que la auto-reconciliación de cuotas en
+  // LoansScreen. Solo toca fijos NO pagados; converge porque la suscripción refresca tras escribir.
+  useEffect(() => {
+    if (!uid) return;
+    for (const f of fijos) {
+      if (f.status === 'paid') continue;
+      const tpl = templates.find((t) => t.id === f.templateId && t.active && !t.archived);
+      if (tpl && (tpl.budgetBacked ?? false) !== f.budgetBacked) {
+        void setMonthlyBudgetBacked(uid, f.id, tpl.budgetBacked ?? false);
+      }
+    }
+  }, [uid, fijos, templates]);
 
   // La selección se cuenta solo sobre lo VISIBLE (respeta el buscador).
   const selectedFijos = sorted.filter((f) => selected.has(f.id));

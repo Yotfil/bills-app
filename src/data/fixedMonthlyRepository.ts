@@ -122,6 +122,20 @@ export async function updateMonthlyFromTemplate(
 }
 
 /**
+ * Realinea SOLO el flag `budgetBacked` de un fijo del mes a su plantilla (§5.9). Lo usa la
+ * auto-sincronización al abrir un mes ya generado: si la plantilla pasó a respaldada (o dejó de
+ * serlo) y el snapshot quedó desfasado, se corrige el modo sin tocar el monto por-mes (M) ni los
+ * demás campos (esos van por el banner de sincronización general).
+ */
+export async function setMonthlyBudgetBacked(
+  uid: string,
+  id: string,
+  value: boolean,
+): Promise<void> {
+  await updateDoc(rawDoc(uid, id), { budgetBacked: value, updatedAt: serverTimestamp() });
+}
+
+/**
  * Pendiente → Destinado (§5.2): NO mueve el saldo; el reservado de la cuenta es derivado de
  * los fijos en 'allocated'. Solo cambia el estado.
  */
