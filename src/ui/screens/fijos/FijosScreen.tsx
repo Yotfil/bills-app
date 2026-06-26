@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { RefreshCw } from 'lucide-react';
 import { useUserCollection } from '../../hooks/useUserCollection';
 import { useFixedMonthly } from '../../hooks/useFixedMonthly';
 import { useSessionStore } from '../../../store/sessionStore';
+import { useFixedSyncStore } from '../../../store/fixedSyncStore';
 import { MonthSelector } from '../../components/MonthSelector';
 import { DisponibleRealBar } from '../../components/DisponibleRealBar';
 import { SearchBar } from '../../components/SearchBar';
@@ -11,13 +13,22 @@ import { matchesQuery } from '../../../lib/text';
 import { FixedTotalsBar } from './FixedTotalsBar';
 import { FixedRow } from './FixedRow';
 import { PayFixedModal } from './PayFixedModal';
+import { FixedSyncBanner } from './FixedSyncBanner';
+import { FixedSyncModal } from './FixedSyncModal';
 import { fixedTotals } from '../../../domain/fixed';
-import { addMonths, currentMonthKey } from '../../../lib/date';
+import {
+  computeFixedSyncDiff,
+  fixedSyncChangeCount,
+  hasFixedSyncChanges,
+} from '../../../domain/fixedTemplateSync';
+import { addMonths, currentMonthKey, formatMonthLabel } from '../../../lib/date';
 import { subscribeAccounts } from '../../../data/accountRepository';
 import { subscribeCards } from '../../../data/cardRepository';
 import { subscribeLoans } from '../../../data/loanRepository';
+import { subscribeCategories } from '../../../data/categoryRepository';
 import { subscribeFixedTemplates } from '../../../data/fixedTemplateRepository';
 import {
+  addFixedMonthlyFromTemplates,
   deleteFixedMonthly,
   generateFixedMonthly,
   markFixedAllocated,
@@ -25,10 +36,13 @@ import {
   markFixedPending,
   payFixed,
   revertFixedPayment,
+  updateMonthlyFromTemplate,
 } from '../../../data/fixedMonthlyRepository';
 import type { PayFixedInput } from '../../../data/PayFixedInput';
+import type { FixedSyncSelection } from './FixedSyncModalProps';
 import type {
   Account,
+  Category,
   CreditCard,
   FixedObligationMonthly,
   FixedObligationTemplate,
@@ -46,10 +60,16 @@ export function FijosScreen() {
   const { items: accounts } = useUserCollection<Account>(subscribeAccounts);
   const { items: cards } = useUserCollection<CreditCard>(subscribeCards);
   const { items: loans } = useUserCollection<Loan>(subscribeLoans);
+  const { items: categories } = useUserCollection<Category>(subscribeCategories);
   const { items: templates } = useUserCollection<FixedObligationTemplate>(subscribeFixedTemplates);
   const [paying, setPaying] = useState<FixedObligationMonthly | null>(null);
   const [generating, setGenerating] = useState(false);
   const [search, setSearch] = useState('');
+  const [syncOpen, setSyncOpen] = useState(false);
+  // Descarte del banner de sincronización, por mes (persistido en localStorage).
+  const dismissed = useFixedSyncStore((s) => !!s.dismissedMonths[month]);
+  const dismissSync = useFixedSyncStore((s) => s.dismiss);
+  const undismissSync = useFixedSyncStore((s) => s.undismiss);
   // Selección para acciones masivas (§8.3): mismo patrón que la plantilla. Aquí hay DOS acciones,
   // eliminar y marcar pagados sin movimiento.
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -62,6 +82,18 @@ export function FijosScreen() {
   const totals = fixedTotals(fijos);
   const activeTemplates = templates.filter((t) => t.active && !t.archived);
   const unpaid = fijos.filter((f) => f.status !== 'paid');
+
+  // Diferencias entre la plantilla y los fijos ya generados de ESTE mes (§5.10). Solo tiene
+  // sentido cuando el mes ya está generado: si está vacío, se ofrece "Generar", no sincronizar.
+  const syncDiff = computeFixedSyncDiff(templates, fijos);
+  const hasSyncChanges = fijos.length > 0 && hasFixedSyncChanges(syncDiff);
+  const syncCount = fixedSyncChangeCount(syncDiff);
+
+  // Si el mes quedó sin cambios (porque se aplicaron o desaparecieron), se "reabre" el banner: así,
+  // si más adelante surgen cambios nuevos en este mes, se vuelve a mostrar y no solo el icono.
+  useEffect(() => {
+    if (!hasSyncChanges && dismissed) undismissSync(month);
+  }, [hasSyncChanges, dismissed, month, undismissSync]);
 
   // La selección se cuenta solo sobre lo VISIBLE (respeta el buscador).
   const selectedFijos = sorted.filter((f) => selected.has(f.id));
@@ -148,6 +180,22 @@ export function FijosScreen() {
     await payFixed(uid, paying, input);
   }
 
+  // Aplica solo lo que el usuario marcó en el modal de sincronización (§5.10): agrega plantillas
+  // nuevas, reescribe snapshots desfasados y quita instancias cuya plantilla ya no aplica.
+  async function handleApplySync(sel: FixedSyncSelection) {
+    if (!uid) return;
+    const addTemplates = syncDiff.toAdd.filter((t) => sel.add.has(t.id));
+    await Promise.all([
+      ...(addTemplates.length ? [addFixedMonthlyFromTemplates(uid, month, addTemplates)] : []),
+      ...syncDiff.toUpdate
+        .filter((c) => sel.update.has(c.fixed.id))
+        .map((c) => updateMonthlyFromTemplate(uid, c.fixed.id, c.template)),
+      ...syncDiff.toRemove
+        .filter((f) => sel.remove.has(f.id))
+        .map((f) => deleteFixedMonthly(uid, f)),
+    ]);
+  }
+
   async function handleRevert(fixed: FixedObligationMonthly) {
     if (!uid) return;
     const msg = fixed.transactionId
@@ -162,9 +210,25 @@ export function FijosScreen() {
       <DisponibleRealBar />
       <header className="flex items-center justify-between">
         <h1 className="text-xl font-bold text-slate-800">Fijos</h1>
-        <Link to="/mas/fijos" className="text-sm text-slate-400 underline">
-          Plantilla
-        </Link>
+        <div className="flex items-center gap-3">
+          {/* Punto de entrada al modal cuando el banner está cerrado: icono con contador. */}
+          {hasSyncChanges && dismissed && (
+            <button
+              type="button"
+              onClick={() => setSyncOpen(true)}
+              aria-label={`Actualizar fijos del mes (${syncCount} cambios)`}
+              className="relative text-amber-600 hover:text-amber-700"
+            >
+              <RefreshCw className="h-5 w-5" />
+              <span className="absolute -top-1.5 -right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-500 px-1 text-[10px] font-semibold text-white">
+                {syncCount}
+              </span>
+            </button>
+          )}
+          <Link to="/mas/fijos" className="text-sm text-slate-400 underline">
+            Plantilla
+          </Link>
+        </div>
       </header>
 
       <MonthSelector
@@ -173,6 +237,14 @@ export function FijosScreen() {
         onNext={() => setMonth(addMonths(month, 1))}
       />
       <FixedTotalsBar totals={totals} />
+
+      {hasSyncChanges && !dismissed && (
+        <FixedSyncBanner
+          count={syncCount}
+          onOpen={() => setSyncOpen(true)}
+          onDismiss={() => dismissSync(month)}
+        />
+      )}
 
       {fijos.length > 0 && (
         <SearchBar value={search} onChange={setSearch} placeholder="Buscar fijo…" />
@@ -255,6 +327,17 @@ export function FijosScreen() {
         loans={loans.filter((l) => !l.archived)}
         onClose={() => setPaying(null)}
         onConfirm={handlePay}
+      />
+
+      <FixedSyncModal
+        open={syncOpen}
+        diff={syncDiff}
+        monthLabel={formatMonthLabel(month)}
+        categories={categories}
+        cards={cards}
+        loans={loans}
+        onApply={handleApplySync}
+        onClose={() => setSyncOpen(false)}
       />
     </div>
   );
