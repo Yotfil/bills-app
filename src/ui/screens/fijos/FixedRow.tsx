@@ -1,4 +1,5 @@
 import { formatCop } from '../../../lib/currency';
+import { progressBarColor } from '../../../lib/progress';
 import { budgetBackedFilled } from '../../../domain/budgetBackedFixed';
 import type { FixedStatus } from '../../../domain/types';
 import type { FixedRowProps } from './FixedRowProps';
@@ -28,10 +29,17 @@ export function FixedRow({
   if (fixed.budgetBacked) {
     const cap = budgetCap ?? fixed.budgetedAmount;
     const filled = budgetBackedFilled(budgetConsumed, cap);
+    const exceeded = budgetConsumed > cap; // gastó MÁS que el tope (§5.9)
+    const overspend = budgetConsumed - cap;
     const ratio = cap > 0 ? budgetConsumed / cap : 0;
     const pct = Math.min(100, Math.round(ratio * 100));
-    const near = ratio >= 0.8 && !filled;
-    const barColor = filled ? 'bg-emerald-500' : near ? 'bg-amber-500' : 'bg-emerald-500';
+    const barColor = progressBarColor(ratio);
+
+    const chip = exceeded
+      ? { label: 'Excedido', className: 'bg-red-100 text-red-700' }
+      : filled
+        ? { label: 'Lleno', className: 'bg-emerald-100 text-emerald-700' }
+        : { label: 'En curso', className: 'bg-slate-100 text-slate-500' };
 
     return (
       <li className="rounded-xl border border-slate-200 bg-white p-4">
@@ -40,12 +48,8 @@ export function FixedRow({
             <p className="truncate font-semibold text-slate-800">{fixed.name}</p>
             <p className="text-sm text-slate-500">{formatCop(cap)}</p>
           </div>
-          <span
-            className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-              filled ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'
-            }`}
-          >
-            {filled ? 'Lleno' : 'En curso'}
+          <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${chip.className}`}>
+            {chip.label}
           </span>
         </div>
 
@@ -53,8 +57,10 @@ export function FixedRow({
           <div className={`h-full ${barColor}`} style={{ width: `${pct}%` }} />
         </div>
         <div className="mt-2 flex items-center justify-between text-xs">
-          <span className="text-slate-500">
-            {formatCop(budgetConsumed)} de {formatCop(cap)}
+          <span className={exceeded ? 'font-medium text-red-600' : 'text-slate-500'}>
+            {exceeded
+              ? `Te excediste ${formatCop(overspend)}`
+              : `${formatCop(budgetConsumed)} de ${formatCop(cap)}`}
           </span>
           {onEditCap && (
             <button type="button" onClick={onEditCap} className="text-slate-400 underline">

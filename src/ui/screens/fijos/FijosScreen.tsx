@@ -18,7 +18,7 @@ import { FixedSyncModal } from './FixedSyncModal';
 import { EditCapModal } from './EditCapModal';
 import { fixedTotals } from '../../../domain/fixed';
 import { budgetStatus } from '../../../domain/reports';
-import { budgetBackedFilled } from '../../../domain/budgetBackedFixed';
+import { budgetBackedFilled, budgetBackedTotalAmount } from '../../../domain/budgetBackedFixed';
 import {
   computeFixedSyncDiff,
   fixedSyncChangeCount,
@@ -99,6 +99,12 @@ export function FijosScreen() {
       ? 'paid'
       : 'pending';
   };
+  // Monto que cada fijo aporta a los totales: un respaldado lleno/excedido aporta su gasto REAL
+  // (Pagado incluye el sobrepaso, §5.9); en curso aporta su tope; el resto, su pagado/presupuestado.
+  const amountOf = (f: FixedObligationMonthly): number =>
+    f.budgetBacked
+      ? budgetBackedTotalAmount(consumedForCategory(f.categoryId), capForFixed(f))
+      : (f.paidAmount ?? f.budgetedAmount);
 
   const sorted = [...fijos]
     .filter((f) => matchesQuery(search, f.name))
@@ -107,7 +113,7 @@ export function FijosScreen() {
         STATUS_ORDER[effectiveStatusOf(a)] - STATUS_ORDER[effectiveStatusOf(b)] ||
         a.name.localeCompare(b.name),
     );
-  const totals = fixedTotals(fijos, effectiveStatusOf);
+  const totals = fixedTotals(fijos, effectiveStatusOf, amountOf);
   const activeTemplates = templates.filter((t) => t.active && !t.archived);
   // Los respaldados no se pagan ni se destinan: se excluyen de las acciones masivas de pago.
   const unpaid = fijos.filter((f) => !f.budgetBacked && f.status !== 'paid');
