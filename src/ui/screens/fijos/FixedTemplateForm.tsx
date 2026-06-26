@@ -8,6 +8,8 @@ import { currentMonthKey } from '../../../lib/date';
 import { createFixedTemplate, updateFixedTemplate } from '../../../data/fixedTemplateRepository';
 import { syncMonthlyToTemplate } from '../../../data/fixedMonthlyRepository';
 import { syncCuotaFromTemplate } from '../../../data/cuotaService';
+import { alignBudgetToTemplate } from '../../../data/budgetFixedService';
+import { budgetForCategory } from '../../../domain/budgetBackedFixed';
 import type { FixedTemplateFormProps } from './FixedTemplateFormProps';
 import type { FixedPayKind } from '../../../domain/types';
 
@@ -20,6 +22,7 @@ export function FixedTemplateForm({
   cards,
   loans,
   categories,
+  budgets,
   onClose,
 }: FixedTemplateFormProps) {
   const uid = useSessionStore((s) => s.user?.uid);
@@ -32,8 +35,15 @@ export function FixedTemplateForm({
     template ? refToValue(template.defaultPaymentMethod) : '',
   );
   const [debtTargetId, setDebtTargetId] = useState(template?.debtTargetId ?? '');
+  const [budgetBacked, setBudgetBacked] = useState(template?.budgetBacked ?? false);
   const [busy, setBusy] = useState(false);
   const formKey = template?.id ?? 'new';
+
+  // "Respaldar con presupuesto" solo aplica a gastos cuya categoría YA tiene presupuesto (§5.9): no
+  // se crean presupuestos automáticamente. Si la categoría no tiene, la opción no se muestra.
+  const categoryBudget =
+    payKind === 'expense' && categoryId ? budgetForCategory(categoryId, budgets) : null;
+  const canBudgetBack = !!categoryBudget;
 
   const spendCategories = categories.filter((c) => !c.archived && !c.isSystem);
   const accountOptions = accounts
@@ -53,6 +63,8 @@ export function FixedTemplateForm({
     if (payKind === 'expense' && !categoryId) return;
     if (payKind === 'debt_payment' && !debtTargetId) return;
 
+    // Solo un gasto con presupuesto en su categoría puede quedar respaldado (§5.9).
+    const isBudgetBacked = payKind === 'expense' && canBudgetBack && budgetBacked;
     const data = {
       name: name.trim(),
       budgetedAmount: Math.round(Number(amount) || 0),
@@ -60,6 +72,7 @@ export function FixedTemplateForm({
       defaultPaymentMethod: method,
       payKind,
       debtTargetId: payKind === 'debt_payment' ? debtTargetId : null,
+      budgetBacked: isBudgetBacked,
     };
 
     setBusy(true);
@@ -73,6 +86,7 @@ export function FixedTemplateForm({
           categoryId: data.categoryId,
           payKind: data.payKind,
           debtTargetId: data.debtTargetId,
+          budgetBacked: data.budgetBacked,
           paymentMethod: method,
         });
         // Sync bidireccional crédito↔cuota (§5.6): si cambió el monto y el destino es un crédito,
@@ -80,8 +94,13 @@ export function FixedTemplateForm({
         if (data.budgetedAmount !== template.budgetedAmount) {
           await syncCuotaFromTemplate(uid, template, data.budgetedAmount, loans);
         }
+        // Espejo fijo→presupuesto (§5.9): si es respaldado, el tope del presupuesto = monto (T→B).
+        if (isBudgetBacked) {
+          await alignBudgetToTemplate(uid, data);
+        }
       } else {
         await createFixedTemplate(uid, data);
+        if (isBudgetBacked) await alignBudgetToTemplate(uid, data);
       }
       onClose();
     } finally {
@@ -129,6 +148,25 @@ export function FixedTemplateForm({
             options={spendCategories.map((c) => ({ value: c.id, label: c.name }))}
             placeholder="Selecciona categoría…"
           />
+        )}
+
+        {/* Respaldar con presupuesto (§5.9): solo si la categoría YA tiene presupuesto. No se paga;
+            se llena solo cuando el gasto de la categoría alcanza el tope. */}
+        {canBudgetBack && (
+          <label className="flex items-start gap-2 rounded-xl bg-slate-50 p-3">
+            <input
+              type="checkbox"
+              checked={budgetBacked}
+              onChange={(e) => setBudgetBacked(e.target.checked)}
+              className="mt-0.5 h-5 w-5 shrink-0 accent-slate-800"
+            />
+            <span className="text-sm text-slate-600">
+              <span className="font-medium text-slate-800">Respaldar con presupuesto</span>
+              <br />
+              No se paga: se marca lleno cuando el gasto de esta categoría alcanza el tope. El monto
+              va en espejo con el presupuesto.
+            </span>
+          </label>
         )}
 
         <SelectField
