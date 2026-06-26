@@ -3,6 +3,7 @@ import {
   budgetBackedFilled,
   budgetForCategory,
   effectiveFixedStatus,
+  linkedBudgetBackedFixed,
 } from '../budgetBackedFixed';
 import { fixedTotals } from '../fixed';
 import { makeBudget, makeFixed } from './fixtures';
@@ -17,6 +18,15 @@ describe('budgetBackedFixed', () => {
     expect(budgetForCategory('cat-ocio', budgets)?.id).toBe('b1');
     expect(budgetForCategory('cat-comidas', budgets)).toBeNull(); // archivado
     expect(budgetForCategory('cat-x', budgets)).toBeNull();
+  });
+
+  it('linkedBudgetBackedFixed: encuentra el fijo respaldado de la categoría (tope por mes = M)', () => {
+    const monthlies = [
+      makeFixed({ id: 'normal', categoryId: 'cat-ocio', budgetBacked: false }),
+      makeFixed({ id: 'backed', categoryId: 'cat-ocio', budgetBacked: true, budgetedAmount: 400 }),
+    ];
+    expect(linkedBudgetBackedFixed('cat-ocio', monthlies)?.id).toBe('backed');
+    expect(linkedBudgetBackedFixed('cat-comidas', monthlies)).toBeNull();
   });
 
   it('budgetBackedFilled: lleno solo cuando consumido alcanza el tope (tope > 0)', () => {

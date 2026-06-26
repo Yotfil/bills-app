@@ -14,6 +14,18 @@ export function budgetForCategory(categoryId: string, budgets: Budget[]): Budget
   return budgets.find((b) => !b.archived && b.active && b.categoryId === categoryId) ?? null;
 }
 
+/**
+ * El fijo respaldado de una categoría en el mes dado, o null. El tope POR MES vive en este fijo
+ * (`budgetedAmount` = M), así que es la fuente de verdad del tope de esa categoría ese mes (§5.9):
+ * la tarjeta del presupuesto lee de aquí para el mes en curso. `monthlies` = fijos de un solo mes.
+ */
+export function linkedBudgetBackedFixed(
+  categoryId: string,
+  monthlies: FixedObligationMonthly[],
+): FixedObligationMonthly | null {
+  return monthlies.find((m) => m.budgetBacked && m.categoryId === categoryId) ?? null;
+}
+
 /** `true` si el presupuesto está lleno: lo consumido alcanzó (o superó) el tope. */
 export function budgetBackedFilled(consumed: number, cap: number): boolean {
   return cap > 0 && consumed >= cap;
