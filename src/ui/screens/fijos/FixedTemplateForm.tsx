@@ -44,6 +44,9 @@ export function FixedTemplateForm({
   const categoryBudget =
     payKind === 'expense' && categoryId ? budgetForCategory(categoryId, budgets) : null;
   const canBudgetBack = !!categoryBudget;
+  // Un fijo respaldado no se paga con un único medio (su tope se llena con gastos variables de la
+  // categoría), así que se oculta "Medio por defecto" mientras el check esté activo.
+  const hidePaymentMethod = payKind === 'expense' && canBudgetBack && budgetBacked;
 
   const spendCategories = categories.filter((c) => !c.archived && !c.isSystem);
   const accountOptions = accounts
@@ -58,13 +61,19 @@ export function FixedTemplateForm({
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
-    const method = valueToRef(paymentMethod);
+    // Solo un gasto con presupuesto en su categoría puede quedar respaldado (§5.9).
+    const isBudgetBacked = payKind === 'expense' && canBudgetBack && budgetBacked;
+
+    // El modelo exige un medio (EntityRef no-nulo). Para un respaldado el campo se oculta y el medio
+    // no se usa (no se paga): si no hay uno elegido, se rellena con la primera cuenta como placeholder.
+    let method = valueToRef(paymentMethod);
+    if (isBudgetBacked && !method) {
+      const firstAccount = accounts.find((a) => !a.archived);
+      method = firstAccount ? { kind: 'account', id: firstAccount.id } : null;
+    }
     if (!uid || !name.trim() || !method) return;
     if (payKind === 'expense' && !categoryId) return;
     if (payKind === 'debt_payment' && !debtTargetId) return;
-
-    // Solo un gasto con presupuesto en su categoría puede quedar respaldado (§5.9).
-    const isBudgetBacked = payKind === 'expense' && canBudgetBack && budgetBacked;
     const data = {
       name: name.trim(),
       budgetedAmount: Math.round(Number(amount) || 0),
@@ -169,13 +178,15 @@ export function FixedTemplateForm({
           </label>
         )}
 
-        <SelectField
-          label={payKind === 'expense' ? 'Medio por defecto' : 'Abonar desde'}
-          value={paymentMethod}
-          onChange={setPaymentMethod}
-          options={paymentOptions}
-          placeholder="Selecciona…"
-        />
+        {!hidePaymentMethod && (
+          <SelectField
+            label={payKind === 'expense' ? 'Medio por defecto' : 'Abonar desde'}
+            value={paymentMethod}
+            onChange={setPaymentMethod}
+            options={paymentOptions}
+            placeholder="Selecciona…"
+          />
+        )}
 
         {payKind === 'debt_payment' && (
           <SelectField
