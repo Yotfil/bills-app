@@ -31,6 +31,10 @@ function changedFields(
   if (fixed.categoryId !== template.categoryId) changed.push('categoryId');
   if (fixed.payKind !== template.payKind) changed.push('payKind');
   if (fixed.debtTargetId !== template.debtTargetId) changed.push('debtTargetId');
+  // Coalesce: docs previos a la feature no tienen el campo (undefined); equivale a false.
+  if ((fixed.budgetBacked ?? false) !== (template.budgetBacked ?? false)) {
+    changed.push('budgetBacked');
+  }
   if (
     comparePaymentMethod &&
     (fixed.paymentMethod.kind !== template.defaultPaymentMethod.kind ||

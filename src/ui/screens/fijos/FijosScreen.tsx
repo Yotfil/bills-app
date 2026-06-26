@@ -15,17 +15,22 @@ import { FixedRow } from './FixedRow';
 import { PayFixedModal } from './PayFixedModal';
 import { FixedSyncBanner } from './FixedSyncBanner';
 import { FixedSyncModal } from './FixedSyncModal';
+import { EditCapModal } from './EditCapModal';
 import { fixedTotals } from '../../../domain/fixed';
+import { budgetStatus } from '../../../domain/reports';
+import { budgetBackedFilled } from '../../../domain/budgetBackedFixed';
 import {
   computeFixedSyncDiff,
   fixedSyncChangeCount,
   hasFixedSyncChanges,
 } from '../../../domain/fixedTemplateSync';
-import { addMonths, currentMonthKey, formatMonthLabel } from '../../../lib/date';
+import { addMonths, currentMonthKey, formatMonthLabel, monthKey } from '../../../lib/date';
 import { subscribeAccounts } from '../../../data/accountRepository';
 import { subscribeCards } from '../../../data/cardRepository';
 import { subscribeLoans } from '../../../data/loanRepository';
 import { subscribeCategories } from '../../../data/categoryRepository';
+import { subscribeTransactions } from '../../../data/transactionRepository';
+import { alignBudgetToTemplate, syncBudgetFromMonthly } from '../../../data/budgetFixedService';
 import { subscribeFixedTemplates } from '../../../data/fixedTemplateRepository';
 import {
   addFixedMonthlyFromTemplates,
@@ -36,6 +41,8 @@ import {
   markFixedPending,
   payFixed,
   revertFixedPayment,
+  setMonthlyBudgetBacked,
+  syncMonthlyAmount,
   updateMonthlyFromTemplate,
 } from '../../../data/fixedMonthlyRepository';
 import type { PayFixedInput } from '../../../data/PayFixedInput';
@@ -48,6 +55,7 @@ import type {
   FixedObligationTemplate,
   FixedStatus,
   Loan,
+  Transaction,
 } from '../../../domain/types';
 
 // Orden de lectura: lo que falta primero, lo pagado al final.
@@ -62,7 +70,9 @@ export function FijosScreen() {
   const { items: loans } = useUserCollection<Loan>(subscribeLoans);
   const { items: categories } = useUserCollection<Category>(subscribeCategories);
   const { items: templates } = useUserCollection<FixedObligationTemplate>(subscribeFixedTemplates);
+  const { items: transactions } = useUserCollection<Transaction>(subscribeTransactions);
   const [paying, setPaying] = useState<FixedObligationMonthly | null>(null);
+  const [editingCap, setEditingCap] = useState<FixedObligationMonthly | null>(null);
   const [generating, setGenerating] = useState(false);
   const [search, setSearch] = useState('');
   const [syncOpen, setSyncOpen] = useState(false);
@@ -74,14 +84,33 @@ export function FijosScreen() {
   // eliminar y marcar pagados sin movimiento.
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
+  // Fijos respaldados por presupuesto (§5.9): su gasto es Σ movimientos de la categoría este mes.
+  // El tope es el del presupuesto (espejo del monto). El estado se DERIVA: lleno → cuenta como
+  // pagado en los totales; en curso → como por destinar. Nunca "destinado".
+  const monthTxns = transactions.filter((t) => monthKey(t.date) === month);
+  const consumedForCategory = (categoryId: string) =>
+    budgetStatus(monthTxns, categoryId, 0).consumed;
+  // El tope POR MES de un respaldado es su propio monto (M): así la barra de progreso y los totales
+  // usan el MISMO valor (antes la barra usaba el tope global del presupuesto y se contradecían).
+  const capForFixed = (f: FixedObligationMonthly) => f.budgetedAmount;
+  const effectiveStatusOf = (f: FixedObligationMonthly): FixedStatus => {
+    if (!f.budgetBacked) return f.status;
+    return budgetBackedFilled(consumedForCategory(f.categoryId), capForFixed(f))
+      ? 'paid'
+      : 'pending';
+  };
+
   const sorted = [...fijos]
     .filter((f) => matchesQuery(search, f.name))
     .sort(
-      (a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status] || a.name.localeCompare(b.name),
+      (a, b) =>
+        STATUS_ORDER[effectiveStatusOf(a)] - STATUS_ORDER[effectiveStatusOf(b)] ||
+        a.name.localeCompare(b.name),
     );
-  const totals = fixedTotals(fijos);
+  const totals = fixedTotals(fijos, effectiveStatusOf);
   const activeTemplates = templates.filter((t) => t.active && !t.archived);
-  const unpaid = fijos.filter((f) => f.status !== 'paid');
+  // Los respaldados no se pagan ni se destinan: se excluyen de las acciones masivas de pago.
+  const unpaid = fijos.filter((f) => !f.budgetBacked && f.status !== 'paid');
 
   // Diferencias entre la plantilla y los fijos ya generados de ESTE mes (§5.10). Solo tiene
   // sentido cuando el mes ya está generado: si está vacío, se ofrece "Generar", no sincronizar.
@@ -94,6 +123,21 @@ export function FijosScreen() {
   useEffect(() => {
     if (!hasSyncChanges && dismissed) undismissSync(month);
   }, [hasSyncChanges, dismissed, month, undismissSync]);
+
+  // Auto-sincroniza el MODO respaldado al abrir el mes (§5.9): si la plantilla activa pasó a (o dejó
+  // de ser) respaldada y el snapshot del fijo quedó desfasado, se realinea solo el flag (no el monto
+  // por-mes ni el resto: eso va por el banner). Mismo patrón que la auto-reconciliación de cuotas en
+  // LoansScreen. Solo toca fijos NO pagados; converge porque la suscripción refresca tras escribir.
+  useEffect(() => {
+    if (!uid) return;
+    for (const f of fijos) {
+      if (f.status === 'paid') continue;
+      const tpl = templates.find((t) => t.id === f.templateId && t.active && !t.archived);
+      if (tpl && (tpl.budgetBacked ?? false) !== f.budgetBacked) {
+        void setMonthlyBudgetBacked(uid, f.id, tpl.budgetBacked ?? false);
+      }
+    }
+  }, [uid, fijos, templates]);
 
   // La selección se cuenta solo sobre lo VISIBLE (respeta el buscador).
   const selectedFijos = sorted.filter((f) => selected.has(f.id));
@@ -170,6 +214,8 @@ export function FijosScreen() {
     setGenerating(true);
     try {
       await generateFixedMonthly(uid, month);
+      // Alinea el tope del presupuesto al monto de plantilla para los respaldados (B = T, §5.9).
+      await Promise.all(activeTemplates.map((t) => alignBudgetToTemplate(uid, t)));
     } finally {
       setGenerating(false);
     }
@@ -180,6 +226,14 @@ export function FijosScreen() {
     await payFixed(uid, paying, input);
   }
 
+  // Editar el tope de un fijo respaldado desde Fijos (§5.9): actualiza el monto del fijo del mes (M)
+  // y, en espejo, el tope del presupuesto de su categoría (B). La plantilla no cambia.
+  async function handleEditCap(amount: number) {
+    if (!uid || !editingCap) return;
+    await syncMonthlyAmount(uid, editingCap.templateId, month, amount);
+    await syncBudgetFromMonthly(uid, editingCap, amount);
+  }
+
   // Aplica solo lo que el usuario marcó en el modal de sincronización (§5.10): agrega plantillas
   // nuevas, reescribe snapshots desfasados y quita instancias cuya plantilla ya no aplica.
   async function handleApplySync(sel: FixedSyncSelection) {
@@ -187,6 +241,8 @@ export function FijosScreen() {
     const addTemplates = syncDiff.toAdd.filter((t) => sel.add.has(t.id));
     await Promise.all([
       ...(addTemplates.length ? [addFixedMonthlyFromTemplates(uid, month, addTemplates)] : []),
+      // Alinear el presupuesto al monto de plantilla para los respaldados recién agregados (§5.9).
+      ...addTemplates.map((t) => alignBudgetToTemplate(uid, t)),
       ...syncDiff.toUpdate
         .filter((c) => sel.update.has(c.fixed.id))
         .map((c) => updateMonthlyFromTemplate(uid, c.fixed.id, c.template)),
@@ -308,6 +364,11 @@ export function FijosScreen() {
           <FixedRow
             key={fixed.id}
             fixed={fixed}
+            // Solo los respaldados muestran progreso y permiten editar el tope (§5.9); el resto no
+            // recibe estas props y el checkbox de selección masiva sigue disponible.
+            budgetConsumed={fixed.budgetBacked ? consumedForCategory(fixed.categoryId) : undefined}
+            budgetCap={fixed.budgetBacked ? capForFixed(fixed) : undefined}
+            onEditCap={fixed.budgetBacked ? () => setEditingCap(fixed) : undefined}
             selected={selected.has(fixed.id)}
             onToggleSelect={() => toggleOne(fixed.id)}
             onAllocate={() => uid && markFixedAllocated(uid, fixed.id)}
@@ -338,6 +399,13 @@ export function FijosScreen() {
         loans={loans}
         onApply={handleApplySync}
         onClose={() => setSyncOpen(false)}
+      />
+
+      <EditCapModal
+        open={!!editingCap}
+        fixed={editingCap}
+        onConfirm={handleEditCap}
+        onClose={() => setEditingCap(null)}
       />
     </div>
   );

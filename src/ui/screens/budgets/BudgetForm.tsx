@@ -4,6 +4,8 @@ import { MoneyInput } from '../../components/MoneyInput';
 import { SelectField } from '../../components/SelectField';
 import { useSessionStore } from '../../../store/sessionStore';
 import { createBudget, updateBudget } from '../../../data/budgetRepository';
+import { syncMonthlyFromBudget } from '../../../data/budgetFixedService';
+import { currentMonthKey } from '../../../lib/date';
 import type { BudgetFormProps } from './BudgetFormProps';
 
 // Crear/editar un presupuesto por categoría (CLAUDE.md §5.9). Al crear, solo se ofrecen
@@ -35,6 +37,9 @@ export function BudgetForm({
     try {
       if (isEdit && budget) {
         await updateBudget(uid, budget.id, { monthlyLimit });
+        // Espejo presupuesto→fijo (§5.9): si hay fijos respaldados de esta categoría en el mes en
+        // curso, su monto se actualiza al nuevo tope. No toca la plantilla.
+        await syncMonthlyFromBudget(uid, { ...budget, monthlyLimit }, monthlyLimit, currentMonthKey());
       } else {
         await createBudget(uid, { categoryId, monthlyLimit });
       }

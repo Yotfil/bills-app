@@ -1,5 +1,6 @@
 import type {
   Account,
+  Budget,
   Category,
   CreditCard,
   FixedObligationTemplate,
@@ -13,5 +14,6 @@ export interface FixedTemplateFormProps {
   cards: CreditCard[];
   loans: Loan[];
   categories: Category[];
+  budgets: Budget[]; // para ofrecer "respaldar con presupuesto" solo si la categoría tiene uno (§5.9)
   onClose: () => void;
 }

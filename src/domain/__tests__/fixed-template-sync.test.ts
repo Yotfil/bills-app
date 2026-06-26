@@ -67,6 +67,17 @@ describe('computeFixedSyncDiff', () => {
     expect(computeFixedSyncDiff(templates, fijos).toUpdate).toHaveLength(0);
   });
 
+  it('docs legacy sin budgetBacked (undefined) no generan diff espurio (coalesce a false)', () => {
+    // Simula documentos previos a la feature: el campo no existe en Firestore.
+    const legacyTemplate = { ...makeTemplate({ id: 'a' }), budgetBacked: undefined } as never;
+    const legacyFixed = { ...makeFixed({ id: 'fx-a', templateId: 'a' }), budgetBacked: undefined } as never;
+    const diff = computeFixedSyncDiff([legacyTemplate], [legacyFixed]);
+    expect(diff.toUpdate).toHaveLength(0);
+    // Una vez el fijo se normaliza a false pero la plantilla sigue legacy: tampoco hay diff.
+    const normalizedFixed = makeFixed({ id: 'fx-a', templateId: 'a', budgetBacked: false });
+    expect(computeFixedSyncDiff([legacyTemplate], [normalizedFixed]).toUpdate).toHaveLength(0);
+  });
+
   it('detecta fijos cuya plantilla fue borrada, archivada o inactivada (toRemove)', () => {
     const templates = [makeTemplate({ id: 'arch', archived: true })];
     const fijos = [

@@ -113,9 +113,26 @@ export async function updateMonthlyFromTemplate(
     categoryId: template.categoryId,
     payKind: template.payKind,
     debtTargetId: template.debtTargetId,
+    // Coalesce: plantillas previas a la feature no tienen el campo (undefined) y Firestore rechaza
+    // undefined al escribir; se normaliza a false.
+    budgetBacked: template.budgetBacked ?? false,
     paymentMethod: template.defaultPaymentMethod,
     updatedAt: serverTimestamp(),
   });
+}
+
+/**
+ * Realinea SOLO el flag `budgetBacked` de un fijo del mes a su plantilla (§5.9). Lo usa la
+ * auto-sincronización al abrir un mes ya generado: si la plantilla pasó a respaldada (o dejó de
+ * serlo) y el snapshot quedó desfasado, se corrige el modo sin tocar el monto por-mes (M) ni los
+ * demás campos (esos van por el banner de sincronización general).
+ */
+export async function setMonthlyBudgetBacked(
+  uid: string,
+  id: string,
+  value: boolean,
+): Promise<void> {
+  await updateDoc(rawDoc(uid, id), { budgetBacked: value, updatedAt: serverTimestamp() });
 }
 
 /**
@@ -157,7 +174,13 @@ export async function markFixedPaidWithoutTransaction(uid: string, id: string): 
 // Campos que se copian de la plantilla al snapshot mensual.
 type MonthlySnapshot = Pick<
   FixedObligationMonthly,
-  'name' | 'budgetedAmount' | 'categoryId' | 'payKind' | 'debtTargetId' | 'paymentMethod'
+  | 'name'
+  | 'budgetedAmount'
+  | 'categoryId'
+  | 'payKind'
+  | 'debtTargetId'
+  | 'budgetBacked'
+  | 'paymentMethod'
 >;
 
 /**
