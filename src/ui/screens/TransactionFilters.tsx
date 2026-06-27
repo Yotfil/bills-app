@@ -99,6 +99,15 @@ export function TransactionFilters({
             options={entityOptions}
             placeholder="Todas las cuentas"
           />
+          <label className="flex items-center gap-2 text-sm text-slate-600">
+            <input
+              type="checkbox"
+              checked={filter.hormigaOnly}
+              onChange={(e) => onChange({ ...filter, hormigaOnly: e.target.checked })}
+              className="h-5 w-5 accent-slate-800"
+            />
+            Solo gastos hormiga 🐜
+          </label>
           <div className="flex gap-3">
             <label className="flex flex-1 flex-col gap-1">
               <span className="text-xs text-slate-400">Desde</span>

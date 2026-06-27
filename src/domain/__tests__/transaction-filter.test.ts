@@ -51,6 +51,17 @@ describe('filterTransactions', () => {
     expect(filterTransactions(txns, filter({ text: 'hormiga' })).map((t) => t.id)).toEqual(['tag']);
   });
 
+  it('hormigaOnly deja solo los gastos con etiqueta hormiga', () => {
+    const txns = [
+      txn({ id: 'normal', concept: 'Mercado', tags: [] }),
+      txn({ id: 'hormiga', concept: 'Café', tags: ['hormiga'] }),
+    ];
+    expect(filterTransactions(txns, filter({ hormigaOnly: true })).map((t) => t.id)).toEqual([
+      'hormiga',
+    ]);
+    expect(isFilterActive(filter({ hormigaOnly: true }))).toBe(true);
+  });
+
   it('filtra por tipo de movimiento', () => {
     const txns = [
       txn({ id: 'gasto', type: 'expense' }),

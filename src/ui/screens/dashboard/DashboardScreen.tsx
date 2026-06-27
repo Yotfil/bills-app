@@ -18,6 +18,7 @@ import { MonthSelector } from '../../components/MonthSelector';
 import { HeroBalance } from './HeroBalance';
 import { ExceededBudgetsAlert } from './ExceededBudgetsAlert';
 import { NearLimitBudgetsAlert } from './NearLimitBudgetsAlert';
+import { HormigaCard } from './HormigaCard';
 import { MonthSummaryCard } from './MonthSummaryCard';
 import { FixedProgressCard } from './FixedProgressCard';
 import { CategoryDonut } from './CategoryDonut';
@@ -149,6 +150,7 @@ export function DashboardScreen() {
           visibilidad; cada una solo aparece si tiene ítems. */}
       <ExceededBudgetsAlert items={exceededItems} />
       <NearLimitBudgetsAlert items={nearLimitItems} />
+      <HormigaCard />
 
       <MonthSummaryCard summary={summary} />
       <FixedProgressCard

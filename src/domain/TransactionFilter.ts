@@ -19,4 +19,6 @@ export interface TransactionFilter {
   fromMillis: number | null;
   /** Cota superior inclusiva (ms desde epoch), o `null` si no hay "hasta". */
   toMillis: number | null;
+  /** Si solo se muestran los gastos con etiqueta hormiga (§5.8). */
+  hormigaOnly: boolean;
 }
