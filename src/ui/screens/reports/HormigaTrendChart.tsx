@@ -1,21 +1,17 @@
 import { useState } from 'react';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis } from 'recharts';
-import { useSessionStore } from '../../../store/sessionStore';
-import { useUserSettings } from '../../hooks/useUserSettings';
-import { setHormigaCap } from '../../../data/userRepository';
+import { useHormigaCap } from '../../hooks/useHormigaCap';
 import { HormigaCapModal } from '../../components/HormigaCapModal';
 import { formatCop } from '../../../lib/currency';
 import { formatMonthLabel, formatMonthShort } from '../../../lib/date';
 import type { HormigaTrendChartProps } from './HormigaTrendChartProps';
 
 // Gasto hormiga histórico (CLAUDE.md §5.8, §15): cuánto se va en gasto hormiga mes a mes,
-// cruzando todas las categorías. Muestra el total del periodo, una barra por mes y el tope mensual
-// (editable desde aquí, así siempre es accesible aunque el aviso del Inicio no se muestre).
+// cruzando todas las categorías. Muestra el total del periodo, una barra por mes y el tope del mes
+// (automático, editable desde aquí; así siempre es accesible aunque el aviso del Inicio no se muestre).
 export function HormigaTrendChart({ data }: HormigaTrendChartProps) {
-  const uid = useSessionStore((s) => s.user?.uid);
-  const { settings } = useUserSettings();
+  const { effectiveCap, hasOverride, setCap } = useHormigaCap();
   const [modalOpen, setModalOpen] = useState(false);
-  const cap = settings?.hormigaMonthlyCap ?? null;
 
   const rows = data.map((m) => ({ ...m, label: formatMonthShort(m.month) }));
   const total = rows.reduce((sum, r) => sum + r.hormiga, 0);
@@ -50,24 +46,29 @@ export function HormigaTrendChart({ data }: HormigaTrendChartProps) {
 
       <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-3 text-xs">
         <span className="text-slate-500">
-          {cap !== null ? `Tope mensual: ${formatCop(cap)}` : 'Sin tope mensual'}
+          {effectiveCap !== null ? (
+            <>
+              Tope de este mes: {formatCop(effectiveCap)}{' '}
+              <span className="text-slate-400">{hasOverride ? '(manual)' : '(automático)'}</span>
+            </>
+          ) : (
+            'Sin tope este mes'
+          )}
         </span>
         <button
           type="button"
           onClick={() => setModalOpen(true)}
           className="font-medium text-slate-600 underline"
         >
-          {cap !== null ? 'Editar' : 'Poner tope'}
+          {effectiveCap !== null ? 'Editar' : 'Poner tope'}
         </button>
       </div>
 
       <HormigaCapModal
         open={modalOpen}
-        initialValue={cap}
-        hasCap={cap !== null}
-        onSave={async (value) => {
-          if (uid) await setHormigaCap(uid, value);
-        }}
+        initialValue={effectiveCap}
+        hasOverride={hasOverride}
+        onSave={setCap}
         onClose={() => setModalOpen(false)}
       />
     </section>

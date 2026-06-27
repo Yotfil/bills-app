@@ -4,6 +4,7 @@ import { useFixedMonthly } from '../../hooks/useFixedMonthly';
 import { useSessionStore } from '../../../store/sessionStore';
 import { BudgetCard } from './BudgetCard';
 import { BudgetForm } from './BudgetForm';
+import { HormigaBudgetCard } from './HormigaBudgetCard';
 import { BackButton } from '../../components/BackButton';
 import { ConfirmDeleteModal } from '../../components/ConfirmDeleteModal';
 import { budgetStatus } from '../../../domain/reports';
@@ -66,13 +67,10 @@ export function BudgetsScreen() {
       </header>
 
       {loading && <p className="text-slate-400">Cargando…</p>}
-      {!loading && active.length === 0 && (
-        <p className="text-slate-500">
-          Aún no tienes presupuestos. Crea uno para cuidar una categoría (opcional).
-        </p>
-      )}
 
       <ul className="flex flex-col gap-3">
+        {/* Tope de gasto hormiga (§5.8): automático cada mes, resaltado y editable. */}
+        <HormigaBudgetCard />
         {active.map((budget) => {
           const linkedFixed = linkedFixedFor(budget.categoryId);
           const limit = linkedFixed?.budgetedAmount ?? budget.monthlyLimit;
@@ -89,6 +87,12 @@ export function BudgetsScreen() {
           );
         })}
       </ul>
+
+      {!loading && active.length === 0 && (
+        <p className="text-slate-500">
+          Aún no tienes presupuestos por categoría. Crea uno para cuidar una categoría (opcional).
+        </p>
+      )}
 
       <BudgetForm
         key={`create-${creating}`}

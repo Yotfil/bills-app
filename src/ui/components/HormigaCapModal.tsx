@@ -4,7 +4,13 @@ import { MoneyInput } from './MoneyInput';
 import type { HormigaCapModalProps } from './HormigaCapModalProps';
 
 // Poner / editar / quitar el tope mensual de gasto hormiga (§5.8). Reusa Modal + MoneyInput.
-export function HormigaCapModal({ open, initialValue, hasCap, onSave, onClose }: HormigaCapModalProps) {
+export function HormigaCapModal({
+  open,
+  initialValue,
+  hasOverride,
+  onSave,
+  onClose,
+}: HormigaCapModalProps) {
   const [amount, setAmount] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -32,8 +38,8 @@ export function HormigaCapModal({ open, initialValue, hasCap, onSave, onClose }:
   return (
     <Modal open={open} title="Tope de gasto hormiga 🐜" onClose={onClose}>
       <p className="mb-3 text-sm text-slate-500">
-        Cuánto quieres permitirte como máximo al mes en gastos hormiga. Te avisaremos (sin regaño)
-        cuando te acerques.
+        Cuánto quieres permitirte este mes en gastos hormiga. Vale solo para el mes en curso; el
+        próximo mes el tope vuelve a calcularse solo. Te avisaremos (sin regaño) cuando te acerques.
       </p>
       <MoneyInput
         autoFocus
@@ -50,14 +56,14 @@ export function HormigaCapModal({ open, initialValue, hasCap, onSave, onClose }:
       >
         Guardar tope
       </button>
-      {hasCap && (
+      {hasOverride && (
         <button
           type="button"
           onClick={() => void handleSave(null)}
           disabled={busy}
           className="mt-2 w-full text-center text-xs text-slate-400 underline"
         >
-          Quitar el tope
+          Volver al tope automático
         </button>
       )}
     </Modal>

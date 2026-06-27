@@ -9,12 +9,10 @@ import { subscribeCategories } from '../../../data/categoryRepository';
 import { subscribeTransactions } from '../../../data/transactionRepository';
 import { disponibleReal } from '../../../domain/derived';
 import { fixedTotals } from '../../../domain/fixed';
-import { budgetStatus, spendByCategory, totalHormiga } from '../../../domain/reports';
+import { budgetStatus, spendByCategory } from '../../../domain/reports';
 import { exceededBudgetBacked, nearLimitBudgetBacked } from '../../../domain/budgetBackedFixed';
-import { monthlyInsights } from '../../../domain/insights';
-import { suggestHormigaCap } from '../../../domain/hormigaCap';
 import { monthlySummary } from '../../../domain/summary';
-import { addMonths, currentMonthKey, monthKey, recentMonthKeys } from '../../../lib/date';
+import { addMonths, currentMonthKey, monthKey } from '../../../lib/date';
 import { NEAR_LIMIT_RATIO } from '../../../lib/progress';
 import { MonthSelector } from '../../components/MonthSelector';
 import { HeroBalance } from './HeroBalance';
@@ -103,15 +101,6 @@ export function DashboardScreen() {
     [monthlyFixeds, curMonthTxns, categoryById],
   );
 
-  // Gasto hormiga (§5.8): el del mes en curso y el tope sugerido = promedio de los meses más bajos
-  // (6 meses cerrados). Alimentan la card que pide poner tope / avisa sin regaño.
-  const currentHormiga = useMemo(() => totalHormiga(curMonthTxns), [curMonthTxns]);
-  const suggestedHormigaCap = useMemo(() => {
-    const closedMonths = recentMonthKeys(6, addMonths(currentMonthKey(), -1));
-    const perMonth = monthlyInsights(transactions, closedMonths, (t) => monthKey(t.date));
-    return suggestHormigaCap(perMonth.map((m) => m.hormiga));
-  }, [transactions]);
-
   const slices = useMemo(() => {
     const byCat = spendByCategory(monthTxns);
     return Object.entries(byCat)
@@ -161,7 +150,7 @@ export function DashboardScreen() {
           visibilidad; cada una solo aparece si tiene ítems. */}
       <ExceededBudgetsAlert items={exceededItems} />
       <NearLimitBudgetsAlert items={nearLimitItems} />
-      <HormigaCard currentHormiga={currentHormiga} suggestedCap={suggestedHormigaCap} />
+      <HormigaCard />
 
       <MonthSummaryCard summary={summary} />
       <FixedProgressCard

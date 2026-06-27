@@ -8,7 +8,7 @@
 import { doc, getDoc, onSnapshot, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
 import { db } from './firebase';
 import { seedBaseCategories } from './categoryRepository';
-import type { UserSettings } from '../domain/types';
+import type { HormigaCapOverride, UserSettings } from '../domain/types';
 
 const CURRENT_SCHEMA_VERSION = 1;
 
@@ -26,7 +26,7 @@ export async function ensureUserSettings(uid: string): Promise<void> {
       currency: 'COP',
       locale: 'es-CO',
       onboardingCompleted: false,
-      hormigaMonthlyCap: null,
+      hormigaCapOverride: null,
       schemaVersion: CURRENT_SCHEMA_VERSION,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
@@ -64,11 +64,18 @@ export async function completeOnboarding(uid: string): Promise<void> {
   });
 }
 
-/** Guarda (o borra, con null) el tope mensual de gasto hormiga del usuario (§5.8). */
-export async function setHormigaCap(uid: string, value: number | null): Promise<void> {
+/**
+ * Guarda el override manual del tope de gasto hormiga (§5.8) para un mes, o lo quita con `null`
+ * (vuelve al tope automático). El override aplica solo al mes que indica; al cambiar de mes, el
+ * tope vuelve a ser automático.
+ */
+export async function setHormigaCapOverride(
+  uid: string,
+  override: HormigaCapOverride | null,
+): Promise<void> {
   if (!db) return;
   await updateDoc(doc(db, 'users', uid), {
-    hormigaMonthlyCap: value,
+    hormigaCapOverride: override,
     updatedAt: serverTimestamp(),
   });
 }

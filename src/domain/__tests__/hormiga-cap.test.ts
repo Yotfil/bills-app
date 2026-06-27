@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { suggestHormigaCap } from '../hormigaCap';
+import { resolveHormigaCap, suggestHormigaCap } from '../hormigaCap';
 
 // Tope sugerido de gasto hormiga (CLAUDE.md §5.8).
 describe('suggestHormigaCap', () => {
@@ -24,5 +24,15 @@ describe('suggestHormigaCap', () => {
 
   it('redondea el promedio', () => {
     expect(suggestHormigaCap([100, 100, 101])).toBe(100); // 301/3 = 100.33 → 100
+  });
+});
+
+describe('resolveHormigaCap', () => {
+  it('usa el override solo si es del mes en curso; si no, el automático', () => {
+    const override = { month: '2026-06', value: 50_000 };
+    expect(resolveHormigaCap(override, '2026-06', 30_000)).toBe(50_000); // override del mes
+    expect(resolveHormigaCap(override, '2026-07', 30_000)).toBe(30_000); // override viejo → auto
+    expect(resolveHormigaCap(null, '2026-07', 30_000)).toBe(30_000); // sin override → auto
+    expect(resolveHormigaCap(null, '2026-07', null)).toBeNull(); // sin override ni base
   });
 });
