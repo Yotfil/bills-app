@@ -60,3 +60,21 @@ body {
   --color-slate-800: #f1f5f9; /* texto primario/títulos + fondo de botones */
   --color-slate-900: #f8fafc; /* texto más fuerte (nav activo) */
 }
+
+/* ── Tema Gruvbox (Dark Medium) ───────────────────────────────────────────
+   Mismo enfoque que el oscuro (invierte la escala slate y el blanco), pero con la paleta cálida
+   de Gruvbox: fondos marrón/gris (bg0–bg3) y texto crema (fg0–fg4). Los botones bg-slate-800
+   text-white quedan como pastilla crema con texto oscuro. */
+:root[data-theme='gruvbox'] {
+  --color-white: #3c3836; /* bg1 — superficie de tarjetas */
+  --color-slate-50: #282828; /* bg0 (medium) — fondo de página */
+  --color-slate-100: #504945; /* bg2 — chips, tracks, fondos sutiles */
+  --color-slate-200: #504945; /* bg2 — bordes */
+  --color-slate-300: #665c54; /* bg3 — bordes/íconos tenues */
+  --color-slate-400: #a89984; /* fg4 — texto tenue */
+  --color-slate-500: #bdae93; /* fg3 — texto secundario */
+  --color-slate-600: #d5c4a1; /* fg2 — texto */
+  --color-slate-700: #ebdbb2; /* fg1 — texto enfatizado */
+  --color-slate-800: #fbf1c7; /* fg0 — texto primario/títulos + fondo de botones */
+  --color-slate-900: #fbf1c7; /* fg0 — texto más fuerte (nav activo) */
+}

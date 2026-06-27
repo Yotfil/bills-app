@@ -12,7 +12,7 @@ export function ThemePicker() {
     <div className="rounded-xl border border-slate-200 bg-white p-4">
       <p className="text-sm font-medium text-slate-800">Tema</p>
       <p className="text-xs text-slate-400">Elige los colores de la app</p>
-      <div className="mt-3 grid grid-cols-5 gap-2">
+      <div className="mt-3 grid grid-cols-3 gap-2">
         {THEMES.map((t) => {
           const active = t.id === theme;
           return (
