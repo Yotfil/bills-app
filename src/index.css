@@ -1,8 +1,80 @@
 @import 'tailwindcss';
 
-/* Color de marca: se redefine el token slate-800 de Tailwind (lo usa toda la app en botones,
-   títulos y acentos oscuros) para teñir todo de un verde oscuro acorde al logo "Mis Luks".
-   Al sobreescribir el token, cada utilidad *-slate-800 (bg/text/border…) toma el nuevo color. */
+/* Tema por defecto ("Actual" = verde Mis Luks): se redefine el token slate-800 de Tailwind (lo
+   usa toda la app en botones, títulos y acentos oscuros). Al sobreescribir el token, cada utilidad
+   *-slate-800 (bg/text/border…) toma el nuevo color. Los demás temas (abajo) re-tiñen más tokens
+   según el atributo data-theme de <html>, que pone el themeStore. */
 @theme {
   --color-slate-800: rgb(26 60 59);
+}
+
+/* Texto y fondo base: siguen los tokens del tema activo. Garantiza que el texto sin clase
+   explícita (p.ej. el de los inputs) y el fondo de la página se adapten en el tema oscuro. */
+body {
+  color: var(--color-slate-700);
+  background-color: var(--color-slate-50);
+}
+
+/* ── Temas claros ─────────────────────────────────────────────────────────
+   Solo re-tiñen la marca (slate-800/900) y el fondo/superficies suaves (slate-50/100). Las
+   tarjetas (bg-white) y el texto siguen sobre fondo claro, así que es de bajo riesgo. */
+
+:root[data-theme='girly'] {
+  --color-slate-800: #db2777; /* pink-600 — marca */
+  --color-slate-900: #be185d; /* pink-700 — texto/acento más fuerte */
+  --color-slate-50: #fdf2f8; /* pink-50 — fondo de página */
+  --color-slate-100: #fce7f3; /* pink-100 — chips y tracks */
+}
+
+:root[data-theme='blue'] {
+  --color-slate-800: #2563eb; /* blue-600 */
+  --color-slate-900: #1d4ed8; /* blue-700 */
+  --color-slate-50: #eff6ff; /* blue-50 */
+  --color-slate-100: #dbeafe; /* blue-100 */
+}
+
+:root[data-theme='green'] {
+  --color-slate-800: #059669; /* emerald-600 */
+  --color-slate-900: #047857; /* emerald-700 */
+  --color-slate-50: #ecfdf5; /* emerald-50 */
+  --color-slate-100: #d1fae5; /* emerald-100 */
+}
+
+/* ── Tema oscuro ──────────────────────────────────────────────────────────
+   Invierte la escala slate y el blanco. La app usa consistentemente "texto oscuro sobre fondo
+   claro", así que al invertir los tokens el patrón se da vuelta solo:
+   - bg-white (tarjetas) → superficie oscura; bg-slate-50 (página) → casi negro.
+   - text-slate-800/900 (títulos) → casi blanco.
+   - Botones bg-slate-800 text-white → pastilla CLARA con texto OSCURO (slate-800 pasa a claro y
+     white pasa a oscuro), legible y coherente. */
+:root[data-theme='dark'] {
+  --color-white: #1a2332; /* superficie de tarjetas */
+  --color-slate-50: #0b1220; /* fondo de página (casi negro) */
+  --color-slate-100: #1e293b; /* chips, tracks, fondos sutiles */
+  --color-slate-200: #334155; /* bordes */
+  --color-slate-300: #475569; /* bordes/íconos tenues, tracks fuertes */
+  --color-slate-400: #94a3b8; /* texto tenue */
+  --color-slate-500: #adb9cb; /* texto secundario */
+  --color-slate-600: #c7d0dd; /* texto */
+  --color-slate-700: #dde3ec; /* texto enfatizado */
+  --color-slate-800: #f1f5f9; /* texto primario/títulos + fondo de botones */
+  --color-slate-900: #f8fafc; /* texto más fuerte (nav activo) */
+}
+
+/* ── Tema Gruvbox (Dark Medium) ───────────────────────────────────────────
+   Mismo enfoque que el oscuro (invierte la escala slate y el blanco), pero con la paleta cálida
+   de Gruvbox: fondos marrón/gris (bg0–bg3) y texto crema (fg0–fg4). Los botones bg-slate-800
+   text-white quedan como pastilla crema con texto oscuro. */
+:root[data-theme='gruvbox'] {
+  --color-white: #3c3836; /* bg1 — superficie de tarjetas */
+  --color-slate-50: #282828; /* bg0 (medium) — fondo de página */
+  --color-slate-100: #504945; /* bg2 — chips, tracks, fondos sutiles */
+  --color-slate-200: #504945; /* bg2 — bordes */
+  --color-slate-300: #665c54; /* bg3 — bordes/íconos tenues */
+  --color-slate-400: #a89984; /* fg4 — texto tenue */
+  --color-slate-500: #bdae93; /* fg3 — texto secundario */
+  --color-slate-600: #d5c4a1; /* fg2 — texto */
+  --color-slate-700: #ebdbb2; /* fg1 — texto enfatizado */
+  --color-slate-800: #fbf1c7; /* fg0 — texto primario/títulos + fondo de botones */
+  --color-slate-900: #fbf1c7; /* fg0 — texto más fuerte (nav activo) */
 }

@@ -13,11 +13,13 @@ import type { Transaction } from '../../domain/types';
 // Estado y acciones del tope de gasto hormiga (CLAUDE.md §5.8), centralizado para reusar en Inicio,
 // Presupuestos y Reportes. El tope es AUTOMÁTICO cada mes (promedio de los meses más bajos de los
 // últimos 6); el usuario puede editarlo (override) solo para el mes en curso.
-export function useHormigaCap() {
+export function useHormigaCap(monthArg?: string) {
   const uid = useSessionStore((s) => s.user?.uid);
   const { items: transactions } = useUserCollection<Transaction>(subscribeTransactions);
   const { settings } = useUserSettings();
-  const month = currentMonthKey();
+  // Por defecto el mes en curso; el Inicio pasa el mes del selector para que la tarjeta refleje
+  // el periodo elegido (el gasto hormiga es por mes).
+  const month = monthArg ?? currentMonthKey();
   const override = settings?.hormigaCapOverride ?? null;
 
   const currentHormiga = useMemo(

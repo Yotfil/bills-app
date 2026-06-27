@@ -8,6 +8,7 @@ import { useFixedSyncStore } from '../../../store/fixedSyncStore';
 import { MonthSelector } from '../../components/MonthSelector';
 import { DisponibleRealBar } from '../../components/DisponibleRealBar';
 import { SearchBar } from '../../components/SearchBar';
+import { SegmentedTabs } from '../../components/SegmentedTabs';
 import { BulkSelectBar } from '../../components/BulkSelectBar';
 import { matchesQuery } from '../../../lib/text';
 import { FixedTotalsBar } from './FixedTotalsBar';
@@ -65,6 +66,15 @@ import type {
 // Orden de lectura: lo que falta primero, lo pagado al final.
 const STATUS_ORDER: Record<FixedStatus, number> = { pending: 0, allocated: 1, paid: 2 };
 
+// Tabs internos de la pantalla (§8.3): los gastos fijos (se pagan/destinan) van separados de los
+// presupuestos fijos (respaldados por presupuesto, `budgetBacked`). Ambos siguen alimentando los
+// totales de arriba; los tabs solo separan la lista de abajo.
+type FixedTab = 'gastos' | 'presupuestos';
+
+// Criterios de orden de la lista. "status" (por defecto) deja lo pendiente primero y lo pagado al
+// final (la esencia del checklist). "category" agrupa por categoría y dentro ordena por nombre.
+type FixedSort = 'status' | 'name-asc' | 'name-desc' | 'category';
+
 export function FijosScreen() {
   const uid = useSessionStore((s) => s.user?.uid);
   const [month, setMonth] = useState(currentMonthKey());
@@ -78,7 +88,15 @@ export function FijosScreen() {
   const [paying, setPaying] = useState<FixedObligationMonthly | null>(null);
   const [editingCap, setEditingCap] = useState<FixedObligationMonthly | null>(null);
   const [generating, setGenerating] = useState(false);
-  const [search, setSearch] = useState('');
+  const [tab, setTab] = useState<FixedTab>('gastos');
+  // Buscador independiente por tab (§8.3): cada lista conserva su propio texto.
+  const [searchByTab, setSearchByTab] = useState<Record<FixedTab, string>>({
+    gastos: '',
+    presupuestos: '',
+  });
+  const search = searchByTab[tab];
+  const setSearch = (value: string) => setSearchByTab((prev) => ({ ...prev, [tab]: value }));
+  const [sort, setSort] = useState<FixedSort>('status');
   const [syncOpen, setSyncOpen] = useState(false);
   // Descarte del banner de sincronización, por mes (persistido en localStorage).
   const dismissed = useFixedSyncStore((s) => !!s.dismissedMonths[month]);
@@ -105,13 +123,34 @@ export function FijosScreen() {
       ? budgetBackedTotalAmount(consumedForCategory(f.categoryId), f.budgetedAmount)
       : (f.paidAmount ?? f.budgetedAmount);
 
-  const sorted = [...fijos]
-    .filter((f) => matchesQuery(search, f.name))
-    .sort(
-      (a, b) =>
-        STATUS_ORDER[effectiveStatusOf(a)] - STATUS_ORDER[effectiveStatusOf(b)] ||
-        a.name.localeCompare(b.name),
+  // El tab separa gastos fijos (no respaldados) de presupuestos fijos (respaldados, §5.9).
+  const inActiveTab = (f: FixedObligationMonthly) =>
+    tab === 'presupuestos' ? f.budgetBacked : !f.budgetBacked;
+  const gastosCount = fijos.filter((f) => !f.budgetBacked).length;
+  const presupuestosCount = fijos.filter((f) => f.budgetBacked).length;
+  // Ítems del tab activo (antes del buscador): sirve para los estados vacíos por tab.
+  const tabItems = fijos.filter(inActiveTab);
+
+  // Etiqueta para agrupar/ordenar por categoría: los abonos a deuda no tienen categoría, así que
+  // se agrupan bajo "Abono a deuda" (consistente con su subtítulo en la fila).
+  const categoryName = (id: string) => categories.find((c) => c.id === id)?.name;
+  const groupLabel = (f: FixedObligationMonthly) =>
+    f.payKind === 'debt_payment' ? 'Abono a deuda' : (categoryName(f.categoryId) ?? 'Sin categoría');
+
+  const compareFixed = (a: FixedObligationMonthly, b: FixedObligationMonthly): number => {
+    if (sort === 'name-asc') return a.name.localeCompare(b.name);
+    if (sort === 'name-desc') return b.name.localeCompare(a.name);
+    if (sort === 'category')
+      return groupLabel(a).localeCompare(groupLabel(b)) || a.name.localeCompare(b.name);
+    // 'status': lo pendiente primero, lo pagado al final; desempata por nombre.
+    return (
+      STATUS_ORDER[effectiveStatusOf(a)] - STATUS_ORDER[effectiveStatusOf(b)] ||
+      a.name.localeCompare(b.name)
     );
+  };
+
+  const sorted = tabItems.filter((f) => matchesQuery(search, f.name)).sort(compareFixed);
+  // Los totales SIEMPRE suman todos los fijos: gastos y presupuestos alimentan la caja de arriba.
   const totals = fixedTotals(fijos, effectiveStatusOf, amountOf);
   const activeTemplates = templates.filter((t) => t.active && !t.archived);
   // Los respaldados no se pagan ni se destinan: se excluyen de las acciones masivas de pago.
@@ -308,29 +347,73 @@ export function FijosScreen() {
       )}
 
       {fijos.length > 0 && (
-        <SearchBar value={search} onChange={setSearch} placeholder="Buscar fijo…" />
+        <SegmentedTabs<FixedTab>
+          value={tab}
+          onChange={(next) => {
+            setTab(next);
+            // La selección masiva es por tab: al cambiar de lista, se limpia.
+            clearSelection();
+          }}
+          tabs={[
+            { value: 'gastos', label: 'Gastos', count: gastosCount },
+            { value: 'presupuestos', label: 'Presupuestos', count: presupuestosCount },
+          ]}
+        />
       )}
 
-      {unpaid.length > 1 && selected.size === 0 && (
-        <button
-          type="button"
-          onClick={handleMarkAllPaid}
-          className="text-center text-sm text-slate-500 underline"
-        >
-          Marcar los {unpaid.length} como pagados (sin movimiento)
-        </button>
+      {tabItems.length > 0 && (
+        <SearchBar
+          value={search}
+          onChange={setSearch}
+          placeholder={tab === 'presupuestos' ? 'Buscar presupuesto…' : 'Buscar gasto…'}
+        />
       )}
 
-      <BulkSelectBar
-        selectedCount={selectedFijos.length}
-        totalCount={sorted.length}
-        allSelected={allVisibleSelected}
-        onToggleAll={toggleAllVisible}
-        actions={[
-          { label: 'Marcar pagados', onClick: () => void handleBulkMarkPaid() },
-          { label: 'Eliminar', danger: true, onClick: () => void handleBulkDelete() },
-        ]}
-      />
+      {tabItems.length > 0 && (
+        <div className="flex items-center justify-end gap-2">
+          <label htmlFor="fixed-sort" className="text-xs text-slate-400">
+            Ordenar
+          </label>
+          <select
+            id="fixed-sort"
+            value={sort}
+            onChange={(e) => setSort(e.target.value as FixedSort)}
+            aria-label="Ordenar fijos"
+            className="rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-700 outline-none focus:border-slate-500"
+          >
+            <option value="status">Estado</option>
+            <option value="name-asc">Nombre A→Z</option>
+            <option value="name-desc">Nombre Z→A</option>
+            <option value="category">Categoría</option>
+          </select>
+        </div>
+      )}
+
+      {/* Acciones masivas solo en Gastos: los presupuestos fijos no se pagan ni se destinan (§5.9). */}
+      {tab === 'gastos' && (
+        <>
+          {unpaid.length > 1 && selected.size === 0 && (
+            <button
+              type="button"
+              onClick={handleMarkAllPaid}
+              className="text-center text-sm text-slate-500 underline"
+            >
+              Marcar los {unpaid.length} como pagados (sin movimiento)
+            </button>
+          )}
+
+          <BulkSelectBar
+            selectedCount={selectedFijos.length}
+            totalCount={sorted.length}
+            allSelected={allVisibleSelected}
+            onToggleAll={toggleAllVisible}
+            actions={[
+              { label: 'Marcar pagados', onClick: () => void handleBulkMarkPaid() },
+              { label: 'Eliminar', danger: true, onClick: () => void handleBulkDelete() },
+            ]}
+          />
+        </>
+      )}
 
       {loading && <p className="text-slate-400">Cargando…</p>}
 
@@ -360,7 +443,15 @@ export function FijosScreen() {
         </div>
       )}
 
-      {fijos.length > 0 && sorted.length === 0 && (
+      {fijos.length > 0 && tabItems.length === 0 && (
+        <p className="text-slate-500">
+          {tab === 'presupuestos'
+            ? 'No tienes presupuestos fijos este mes.'
+            : 'No tienes gastos fijos este mes.'}
+        </p>
+      )}
+
+      {tabItems.length > 0 && sorted.length === 0 && (
         <p className="text-slate-500">Ningún fijo coincide con “{search}”.</p>
       )}
 
