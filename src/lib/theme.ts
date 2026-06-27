@@ -10,4 +10,5 @@ export const THEMES: ThemeOption[] = [
   { id: 'girly', label: 'Rosa', swatch: { bg: '#fdf2f8', brand: '#db2777' } },
   { id: 'blue', label: 'Azul', swatch: { bg: '#eff6ff', brand: '#2563eb' } },
   { id: 'green', label: 'Verde', swatch: { bg: '#ecfdf5', brand: '#059669' } },
+  { id: 'gruvbox', label: 'Gruvbox', swatch: { bg: '#282828', brand: '#d79921' } },
 ];
