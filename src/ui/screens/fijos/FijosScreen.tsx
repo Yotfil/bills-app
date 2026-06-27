@@ -71,6 +71,10 @@ const STATUS_ORDER: Record<FixedStatus, number> = { pending: 0, allocated: 1, pa
 // totales de arriba; los tabs solo separan la lista de abajo.
 type FixedTab = 'gastos' | 'presupuestos';
 
+// Criterios de orden de la lista. "status" (por defecto) deja lo pendiente primero y lo pagado al
+// final (la esencia del checklist). "category" agrupa por categoría y dentro ordena por nombre.
+type FixedSort = 'status' | 'name-asc' | 'name-desc' | 'category';
+
 export function FijosScreen() {
   const uid = useSessionStore((s) => s.user?.uid);
   const [month, setMonth] = useState(currentMonthKey());
@@ -92,6 +96,7 @@ export function FijosScreen() {
   });
   const search = searchByTab[tab];
   const setSearch = (value: string) => setSearchByTab((prev) => ({ ...prev, [tab]: value }));
+  const [sort, setSort] = useState<FixedSort>('status');
   const [syncOpen, setSyncOpen] = useState(false);
   // Descarte del banner de sincronización, por mes (persistido en localStorage).
   const dismissed = useFixedSyncStore((s) => !!s.dismissedMonths[month]);
@@ -126,13 +131,25 @@ export function FijosScreen() {
   // Ítems del tab activo (antes del buscador): sirve para los estados vacíos por tab.
   const tabItems = fijos.filter(inActiveTab);
 
-  const sorted = tabItems
-    .filter((f) => matchesQuery(search, f.name))
-    .sort(
-      (a, b) =>
-        STATUS_ORDER[effectiveStatusOf(a)] - STATUS_ORDER[effectiveStatusOf(b)] ||
-        a.name.localeCompare(b.name),
+  // Etiqueta para agrupar/ordenar por categoría: los abonos a deuda no tienen categoría, así que
+  // se agrupan bajo "Abono a deuda" (consistente con su subtítulo en la fila).
+  const categoryName = (id: string) => categories.find((c) => c.id === id)?.name;
+  const groupLabel = (f: FixedObligationMonthly) =>
+    f.payKind === 'debt_payment' ? 'Abono a deuda' : (categoryName(f.categoryId) ?? 'Sin categoría');
+
+  const compareFixed = (a: FixedObligationMonthly, b: FixedObligationMonthly): number => {
+    if (sort === 'name-asc') return a.name.localeCompare(b.name);
+    if (sort === 'name-desc') return b.name.localeCompare(a.name);
+    if (sort === 'category')
+      return groupLabel(a).localeCompare(groupLabel(b)) || a.name.localeCompare(b.name);
+    // 'status': lo pendiente primero, lo pagado al final; desempata por nombre.
+    return (
+      STATUS_ORDER[effectiveStatusOf(a)] - STATUS_ORDER[effectiveStatusOf(b)] ||
+      a.name.localeCompare(b.name)
     );
+  };
+
+  const sorted = tabItems.filter((f) => matchesQuery(search, f.name)).sort(compareFixed);
   // Los totales SIEMPRE suman todos los fijos: gastos y presupuestos alimentan la caja de arriba.
   const totals = fixedTotals(fijos, effectiveStatusOf, amountOf);
   const activeTemplates = templates.filter((t) => t.active && !t.archived);
@@ -350,6 +367,26 @@ export function FijosScreen() {
           onChange={setSearch}
           placeholder={tab === 'presupuestos' ? 'Buscar presupuesto…' : 'Buscar gasto…'}
         />
+      )}
+
+      {tabItems.length > 0 && (
+        <div className="flex items-center justify-end gap-2">
+          <label htmlFor="fixed-sort" className="text-xs text-slate-400">
+            Ordenar
+          </label>
+          <select
+            id="fixed-sort"
+            value={sort}
+            onChange={(e) => setSort(e.target.value as FixedSort)}
+            aria-label="Ordenar fijos"
+            className="rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-700 outline-none focus:border-slate-500"
+          >
+            <option value="status">Estado</option>
+            <option value="name-asc">Nombre A→Z</option>
+            <option value="name-desc">Nombre Z→A</option>
+            <option value="category">Categoría</option>
+          </select>
+        </div>
       )}
 
       {/* Acciones masivas solo en Gastos: los presupuestos fijos no se pagan ni se destinan (§5.9). */}
