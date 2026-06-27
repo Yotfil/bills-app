@@ -8,6 +8,7 @@ import { OnboardingScreen } from './ui/screens/onboarding/OnboardingScreen';
 import { Splash } from './ui/components/Splash';
 import { AppLayout } from './ui/AppLayout';
 import { MoreScreen } from './ui/screens/MoreScreen';
+import { SettingsScreen } from './ui/screens/SettingsScreen';
 import { AccountsScreen } from './ui/screens/AccountsScreen';
 import { CardsScreen } from './ui/screens/CardsScreen';
 import { AddTransactionScreen } from './ui/screens/AddTransactionScreen';
@@ -79,6 +80,7 @@ function App() {
             <Route path="/mas/categorias" element={<CategoriesScreen />} />
             <Route path="/mas/reportes" element={<ReportsScreen />} />
             <Route path="/mas/archivados" element={<ArchivedScreen />} />
+            <Route path="/mas/ajustes" element={<SettingsScreen />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         </Routes>
