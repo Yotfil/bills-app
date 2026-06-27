@@ -4,21 +4,25 @@ import { useHormigaPromptStore } from '../../../store/hormigaPromptStore';
 import { HormigaCapModal } from '../../components/HormigaCapModal';
 import { budgetAlertLevel } from '../../../domain/budgetAlert';
 import { formatCop } from '../../../lib/currency';
+import { currentMonthKey } from '../../../lib/date';
 import { NEAR_LIMIT_RATIO, progressBarColor } from '../../../lib/progress';
+import type { HormigaCardProps } from './HormigaCardProps';
 
 // Tope de gasto hormiga en el Inicio (CLAUDE.md §5.8, §2.5). El tope es AUTOMÁTICO cada mes; esta
 // card solo aparece cuando es accionable:
 //  - sin historia para el automático (y sin override): pide ponerlo manual (nudge, descartable);
 //  - con tope efectivo y el mes va alto/excedido: avisa SIN regaño (naranja/rojo).
-export function HormigaCard() {
-  const { currentHormiga, effectiveCap, hasOverride, setCap } = useHormigaCap();
+export function HormigaCard({ month }: HormigaCardProps) {
+  const { currentHormiga, effectiveCap, hasOverride, setCap } = useHormigaCap(month);
   const dismissed = useHormigaPromptStore((s) => s.dismissed);
   const dismiss = useHormigaPromptStore((s) => s.dismiss);
   const [modalOpen, setModalOpen] = useState(false);
 
-  // Sin tope (no hay historia para el automático ni override): la app pide ponerlo manual.
+  // Sin tope (no hay historia para el automático ni override): la app pide ponerlo manual. El nudge
+  // solo tiene sentido en el mes en curso (el tope es del mes actual); al navegar otros meses no se
+  // muestra para no invitar a fijar un tope de un mes que no estás viviendo.
   if (effectiveCap === null) {
-    if (dismissed) return null;
+    if (dismissed || month !== currentMonthKey()) return null;
     return (
       <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <p className="text-sm font-semibold text-slate-800">🐜 ¿Le ponemos un tope a tus gastos hormiga?</p>
