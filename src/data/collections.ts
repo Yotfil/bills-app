@@ -1,13 +1,7 @@
 // Referencias a las colecciones de Firestore, tipadas y con converter (CLAUDE.md §9.2).
 // Todo cuelga del usuario: users/{uid}/<colección>. Un único lugar define las rutas, así
 // la lógica nunca arma strings de path a mano.
-import {
-  collection,
-  doc,
-  type CollectionReference,
-  type DocumentReference,
-  type Firestore,
-} from 'firebase/firestore';
+import { collection, type CollectionReference, type Firestore } from 'firebase/firestore';
 import { db } from './firebase';
 import { docConverter, type Persisted } from './converters';
 import type {
@@ -43,11 +37,6 @@ function requireDb(): Firestore {
     throw new Error('Firestore no está configurado. Define las claves en .env.local.');
   }
   return db;
-}
-
-/** Documento raíz del usuario: users/{uid} (UserSettings). */
-export function userDocRef(uid: string): DocumentReference {
-  return doc(requireDb(), 'users', uid);
 }
 
 function userCollection<T extends BaseDoc>(

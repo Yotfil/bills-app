@@ -100,10 +100,6 @@ export function validateTransaction(txn: TransactionDraft): ValidationError[] {
   return errors;
 }
 
-export function isValidTransaction(txn: TransactionDraft): boolean {
-  return validateTransaction(txn).length === 0;
-}
-
 export function assertValidTransaction(txn: TransactionDraft): void {
   const errors = validateTransaction(txn);
   if (errors.length > 0) {
