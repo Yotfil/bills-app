@@ -25,31 +25,45 @@ export function HormigaCard({ currentHormiga, suggestedCap }: HormigaCardProps) 
     if (uid) await setHormigaCap(uid, value);
   }
 
-  // Sin tope: la app PIDE ponerlo (si hay sugerencia y no lo descartó).
+  // Sin tope: la app PIDE ponerlo (mientras no lo descarte). Si ya hay historia, sugiere un valor;
+  // si aún no (poca data), lo pide igual pero con entrada manual —así el pendiente sí se ve en el
+  // Inicio sin un badge permanente que regañe (§2.5)—.
   if (cap === null) {
-    if (suggestedCap === null || dismissed) return null;
+    if (dismissed) return null;
     return (
       <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <p className="text-sm font-semibold text-slate-800">🐜 ¿Le ponemos un tope a tus gastos hormiga?</p>
         <p className="mt-1 text-xs text-slate-500">
-          Según tus meses más bajos, te sugerimos un tope de{' '}
-          <span className="font-medium text-slate-700">{formatCop(suggestedCap)}</span> al mes. Te
-          avisaremos (sin regaño) cuando te acerques.
+          {suggestedCap !== null ? (
+            <>
+              Según tus meses más bajos, te sugerimos un tope de{' '}
+              <span className="font-medium text-slate-700">{formatCop(suggestedCap)}</span> al mes.
+              Te avisaremos (sin regaño) cuando te acerques.
+            </>
+          ) : (
+            'Define cuánto quieres permitirte al mes y te avisaremos (sin regaño) cuando te acerques.'
+          )}
         </p>
         <div className="mt-3 flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => void save(suggestedCap)}
-            className="rounded-lg bg-slate-800 px-3 py-2 text-sm font-medium text-white"
-          >
-            Usar {formatCop(suggestedCap)}
-          </button>
+          {suggestedCap !== null && (
+            <button
+              type="button"
+              onClick={() => void save(suggestedCap)}
+              className="rounded-lg bg-slate-800 px-3 py-2 text-sm font-medium text-white"
+            >
+              Usar {formatCop(suggestedCap)}
+            </button>
+          )}
           <button
             type="button"
             onClick={() => setModalOpen(true)}
-            className="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-600"
+            className={`rounded-lg px-3 py-2 text-sm ${
+              suggestedCap !== null
+                ? 'border border-slate-300 text-slate-600'
+                : 'bg-slate-800 font-medium text-white'
+            }`}
           >
-            Otro valor
+            {suggestedCap !== null ? 'Otro valor' : 'Poner tope'}
           </button>
           <button type="button" onClick={dismiss} className="px-2 py-2 text-sm text-slate-400">
             Ahora no
