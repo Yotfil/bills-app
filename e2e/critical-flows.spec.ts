@@ -93,7 +93,12 @@ async function seedFixedAndGenerate(page: Page, name: string, amount: number, ac
   await expect(page.getByText(name)).toBeVisible();
 
   await tab(page, /Fijos/).click();
-  await page.getByRole('button', { name: /Generar \d+ fijos del mes/ }).click();
+  // Con el rollover automático (§5.10) los fijos del mes suelen generarse solos al entrar; si por
+  // timing aún apareciera el botón manual, se usa. Cualquiera de las dos vías deja el fijo visible.
+  await page
+    .getByRole('button', { name: /Generar \d+ fijos del mes/ })
+    .click({ timeout: 3000 })
+    .catch(() => {});
   await expect(page.getByText('Pendiente')).toBeVisible();
 }
 
