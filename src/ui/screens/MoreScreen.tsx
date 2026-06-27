@@ -3,6 +3,7 @@ import { ChevronRight } from 'lucide-react';
 import { logout } from '../../data/authRepository';
 import { useSessionStore } from '../../store/sessionStore';
 import { RecalculateBalancesButton } from './RecalculateBalancesButton';
+import { ThemePicker } from '../components/ThemePicker';
 import { VersionTag } from '../components/VersionTag';
 import type { MenuItem } from './MenuItem';
 
@@ -85,6 +86,8 @@ export function MoreScreen() {
       </ul>
 
       <RecalculateBalancesButton />
+
+      <ThemePicker />
 
       <div className="mt-4 rounded-xl border border-slate-200 bg-white p-4">
         <p className="text-sm text-slate-500">
