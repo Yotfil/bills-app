@@ -48,13 +48,17 @@ export function DashboardScreen() {
     accounts.length === 0 &&
     cards.length === 0 &&
     loans.length === 0;
-  // El número-héroe y el progreso de fijos son del MES ACTUAL (no del periodo del selector,
-  // que solo filtra el resumen y la dona). El reservado se deriva de los fijos 'allocated'.
-  const { items: monthlyFixeds } = useFixedMonthly(currentMonthKey());
-  const available = disponibleReal(activeAccounts, monthlyFixeds);
+  // El número-héroe (disponible real) es del MES ACTUAL: es un número de "hoy", no del periodo del
+  // selector. Su reservado se deriva de los fijos 'allocated' del mes en curso.
+  const { items: currentFixeds } = useFixedMonthly(currentMonthKey());
+  const available = disponibleReal(activeAccounts, currentFixeds);
   // Saldo total: TODO lo que hay, incluido lo de Ahorros (a diferencia del disponible real).
   const totalBalance = activeAccounts.reduce((sum, a) => sum + a.cachedBalance, 0);
-  const ft = fixedTotals(monthlyFixeds);
+  // Los fijos del Inicio (progreso y alertas) SÍ siguen el mes del selector: cada mes tiene su
+  // propia instancia de fijos. Si el mes no tiene fijos generados (sin plantilla aplicada aún), la
+  // tarjeta de progreso se oculta (no se muestra nada del feature para ese mes).
+  const { items: selectedFixeds } = useFixedMonthly(month);
+  const ft = fixedTotals(selectedFixeds);
 
   const monthTxns = useMemo(
     () => transactions.filter((t) => monthKey(t.date) === month),
@@ -68,37 +72,33 @@ export function DashboardScreen() {
     return map;
   }, [categories]);
 
-  // Topes excedidos del MES ACTUAL (no el del selector): fijos respaldados cuyo gasto superó el tope
-  // (§5.9). Alimenta la alerta del Inicio, que solo aparece si la lista no está vacía.
-  const curMonthTxns = useMemo(
-    () => transactions.filter((t) => monthKey(t.date) === currentMonthKey()),
-    [transactions],
-  );
+  // Topes excedidos del mes del selector: fijos respaldados cuyo gasto superó el tope (§5.9).
+  // Alimenta la alerta del Inicio, que solo aparece si la lista no está vacía.
   const exceededItems = useMemo(
     () =>
       exceededBudgetBacked(
-        monthlyFixeds,
-        (categoryId) => budgetStatus(curMonthTxns, categoryId, 0).consumed,
+        selectedFixeds,
+        (categoryId) => budgetStatus(monthTxns, categoryId, 0).consumed,
       ).map((e) => ({
         id: e.fixed.id,
         categoryName: categoryById.get(e.fixed.categoryId)?.name ?? 'Categoría',
         overspend: e.overspend,
       })),
-    [monthlyFixeds, curMonthTxns, categoryById],
+    [selectedFixeds, monthTxns, categoryById],
   );
   // Topes muy cerca de excederse (sin pasarse aún): alerta preventiva (naranja).
   const nearLimitItems = useMemo(
     () =>
       nearLimitBudgetBacked(
-        monthlyFixeds,
-        (categoryId) => budgetStatus(curMonthTxns, categoryId, 0).consumed,
+        selectedFixeds,
+        (categoryId) => budgetStatus(monthTxns, categoryId, 0).consumed,
         NEAR_LIMIT_RATIO,
       ).map((n) => ({
         id: n.fixed.id,
         categoryName: categoryById.get(n.fixed.categoryId)?.name ?? 'Categoría',
         remaining: n.remaining,
       })),
-    [monthlyFixeds, curMonthTxns, categoryById],
+    [selectedFixeds, monthTxns, categoryById],
   );
 
   const slices = useMemo(() => {
@@ -150,15 +150,19 @@ export function DashboardScreen() {
           visibilidad; cada una solo aparece si tiene ítems. */}
       <ExceededBudgetsAlert items={exceededItems} />
       <NearLimitBudgetsAlert items={nearLimitItems} />
-      <HormigaCard />
+      <HormigaCard month={month} />
 
       <MonthSummaryCard summary={summary} />
-      <FixedProgressCard
-        paid={ft.counts.paid}
-        allocated={ft.counts.allocated}
-        pending={ft.counts.pending}
-        total={ft.counts.total}
-      />
+      {/* La tarjeta de fijos solo se muestra si el mes tiene fijos generados; en el mes en curso se
+          conserva aunque esté vacío para ofrecer el acceso a configurarlos (§7). */}
+      {(selectedFixeds.length > 0 || month === currentMonthKey()) && (
+        <FixedProgressCard
+          paid={ft.counts.paid}
+          allocated={ft.counts.allocated}
+          pending={ft.counts.pending}
+          total={ft.counts.total}
+        />
+      )}
       <CategoryDonut
         slices={slices}
         total={summary.expense}
