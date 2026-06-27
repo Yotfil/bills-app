@@ -19,7 +19,6 @@ export function FixedRow({
   onMarkPaid,
   onRevert,
   budgetConsumed = 0,
-  budgetCap,
   onEditCap,
   selected = false,
   onToggleSelect,
@@ -27,7 +26,7 @@ export function FixedRow({
   // Fijo respaldado por presupuesto (§5.9): no se paga; muestra el avance del gasto vs el tope y se
   // marca "Lleno" cuando el gasto de su categoría alcanza el tope.
   if (fixed.budgetBacked) {
-    const cap = budgetCap ?? fixed.budgetedAmount;
+    const cap = fixed.budgetedAmount;
     const filled = budgetBackedFilled(budgetConsumed, cap);
     const exceeded = budgetConsumed > cap; // gastó MÁS que el tope (§5.9)
     const overspend = budgetConsumed - cap;

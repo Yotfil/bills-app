@@ -59,12 +59,6 @@ export function canTransition(from: FixedStatus, to: FixedStatus): boolean {
   return ALLOWED_TRANSITIONS[from].includes(to);
 }
 
-export function assertTransition(from: FixedStatus, to: FixedStatus): void {
-  if (!canTransition(from, to)) {
-    throw new Error(`Transición de fijo inválida: ${from} → ${to}`);
-  }
-}
-
 /**
  * Construye la transacción que se crea automáticamente al marcar un fijo como pagado
  * (§5.3). Si el fijo es un abono a deuda, genera un movimiento `debt_payment`; si no, un

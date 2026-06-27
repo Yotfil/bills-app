@@ -18,7 +18,11 @@ import { FixedSyncModal } from './FixedSyncModal';
 import { EditCapModal } from './EditCapModal';
 import { fixedTotals } from '../../../domain/fixed';
 import { budgetStatus } from '../../../domain/reports';
-import { budgetBackedFilled, budgetBackedTotalAmount } from '../../../domain/budgetBackedFixed';
+import {
+  budgetBackedFilled,
+  budgetBackedTotalAmount,
+  effectiveFixedStatus,
+} from '../../../domain/budgetBackedFixed';
 import {
   computeFixedSyncDiff,
   fixedSyncChangeCount,
@@ -90,20 +94,15 @@ export function FijosScreen() {
   const monthTxns = transactions.filter((t) => monthKey(t.date) === month);
   const consumedForCategory = (categoryId: string) =>
     budgetStatus(monthTxns, categoryId, 0).consumed;
-  // El tope POR MES de un respaldado es su propio monto (M): así la barra de progreso y los totales
-  // usan el MISMO valor (antes la barra usaba el tope global del presupuesto y se contradecían).
-  const capForFixed = (f: FixedObligationMonthly) => f.budgetedAmount;
-  const effectiveStatusOf = (f: FixedObligationMonthly): FixedStatus => {
-    if (!f.budgetBacked) return f.status;
-    return budgetBackedFilled(consumedForCategory(f.categoryId), capForFixed(f))
-      ? 'paid'
-      : 'pending';
-  };
+  // Estado efectivo: un respaldado deriva pending/paid del consumo (su tope POR MES es su propio
+  // monto, §5.9); el resto conserva su estado guardado.
+  const effectiveStatusOf = (f: FixedObligationMonthly): FixedStatus =>
+    effectiveFixedStatus(f, (cat) => budgetBackedFilled(consumedForCategory(cat), f.budgetedAmount));
   // Monto que cada fijo aporta a los totales: un respaldado lleno/excedido aporta su gasto REAL
   // (Pagado incluye el sobrepaso, §5.9); en curso aporta su tope; el resto, su pagado/presupuestado.
   const amountOf = (f: FixedObligationMonthly): number =>
     f.budgetBacked
-      ? budgetBackedTotalAmount(consumedForCategory(f.categoryId), capForFixed(f))
+      ? budgetBackedTotalAmount(consumedForCategory(f.categoryId), f.budgetedAmount)
       : (f.paidAmount ?? f.budgetedAmount);
 
   const sorted = [...fijos]
@@ -371,9 +370,9 @@ export function FijosScreen() {
             key={fixed.id}
             fixed={fixed}
             // Solo los respaldados muestran progreso y permiten editar el tope (§5.9); el resto no
-            // recibe estas props y el checkbox de selección masiva sigue disponible.
+            // recibe estas props y el checkbox de selección masiva sigue disponible. El tope mostrado
+            // es el monto del propio fijo (FixedRow lo usa por defecto), así barra y totales coinciden.
             budgetConsumed={fixed.budgetBacked ? consumedForCategory(fixed.categoryId) : undefined}
-            budgetCap={fixed.budgetBacked ? capForFixed(fixed) : undefined}
             onEditCap={fixed.budgetBacked ? () => setEditingCap(fixed) : undefined}
             selected={selected.has(fixed.id)}
             onToggleSelect={() => toggleOne(fixed.id)}
