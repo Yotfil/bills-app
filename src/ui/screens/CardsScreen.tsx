@@ -4,6 +4,7 @@ import { useFixedMonthly } from '../hooks/useFixedMonthly';
 import { useSessionStore } from '../../store/sessionStore';
 import { CardForm } from './CardForm';
 import { BackButton } from '../components/BackButton';
+import { Pencil, Scale, Archive, Trash2 } from 'lucide-react';
 import { ActionMenu } from '../components/ActionMenu';
 import { ConfirmDeleteModal } from '../components/ConfirmDeleteModal';
 import { ReconcileModal } from './ReconcileModal';
@@ -112,12 +113,12 @@ export function CardsScreen() {
                 <ActionMenu
                   ariaLabel={`Acciones de ${card.name}`}
                   items={[
-                    { label: 'Editar', icon: '✏️', onSelect: () => setEditing(card) },
-                    { label: 'Reconciliar', icon: '⚖️', onSelect: () => setReconciling(card) },
-                    { label: 'Archivar', icon: '📦', onSelect: () => handleArchive(card) },
+                    { label: 'Editar', icon: Pencil, onSelect: () => setEditing(card) },
+                    { label: 'Reconciliar', icon: Scale, onSelect: () => setReconciling(card) },
+                    { label: 'Archivar', icon: Archive, onSelect: () => handleArchive(card) },
                     {
                       label: 'Eliminar',
-                      icon: '🗑️',
+                      icon: Trash2,
                       onSelect: () => setDeleting(card),
                       danger: true,
                     },

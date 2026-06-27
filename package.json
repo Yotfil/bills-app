@@ -1,7 +1,7 @@
 {
   "name": "bills-app",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.3.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -25,6 +25,7 @@
     "clsx": "^2.1.1",
     "emoji-picker-react": "^4.19.1",
     "firebase": "^12.15.0",
+    "lucide-react": "^1.21.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "react-router-dom": "^7.18.0",

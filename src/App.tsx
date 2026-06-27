@@ -16,6 +16,7 @@ import { DashboardScreen } from './ui/screens/dashboard/DashboardScreen';
 import { FijosScreen } from './ui/screens/fijos/FijosScreen';
 import { FixedTemplatesScreen } from './ui/screens/fijos/FixedTemplatesScreen';
 import { BudgetsScreen } from './ui/screens/budgets/BudgetsScreen';
+import { BudgetHistoryScreen } from './ui/screens/budgets/BudgetHistoryScreen';
 import { LoansScreen } from './ui/screens/loans/LoansScreen';
 import { CategoriesScreen } from './ui/screens/categories/CategoriesScreen';
 import { ArchivedScreen } from './ui/screens/archived/ArchivedScreen';
@@ -73,6 +74,7 @@ function App() {
             <Route path="/mas/tarjetas" element={<CardsScreen />} />
             <Route path="/mas/fijos" element={<FixedTemplatesScreen />} />
             <Route path="/mas/presupuestos" element={<BudgetsScreen />} />
+            <Route path="/mas/presupuestos/historico" element={<BudgetHistoryScreen />} />
             <Route path="/mas/creditos" element={<LoansScreen />} />
             <Route path="/mas/categorias" element={<CategoriesScreen />} />
             <Route path="/mas/reportes" element={<ReportsScreen />} />

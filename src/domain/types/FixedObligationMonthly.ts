@@ -14,8 +14,13 @@ export interface FixedObligationMonthly extends BaseDoc {
   categoryId: string;
   payKind: FixedPayKind;
   debtTargetId: string | null;
+  budgetBacked: boolean; // snapshot: fijo respaldado por el presupuesto de su categoría (§5.9)
   paymentMethod: EntityRef; // medio asignado este mes (editable)
   status: FixedStatus;
+  // Monto REALMENTE pagado (§5.3): puede diferir del presupuestado (ej. Apple cobró 16.900
+  // sobre 14.000). Se llena al pagar con movimiento; null si aún no se paga o si se marcó
+  // "ya estaba pagado" sin monto. Para mostrar/sumar el pagado, usar `paidAmount ?? budgetedAmount`.
+  paidAmount: number | null;
   transactionId: string | null; // se llena al marcar 'paid'
   allocatedAt: Timestamp | null;
   paidAt: Timestamp | null;

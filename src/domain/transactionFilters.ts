@@ -1,4 +1,5 @@
 import { matchesQuery } from '../lib/text';
+import { HORMIGA_TAG } from './types';
 import type { EntityRef, Transaction } from './types';
 import type { TransactionFilter } from './TransactionFilter';
 
@@ -13,6 +14,7 @@ export const EMPTY_TRANSACTION_FILTER: TransactionFilter = {
   entityKey: null,
   fromMillis: null,
   toMillis: null,
+  hormigaOnly: false,
 };
 
 /** `true` si el filtro oculta algo (para mostrar "Limpiar" y un contador de filtros). */
@@ -23,7 +25,8 @@ export function isFilterActive(filter: TransactionFilter): boolean {
     filter.categoryId !== null ||
     filter.entityKey !== null ||
     filter.fromMillis !== null ||
-    filter.toMillis !== null
+    filter.toMillis !== null ||
+    filter.hormigaOnly
   );
 }
 
@@ -47,6 +50,7 @@ export function filterTransactions(
     if (filter.type !== 'all' && txn.type !== filter.type) return false;
     if (filter.categoryId !== null && txn.categoryId !== filter.categoryId) return false;
     if (filter.entityKey !== null && !touchesEntity(txn, filter.entityKey)) return false;
+    if (filter.hormigaOnly && !txn.tags.includes(HORMIGA_TAG)) return false;
 
     const millis = txn.date.toMillis();
     if (filter.fromMillis !== null && millis < filter.fromMillis) return false;

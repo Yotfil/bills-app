@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { ChevronRight } from 'lucide-react';
 import { logout } from '../../data/authRepository';
 import { useSessionStore } from '../../store/sessionStore';
 import { RecalculateBalancesButton } from './RecalculateBalancesButton';
@@ -20,6 +21,12 @@ const ITEMS: MenuItem[] = [
   { to: '/mas/categorias', label: 'Categorías', hint: 'Administrar categorías', ready: true },
   { to: '/mas/fijos', label: 'Obligaciones fijas', hint: 'Plantilla mensual', ready: true },
   { to: '/mas/presupuestos', label: 'Presupuestos', hint: 'Topes por categoría', ready: true },
+  {
+    to: '/mas/presupuestos/historico',
+    label: 'Histórico de presupuestos',
+    hint: 'Gastos de meses anteriores',
+    ready: true,
+  },
   {
     to: '/mas/reportes',
     label: 'Reportes',
@@ -59,7 +66,7 @@ export function MoreScreen() {
                   <span className="block font-medium text-slate-800">{item.label}</span>
                   <span className="block text-xs text-slate-400">{item.hint}</span>
                 </span>
-                <span className="text-slate-300">›</span>
+                <ChevronRight className="h-4 w-4 text-slate-300" />
               </Link>
             </li>
           ) : (

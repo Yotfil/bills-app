@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { MoreVertical } from 'lucide-react';
 import type { ActionMenuProps } from './ActionMenuProps';
 
 // Menú de acciones "kebab" (⋮) reutilizable para las tarjetas de administración (§8.4). Un solo
@@ -33,9 +34,9 @@ export function ActionMenu({ items, ariaLabel = 'Acciones' }: ActionMenuProps) {
         aria-label={ariaLabel}
         aria-haspopup="menu"
         aria-expanded={open}
-        className="flex h-9 w-9 items-center justify-center rounded-lg text-lg text-slate-500 hover:bg-slate-100"
+        className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100"
       >
-        ⋮
+        <MoreVertical className="h-5 w-5" />
       </button>
 
       {open && (
@@ -56,7 +57,7 @@ export function ActionMenu({ items, ariaLabel = 'Acciones' }: ActionMenuProps) {
                 item.danger ? 'text-red-600' : 'text-slate-700'
               }`}
             >
-              <span className="text-base">{item.icon}</span>
+              <item.icon className="h-4 w-4" />
               {item.label}
             </button>
           ))}

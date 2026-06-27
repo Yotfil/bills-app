@@ -1,26 +1,42 @@
+import { Pencil, Archive, Trash2 } from 'lucide-react';
 import { ActionMenu } from '../../components/ActionMenu';
 import { formatCop } from '../../../lib/currency';
+import { NEAR_LIMIT_RATIO, progressBarColor } from '../../../lib/progress';
 import type { BudgetCardProps } from './BudgetCardProps';
 
 // Tarjeta de presupuesto con progreso y aviso suave (CLAUDE.md §5.9). Calma, no culpa (§2):
 // verde mientras hay margen, ámbar cerca del tope, rojo si se superó.
-export function BudgetCard({ categoryName, status, onEdit, onArchive, onDelete }: BudgetCardProps) {
+export function BudgetCard({
+  categoryName,
+  status,
+  linkedToFixed = false,
+  onEdit,
+  onArchive,
+  onDelete,
+}: BudgetCardProps) {
   const ratio = status.limit > 0 ? status.consumed / status.limit : 0;
   const pct = Math.min(100, Math.round(ratio * 100));
-  const near = ratio >= 0.8 && !status.exceeded;
+  const near = ratio > NEAR_LIMIT_RATIO && !status.exceeded;
 
-  const barColor = status.exceeded ? 'bg-red-500' : near ? 'bg-amber-500' : 'bg-emerald-500';
+  const barColor = progressBarColor(ratio);
 
   return (
     <li className="rounded-xl border border-slate-200 bg-white p-4">
       <div className="flex items-start justify-between gap-2">
-        <p className="font-semibold text-slate-800">{categoryName}</p>
+        <div className="flex min-w-0 items-center gap-2">
+          <p className="truncate font-semibold text-slate-800">{categoryName}</p>
+          {linkedToFixed && (
+            <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-500">
+              Fijo ligado
+            </span>
+          )}
+        </div>
         <ActionMenu
           ariaLabel={`Acciones de ${categoryName}`}
           items={[
-            { label: 'Editar', icon: '✏️', onSelect: onEdit },
-            { label: 'Archivar', icon: '📦', onSelect: onArchive },
-            { label: 'Eliminar', icon: '🗑️', onSelect: onDelete, danger: true },
+            { label: 'Editar', icon: Pencil, onSelect: onEdit },
+            { label: 'Archivar', icon: Archive, onSelect: onArchive },
+            { label: 'Eliminar', icon: Trash2, onSelect: onDelete, danger: true },
           ]}
         />
       </div>

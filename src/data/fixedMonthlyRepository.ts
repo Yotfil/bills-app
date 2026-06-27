@@ -17,7 +17,7 @@ import { generateMonthlyFixeds } from '../domain/rollover';
 import { buildTransactionFromFixed } from '../domain/fixed';
 import { nowTimestamp } from '../lib/date';
 import type { PayFixedInput } from './PayFixedInput';
-import type { FixedObligationMonthly } from '../domain/types';
+import type { FixedObligationMonthly, FixedObligationTemplate } from '../domain/types';
 
 export type { PayFixedInput } from './PayFixedInput';
 
@@ -83,6 +83,59 @@ export async function generateFixedMonthly(uid: string, month: string): Promise<
 }
 
 /**
+ * Agrega al mes los fijos de las plantillas dadas (sincronización plantilla→mes, §5.10). Se usa
+ * cuando se crearon plantillas DESPUÉS de generar el mes y el usuario decide sumarlas. Reusa la
+ * función pura `generateMonthlyFixeds` (que ya filtra activas/no archivadas). Devuelve cuántos creó.
+ */
+export async function addFixedMonthlyFromTemplates(
+  uid: string,
+  month: string,
+  templates: FixedObligationTemplate[],
+): Promise<number> {
+  const drafts = generateMonthlyFixeds(templates, month, []);
+  await Promise.all(drafts.map((draft) => create(fixedMonthlyCol(uid), draft)));
+  return drafts.length;
+}
+
+/**
+ * Reescribe el snapshot de UN fijo del mes con los valores actuales de su plantilla (§5.2): nombre,
+ * monto, categoría, tipo, deuda destino y medio por defecto. Lo usa la sincronización plantilla→mes
+ * al "Actualizar" un fijo desfasado. No valida estado: la UI solo lo ofrece para fijos no pagados.
+ */
+export async function updateMonthlyFromTemplate(
+  uid: string,
+  fixedId: string,
+  template: FixedObligationTemplate,
+): Promise<void> {
+  await updateDoc(rawDoc(uid, fixedId), {
+    name: template.name,
+    budgetedAmount: template.budgetedAmount,
+    categoryId: template.categoryId,
+    payKind: template.payKind,
+    debtTargetId: template.debtTargetId,
+    // Coalesce: plantillas previas a la feature no tienen el campo (undefined) y Firestore rechaza
+    // undefined al escribir; se normaliza a false.
+    budgetBacked: template.budgetBacked ?? false,
+    paymentMethod: template.defaultPaymentMethod,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+/**
+ * Realinea SOLO el flag `budgetBacked` de un fijo del mes a su plantilla (§5.9). Lo usa la
+ * auto-sincronización al abrir un mes ya generado: si la plantilla pasó a respaldada (o dejó de
+ * serlo) y el snapshot quedó desfasado, se corrige el modo sin tocar el monto por-mes (M) ni los
+ * demás campos (esos van por el banner de sincronización general).
+ */
+export async function setMonthlyBudgetBacked(
+  uid: string,
+  id: string,
+  value: boolean,
+): Promise<void> {
+  await updateDoc(rawDoc(uid, id), { budgetBacked: value, updatedAt: serverTimestamp() });
+}
+
+/**
  * Pendiente → Destinado (§5.2): NO mueve el saldo; el reservado de la cuenta es derivado de
  * los fijos en 'allocated'. Solo cambia el estado.
  */
@@ -111,6 +164,7 @@ export async function markFixedPending(uid: string, id: string): Promise<void> {
 export async function markFixedPaidWithoutTransaction(uid: string, id: string): Promise<void> {
   await updateDoc(rawDoc(uid, id), {
     status: 'paid',
+    paidAmount: null, // sin monto real: se muestra/suma el presupuestado (§5.3)
     transactionId: null,
     paidAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
@@ -120,7 +174,13 @@ export async function markFixedPaidWithoutTransaction(uid: string, id: string): 
 // Campos que se copian de la plantilla al snapshot mensual.
 type MonthlySnapshot = Pick<
   FixedObligationMonthly,
-  'name' | 'budgetedAmount' | 'categoryId' | 'payKind' | 'debtTargetId' | 'paymentMethod'
+  | 'name'
+  | 'budgetedAmount'
+  | 'categoryId'
+  | 'payKind'
+  | 'debtTargetId'
+  | 'budgetBacked'
+  | 'paymentMethod'
 >;
 
 /**
@@ -164,6 +224,7 @@ export async function payFixed(
   await updateDoc(rawDoc(uid, fixed.id), {
     status: 'paid',
     paymentMethod: input.paymentMethod,
+    paidAmount: input.amount, // monto REAL pagado (§5.3): puede diferir del presupuestado
     transactionId,
     paidAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
@@ -200,6 +261,7 @@ export async function revertFixedPayment(
   }
   await updateDoc(rawDoc(uid, fixed.id), {
     status: 'pending',
+    paidAmount: null, // al volver a pendiente se olvida el monto real previo
     transactionId: null,
     paidAt: null,
     updatedAt: serverTimestamp(),

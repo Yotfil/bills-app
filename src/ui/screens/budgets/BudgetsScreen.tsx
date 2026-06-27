@@ -1,11 +1,14 @@
 import { useMemo, useState } from 'react';
 import { useUserCollection } from '../../hooks/useUserCollection';
+import { useFixedMonthly } from '../../hooks/useFixedMonthly';
 import { useSessionStore } from '../../../store/sessionStore';
 import { BudgetCard } from './BudgetCard';
 import { BudgetForm } from './BudgetForm';
+import { HormigaBudgetCard } from './HormigaBudgetCard';
 import { BackButton } from '../../components/BackButton';
 import { ConfirmDeleteModal } from '../../components/ConfirmDeleteModal';
 import { budgetStatus } from '../../../domain/reports';
+import { linkedBudgetBackedFixed } from '../../../domain/budgetBackedFixed';
 import { currentMonthKey, monthKey } from '../../../lib/date';
 import { archiveBudget, deleteBudget, subscribeBudgets } from '../../../data/budgetRepository';
 import { subscribeCategories } from '../../../data/categoryRepository';
@@ -25,11 +28,16 @@ export function BudgetsScreen() {
 
   const active = budgets.filter((b) => !b.archived && b.active);
   const month = currentMonthKey();
+  const { items: monthlyFixeds } = useFixedMonthly(month);
   const monthTxns = useMemo(
     () => transactions.filter((t) => monthKey(t.date) === month),
     [transactions, month],
   );
   const categoryName = (id: string) => categories.find((c) => c.id === id)?.name ?? 'Categoría';
+
+  // Para una categoría con fijo respaldado, el tope POR MES vive en ese fijo (M), no en el tope
+  // global del presupuesto (§5.9): así presupuesto y fijo del mes muestran SIEMPRE el mismo número.
+  const linkedFixedFor = (categoryId: string) => linkedBudgetBackedFixed(categoryId, monthlyFixeds);
 
   async function handleArchive(budget: Budget) {
     if (!uid) return;
@@ -59,24 +67,32 @@ export function BudgetsScreen() {
       </header>
 
       {loading && <p className="text-slate-400">Cargando…</p>}
-      {!loading && active.length === 0 && (
-        <p className="text-slate-500">
-          Aún no tienes presupuestos. Crea uno para cuidar una categoría (opcional).
-        </p>
-      )}
 
       <ul className="flex flex-col gap-3">
-        {active.map((budget) => (
-          <BudgetCard
-            key={budget.id}
-            categoryName={categoryName(budget.categoryId)}
-            status={budgetStatus(monthTxns, budget.categoryId, budget.monthlyLimit)}
-            onEdit={() => setEditing(budget)}
-            onArchive={() => handleArchive(budget)}
-            onDelete={() => setDeleting(budget)}
-          />
-        ))}
+        {/* Tope de gasto hormiga (§5.8): automático cada mes, resaltado y editable. */}
+        <HormigaBudgetCard />
+        {active.map((budget) => {
+          const linkedFixed = linkedFixedFor(budget.categoryId);
+          const limit = linkedFixed?.budgetedAmount ?? budget.monthlyLimit;
+          return (
+            <BudgetCard
+              key={budget.id}
+              categoryName={categoryName(budget.categoryId)}
+              status={budgetStatus(monthTxns, budget.categoryId, limit)}
+              linkedToFixed={!!linkedFixed}
+              onEdit={() => setEditing(budget)}
+              onArchive={() => handleArchive(budget)}
+              onDelete={() => setDeleting(budget)}
+            />
+          );
+        })}
       </ul>
+
+      {!loading && active.length === 0 && (
+        <p className="text-slate-500">
+          Aún no tienes presupuestos por categoría. Crea uno para cuidar una categoría (opcional).
+        </p>
+      )}
 
       <BudgetForm
         key={`create-${creating}`}

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useUserCollection } from '../../hooks/useUserCollection';
 import { useSessionStore } from '../../../store/sessionStore';
 import { FixedTemplateForm } from './FixedTemplateForm';
+import { Pencil, Archive, Trash2 } from 'lucide-react';
 import { BackButton } from '../../components/BackButton';
 import { SearchBar } from '../../components/SearchBar';
 import { ActionMenu } from '../../components/ActionMenu';
@@ -13,6 +14,7 @@ import { subscribeAccounts } from '../../../data/accountRepository';
 import { subscribeCards } from '../../../data/cardRepository';
 import { subscribeLoans } from '../../../data/loanRepository';
 import { subscribeCategories } from '../../../data/categoryRepository';
+import { subscribeBudgets } from '../../../data/budgetRepository';
 import {
   archiveFixedTemplate,
   deleteFixedTemplate,
@@ -20,6 +22,7 @@ import {
 } from '../../../data/fixedTemplateRepository';
 import type {
   Account,
+  Budget,
   Category,
   CreditCard,
   FixedObligationTemplate,
@@ -36,6 +39,7 @@ export function FixedTemplatesScreen() {
   const { items: cards } = useUserCollection<CreditCard>(subscribeCards);
   const { items: loans } = useUserCollection<Loan>(subscribeLoans);
   const { items: categories } = useUserCollection<Category>(subscribeCategories);
+  const { items: budgets } = useUserCollection<Budget>(subscribeBudgets);
   const [editing, setEditing] = useState<FixedObligationTemplate | null>(null);
   const [deleting, setDeleting] = useState<FixedObligationTemplate | null>(null);
   const [creating, setCreating] = useState(false);
@@ -159,11 +163,11 @@ export function FixedTemplatesScreen() {
             <ActionMenu
               ariaLabel={`Acciones de ${template.name}`}
               items={[
-                { label: 'Editar', icon: '✏️', onSelect: () => setEditing(template) },
-                { label: 'Archivar', icon: '📦', onSelect: () => handleArchive(template) },
+                { label: 'Editar', icon: Pencil, onSelect: () => setEditing(template) },
+                { label: 'Archivar', icon: Archive, onSelect: () => handleArchive(template) },
                 {
                   label: 'Eliminar',
-                  icon: '🗑️',
+                  icon: Trash2,
                   onSelect: () => setDeleting(template),
                   danger: true,
                 },
@@ -180,6 +184,7 @@ export function FixedTemplatesScreen() {
         cards={cards}
         loans={loans}
         categories={categories}
+        budgets={budgets}
         onClose={() => setCreating(false)}
       />
       <FixedTemplateForm
@@ -190,6 +195,7 @@ export function FixedTemplatesScreen() {
         cards={cards}
         loans={loans}
         categories={categories}
+        budgets={budgets}
         onClose={() => setEditing(null)}
       />
       <ConfirmDeleteModal

@@ -1,3 +1,4 @@
+import { Pencil, Scale, Archive, Trash2 } from 'lucide-react';
 import { ActionMenu } from '../../components/ActionMenu';
 import { formatCop } from '../../../lib/currency';
 import { loanProgress } from '../../../domain/derived';
@@ -37,10 +38,10 @@ export function LoanCard({
         <ActionMenu
           ariaLabel={`Acciones de ${loan.name}`}
           items={[
-            { label: 'Editar', icon: '✏️', onSelect: onEdit },
-            { label: 'Reconciliar', icon: '⚖️', onSelect: onReconcile },
-            { label: 'Archivar', icon: '📦', onSelect: onArchive },
-            { label: 'Eliminar', icon: '🗑️', onSelect: onDelete, danger: true },
+            { label: 'Editar', icon: Pencil, onSelect: onEdit },
+            { label: 'Reconciliar', icon: Scale, onSelect: onReconcile },
+            { label: 'Archivar', icon: Archive, onSelect: onArchive },
+            { label: 'Eliminar', icon: Trash2, onSelect: onDelete, danger: true },
           ]}
         />
       </div>
