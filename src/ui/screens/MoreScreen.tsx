@@ -1,10 +1,6 @@
 import { Link } from 'react-router-dom';
-import { ChevronRight } from 'lucide-react';
-import { logout } from '../../data/authRepository';
-import { useSessionStore } from '../../store/sessionStore';
+import { ChevronRight, Settings } from 'lucide-react';
 import { RecalculateBalancesButton } from './RecalculateBalancesButton';
-import { ThemePicker } from '../components/ThemePicker';
-import { VersionTag } from '../components/VersionTag';
 import type { MenuItem } from './MenuItem';
 
 // Pantalla "Más": administración (CLAUDE.md §8.4). Cada enlace lleva a un CRUD. Los que
@@ -49,8 +45,6 @@ const ITEMS: MenuItem[] = [
 ];
 
 export function MoreScreen() {
-  const user = useSessionStore((s) => s.user);
-
   return (
     <div className="flex flex-col gap-4 p-4 pb-24">
       <h1 className="text-xl font-bold text-slate-800">Más</h1>
@@ -87,23 +81,19 @@ export function MoreScreen() {
 
       <RecalculateBalancesButton />
 
-      <ThemePicker />
-
-      <div className="mt-4 rounded-xl border border-slate-200 bg-white p-4">
-        <p className="text-sm text-slate-500">
-          Sesión:{' '}
-          <span className="font-medium text-slate-700">{user?.email ?? user?.displayName}</span>
-        </p>
-        <button
-          type="button"
-          onClick={() => void logout()}
-          className="mt-3 rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700"
-        >
-          Cerrar sesión
-        </button>
-      </div>
-
-      <VersionTag />
+      {/* Ajustes: separado del resto (margen amplio + estilo propio) para que se note aparte.
+          Reúne preferencias del usuario (tema) y la sesión; a futuro, más opciones de usuario. */}
+      <Link
+        to="/mas/ajustes"
+        className="mt-6 flex items-center gap-3 rounded-xl bg-slate-800 p-4 text-white"
+      >
+        <Settings className="h-5 w-5" />
+        <span className="flex-1">
+          <span className="block font-medium">Ajustes</span>
+          <span className="block text-xs text-white/70">Tema, sesión y preferencias</span>
+        </span>
+        <ChevronRight className="h-4 w-4 text-white/70" />
+      </Link>
     </div>
   );
 }
