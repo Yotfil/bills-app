@@ -29,6 +29,10 @@ import type {
   Loan,
 } from '../../../domain/types';
 
+// Criterios de orden de la lista de plantillas. "category" agrupa por categoría (mismas
+// categorías quedan contiguas) y dentro de cada grupo ordena por nombre.
+type TemplateSort = 'name-asc' | 'name-desc' | 'category';
+
 // Plantilla de obligaciones fijas (CLAUDE.md §8.4): CRUD. Desde aquí se generan los fijos de
 // cada mes en la pantalla de Fijos.
 export function FixedTemplatesScreen() {
@@ -44,6 +48,7 @@ export function FixedTemplatesScreen() {
   const [deleting, setDeleting] = useState<FixedObligationTemplate | null>(null);
   const [creating, setCreating] = useState(false);
   const [search, setSearch] = useState('');
+  const [sort, setSort] = useState<TemplateSort>('name-asc');
   // Selección para acciones masivas (§8.4). Guarda los ids marcados; el borrado masivo los
   // elimina en paralelo. Las plantillas se pueden borrar siempre (son moldes, no histórico).
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -52,6 +57,21 @@ export function FixedTemplatesScreen() {
   const allActive = templates.filter((t) => !t.archived).sort((a, b) => a.sortOrder - b.sortOrder);
   const active = allActive.filter((t) => matchesQuery(search, t.name));
   const categoryName = (id: string) => categories.find((c) => c.id === id)?.name;
+  // Etiqueta usada para agrupar/ordenar por categoría: los abonos a deuda no tienen categoría,
+  // así que se agrupan bajo "Abono a deuda" (igual que su subtítulo en la fila).
+  const groupLabel = (t: FixedObligationTemplate) =>
+    t.payKind === 'debt_payment' ? 'Abono a deuda' : (categoryName(t.categoryId) ?? 'Sin categoría');
+
+  // Lista visible ya ordenada según el criterio elegido. La selección masiva trabaja sobre el
+  // mismo conjunto `active`, así que reordenar no afecta el conteo ni "seleccionar todas".
+  const sortedActive = [...active].sort((a, b) => {
+    if (sort === 'name-desc') return b.name.localeCompare(a.name);
+    if (sort === 'category') return groupLabel(a).localeCompare(groupLabel(b)) || a.name.localeCompare(b.name);
+    return a.name.localeCompare(b.name);
+  });
+
+  // Total de lo que suman las obligaciones visibles (respeta el buscador).
+  const visibleTotal = active.reduce((sum, t) => sum + t.budgetedAmount, 0);
 
   // La selección se cuenta solo sobre lo VISIBLE (respeta el filtro de búsqueda): así
   // "seleccionar todas" y el conteo no incluyen ítems ocultos por el buscador.
@@ -120,6 +140,27 @@ export function FixedTemplatesScreen() {
         <SearchBar value={search} onChange={setSearch} placeholder="Buscar obligación…" />
       )}
 
+      {active.length > 0 && (
+        <div className="flex items-center justify-between gap-3 rounded-xl bg-white px-4 py-3 shadow-sm">
+          <div className="min-w-0">
+            <p className="text-xs text-slate-400">
+              Total · {active.length} {active.length === 1 ? 'fijo' : 'fijos'}
+            </p>
+            <p className="text-lg font-bold text-slate-800">{formatCop(visibleTotal)}</p>
+          </div>
+          <select
+            value={sort}
+            onChange={(e) => setSort(e.target.value as TemplateSort)}
+            aria-label="Ordenar obligaciones"
+            className="shrink-0 rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-700 outline-none focus:border-slate-500"
+          >
+            <option value="name-asc">Nombre A→Z</option>
+            <option value="name-desc">Nombre Z→A</option>
+            <option value="category">Categoría</option>
+          </select>
+        </div>
+      )}
+
       <BulkSelectBar
         selectedCount={visibleSelectedCount}
         totalCount={active.length}
@@ -137,7 +178,7 @@ export function FixedTemplatesScreen() {
       )}
 
       <ul className="flex flex-col gap-2">
-        {active.map((template) => (
+        {sortedActive.map((template) => (
           <li
             key={template.id}
             className={`flex items-center gap-3 rounded-xl border bg-white p-4 ${
