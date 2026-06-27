@@ -26,6 +26,7 @@ export async function ensureUserSettings(uid: string): Promise<void> {
       currency: 'COP',
       locale: 'es-CO',
       onboardingCompleted: false,
+      hormigaMonthlyCap: null,
       schemaVersion: CURRENT_SCHEMA_VERSION,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
@@ -59,6 +60,15 @@ export async function completeOnboarding(uid: string): Promise<void> {
   if (!db) return;
   await updateDoc(doc(db, 'users', uid), {
     onboardingCompleted: true,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+/** Guarda (o borra, con null) el tope mensual de gasto hormiga del usuario (§5.8). */
+export async function setHormigaCap(uid: string, value: number | null): Promise<void> {
+  if (!db) return;
+  await updateDoc(doc(db, 'users', uid), {
+    hormigaMonthlyCap: value,
     updatedAt: serverTimestamp(),
   });
 }
