@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { useUserCollection } from '../hooks/useUserCollection';
-import { useFixedMonthly } from '../hooks/useFixedMonthly';
 import { useSessionStore } from '../../store/sessionStore';
 import { AccountForm } from './AccountForm';
 import { ReconcileModal } from './ReconcileModal';
@@ -11,13 +10,18 @@ import { ConfirmDeleteModal } from '../components/ConfirmDeleteModal';
 import { formatCop, formatCopPlain } from '../../lib/currency';
 import { accountAvailable, accountReserved } from '../../domain/derived';
 import { entityHasMovements } from '../../domain/entityUsage';
-import { currentMonthKey } from '../../lib/date';
 import { archiveAccount, deleteAccount, subscribeAccounts } from '../../data/accountRepository';
+import { subscribeAllocatedFixeds } from '../../data/fixedMonthlyRepository';
 import { subscribeTransactions } from '../../data/transactionRepository';
 import { reconcileAccount } from '../../data/reconciliationService';
 import type { AccountsScreenProps } from './AccountsScreenProps';
 import type { ReconcileTarget } from './ReconcileTarget';
-import type { Account, AccountType, Transaction } from '../../domain/types';
+import type {
+  Account,
+  AccountType,
+  FixedObligationMonthly,
+  Transaction,
+} from '../../domain/types';
 
 const TYPE_LABEL: Record<AccountType, string> = {
   savings: 'Ahorros',
@@ -40,8 +44,9 @@ export function AccountsScreen({ savingsBucket = false }: AccountsScreenProps) {
     .filter((a) => !a.archived && (a.savingsBucket ?? false) === savingsBucket)
     .sort((a, b) => a.sortOrder - b.sortOrder);
   const title = savingsBucket ? 'Ahorros' : 'Cuentas';
-  // Reservado = fijos del mes actual en estado 'allocated' asignados a cada cuenta (§5.1, §5.2).
-  const { items: monthlyFixeds } = useFixedMonthly(currentMonthKey());
+  // Reservado = TODO lo destinado y no pagado (cualquier mes) asignado a cada cuenta (§5.1, §5.2).
+  const { items: allocatedFixeds } =
+    useUserCollection<FixedObligationMonthly>(subscribeAllocatedFixeds);
 
   async function handleArchive(account: Account) {
     if (!uid) return;
@@ -105,8 +110,8 @@ export function AccountsScreen({ savingsBucket = false }: AccountsScreenProps) {
 
       <ul className="flex flex-col gap-3">
         {accounts.map((account) => {
-          const reserved = accountReserved(monthlyFixeds, account.id);
-          const available = accountAvailable(account, monthlyFixeds);
+          const reserved = accountReserved(allocatedFixeds, account.id);
+          const available = accountAvailable(account, allocatedFixeds);
           return (
             <li key={account.id} className="rounded-xl border border-slate-200 bg-white p-4">
               <div className="flex items-start justify-between gap-2">

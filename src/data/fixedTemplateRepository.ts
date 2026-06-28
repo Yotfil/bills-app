@@ -48,6 +48,10 @@ export const updateFixedTemplate = (
   data: UpdateInput<FixedObligationTemplate>,
 ) => update(fixedTemplatesCol(uid), id, data);
 
+// Marca/desmarca un fijo como "candidata a cancelar" desde el módulo de Suscripciones (§15).
+export const setCancelCandidate = (uid: string, id: string, value: boolean) =>
+  update(fixedTemplatesCol(uid), id, { cancelCandidate: value });
+
 export const archiveFixedTemplate = (uid: string, id: string) =>
   archive(fixedTemplatesCol(uid), id);
 

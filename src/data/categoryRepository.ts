@@ -20,6 +20,9 @@ export type { NewCategory } from './NewCategory';
 /** Id estable de la categoría de sistema de ajustes, útil para la reconciliación (§5.7). */
 export const ADJUSTMENT_CATEGORY_NAME = 'Ajuste / Reconciliación';
 
+/** Nombre de la categoría base que agrupa las suscripciones (§6), usado por el módulo §15. */
+export const SUBSCRIPTIONS_CATEGORY_NAME = 'Suscripciones';
+
 type SeedCategory = CreateInput<Category>;
 
 // Set base (§6). `includeInSpendReports` = true salvo la de sistema. Orden = el del doc.

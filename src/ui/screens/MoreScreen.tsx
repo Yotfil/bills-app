@@ -31,6 +31,12 @@ const ITEMS: MenuItem[] = [
     ready: true,
   },
   {
+    to: '/mas/suscripciones',
+    label: 'Suscripciones',
+    hint: 'Gasto recurrente: total anual, subidas y renovaciones',
+    ready: true,
+  },
+  {
     to: '/mas/archivados',
     label: 'Archivados',
     hint: 'Restaurar o eliminar lo archivado',

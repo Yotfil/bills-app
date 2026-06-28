@@ -17,7 +17,7 @@ import { generateMonthlyFixeds } from '../domain/rollover';
 import { buildTransactionFromFixed } from '../domain/fixed';
 import { nowTimestamp } from '../lib/date';
 import type { PayFixedInput } from './PayFixedInput';
-import type { FixedObligationMonthly, FixedObligationTemplate } from '../domain/types';
+import type { EntityRef, FixedObligationMonthly, FixedObligationTemplate } from '../domain/types';
 
 export type { PayFixedInput } from './PayFixedInput';
 
@@ -33,6 +33,19 @@ export function subscribeFixedMonthly(
   onChange: (items: FixedObligationMonthly[]) => void,
 ): () => void {
   const q = query(fixedMonthlyCol(uid), where('month', '==', month));
+  return onSnapshot(q, (snap) => onChange(snap.docs.map((d) => d.data())));
+}
+
+/**
+ * Se suscribe a TODOS los fijos en estado 'allocated' (destinados sin pagar), de cualquier mes.
+ * Alimenta el "reservado" de las cuentas y el disponible real (§5.1, §5.2): lo destinado y aún no
+ * pagado está apartado sin importar el mes, así destinar un mes futuro baja el disponible ya.
+ */
+export function subscribeAllocatedFixeds(
+  uid: string,
+  onChange: (items: FixedObligationMonthly[]) => void,
+): () => void {
+  const q = query(fixedMonthlyCol(uid), where('status', '==', 'allocated'));
   return onSnapshot(q, (snap) => onChange(snap.docs.map((d) => d.data())));
 }
 
@@ -137,13 +150,20 @@ export async function setMonthlyBudgetBacked(
 
 /**
  * Pendiente → Destinado (§5.2): NO mueve el saldo; el reservado de la cuenta es derivado de
- * los fijos en 'allocated'. Solo cambia el estado.
+ * los fijos en 'allocated'. Solo cambia el estado. Opcionalmente fija de qué CUENTA se reserva
+ * ese mes (§5.2: "el usuario puede cambiar de qué cuenta sale ese mes"): al destinar se elige la
+ * fuente, así el reservado baja el disponible de la cuenta correcta.
  */
-export async function markFixedAllocated(uid: string, id: string): Promise<void> {
+export async function markFixedAllocated(
+  uid: string,
+  id: string,
+  account?: EntityRef,
+): Promise<void> {
   await updateDoc(rawDoc(uid, id), {
     status: 'allocated',
     allocatedAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
+    ...(account ? { paymentMethod: account } : {}),
   });
 }
 
