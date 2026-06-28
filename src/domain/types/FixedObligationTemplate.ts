@@ -17,4 +17,8 @@ export interface FixedObligationTemplate extends BaseDoc, Archivable {
   budgetBacked: boolean;
   active: boolean; // si entra en el rollover mensual
   sortOrder: number;
+  // Metadato del módulo de Suscripciones (§15): solo es relevante para fijos de la categoría
+  // "Suscripciones". El usuario lo marca para señalar suscripciones que está pensando cancelar.
+  // Opcional: los fijos creados antes de este feature no lo traen (se lee como false).
+  cancelCandidate?: boolean;
 }
