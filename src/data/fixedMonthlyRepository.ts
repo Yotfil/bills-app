@@ -36,6 +36,19 @@ export function subscribeFixedMonthly(
   return onSnapshot(q, (snap) => onChange(snap.docs.map((d) => d.data())));
 }
 
+/**
+ * Se suscribe a TODOS los fijos en estado 'allocated' (destinados sin pagar), de cualquier mes.
+ * Alimenta el "reservado" de las cuentas y el disponible real (§5.1, §5.2): lo destinado y aún no
+ * pagado está apartado sin importar el mes, así destinar un mes futuro baja el disponible ya.
+ */
+export function subscribeAllocatedFixeds(
+  uid: string,
+  onChange: (items: FixedObligationMonthly[]) => void,
+): () => void {
+  const q = query(fixedMonthlyCol(uid), where('status', '==', 'allocated'));
+  return onSnapshot(q, (snap) => onChange(snap.docs.map((d) => d.data())));
+}
+
 /** Lee de una sola vez los fijos de un mes (sin suscripción). Útil en orquestaciones. */
 export async function listFixedMonthlyForMonth(
   uid: string,

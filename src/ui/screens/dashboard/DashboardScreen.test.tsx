@@ -61,6 +61,10 @@ vi.mock('../../../data/fixedMonthlyRepository', () => ({
     cb([]);
     return () => {};
   },
+  subscribeAllocatedFixeds: (_uid: string, cb: (i: unknown[]) => void) => {
+    cb([]);
+    return () => {};
+  },
 }));
 // Evita llamadas de red a la API de tasa durante el render del dashboard.
 vi.mock('../../../data/exchangeRate/exchangeRateService', () => ({

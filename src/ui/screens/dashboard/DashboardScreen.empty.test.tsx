@@ -26,6 +26,7 @@ vi.mock('../../../data/transactionRepository', () => ({
 vi.mock('../../../data/fixedMonthlyRepository', () => ({
   subscribeFixedMonthly: (_uid: string, _month: string, cb: (i: unknown[]) => void) =>
     (cb([]), () => {}),
+  subscribeAllocatedFixeds: (_uid: string, cb: (i: unknown[]) => void) => (cb([]), () => {}),
 }));
 
 beforeEach(() => {

@@ -7,6 +7,7 @@ import { subscribeCards } from '../../../data/cardRepository';
 import { subscribeLoans } from '../../../data/loanRepository';
 import { subscribeCategories } from '../../../data/categoryRepository';
 import { subscribeTransactions } from '../../../data/transactionRepository';
+import { subscribeAllocatedFixeds } from '../../../data/fixedMonthlyRepository';
 import { disponibleReal } from '../../../domain/derived';
 import { fixedTotals } from '../../../domain/fixed';
 import { budgetStatus, spendByCategory } from '../../../domain/reports';
@@ -23,7 +24,14 @@ import { MonthSummaryCard } from './MonthSummaryCard';
 import { FixedProgressCard } from './FixedProgressCard';
 import { CategoryDonut } from './CategoryDonut';
 import { ExchangeRateNote } from './ExchangeRateNote';
-import type { Account, Category, CreditCard, Loan, Transaction } from '../../../domain/types';
+import type {
+  Account,
+  Category,
+  CreditCard,
+  FixedObligationMonthly,
+  Loan,
+  Transaction,
+} from '../../../domain/types';
 
 // Dashboard / Inicio (CLAUDE.md §8.1). Debe entenderse en < 5 segundos: número-héroe,
 // resumen del mes, fijos y dona por categoría, con selector de periodo (mes actual).
@@ -48,10 +56,12 @@ export function DashboardScreen() {
     accounts.length === 0 &&
     cards.length === 0 &&
     loans.length === 0;
-  // El número-héroe (disponible real) es del MES ACTUAL: es un número de "hoy", no del periodo del
-  // selector. Su reservado se deriva de los fijos 'allocated' del mes en curso.
-  const { items: currentFixeds } = useFixedMonthly(currentMonthKey());
-  const available = disponibleReal(activeAccounts, currentFixeds);
+  // El número-héroe (disponible real) es un número de "hoy", no del periodo del selector. Su
+  // reservado = TODO lo destinado y no pagado, de cualquier mes (§5.1, §5.2): así destinar un mes
+  // futuro baja ya el disponible (el dinero está apartado aunque el fijo se pague después).
+  const { items: allocatedFixeds } =
+    useUserCollection<FixedObligationMonthly>(subscribeAllocatedFixeds);
+  const available = disponibleReal(activeAccounts, allocatedFixeds);
   // Saldo total: TODO lo que hay, incluido lo de Ahorros (a diferencia del disponible real).
   const totalBalance = activeAccounts.reduce((sum, a) => sum + a.cachedBalance, 0);
   // Los fijos del Inicio (progreso y alertas) SÍ siguen el mes del selector: cada mes tiene su
