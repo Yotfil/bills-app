@@ -14,6 +14,7 @@ import { matchesQuery } from '../../../lib/text';
 import { FixedTotalsBar } from './FixedTotalsBar';
 import { FixedRow } from './FixedRow';
 import { PayFixedModal } from './PayFixedModal';
+import { AllocateFixedModal } from './AllocateFixedModal';
 import { FixedSyncBanner } from './FixedSyncBanner';
 import { FixedSyncModal } from './FixedSyncModal';
 import { EditCapModal } from './EditCapModal';
@@ -56,6 +57,7 @@ import type {
   Account,
   Category,
   CreditCard,
+  EntityRef,
   FixedObligationMonthly,
   FixedObligationTemplate,
   FixedStatus,
@@ -86,6 +88,7 @@ export function FijosScreen() {
   const { items: templates } = useUserCollection<FixedObligationTemplate>(subscribeFixedTemplates);
   const { items: transactions } = useUserCollection<Transaction>(subscribeTransactions);
   const [paying, setPaying] = useState<FixedObligationMonthly | null>(null);
+  const [allocating, setAllocating] = useState<FixedObligationMonthly | null>(null);
   const [editingCap, setEditingCap] = useState<FixedObligationMonthly | null>(null);
   const [generating, setGenerating] = useState(false);
   const [tab, setTab] = useState<FixedTab>('gastos');
@@ -268,6 +271,13 @@ export function FijosScreen() {
   async function handlePay(input: PayFixedInput) {
     if (!uid || !paying) return;
     await payFixed(uid, paying, input);
+  }
+
+  // Destinar eligiendo la cuenta de la que se reserva (§5.2): se fija ese medio en el fijo del mes
+  // y se marca 'allocated'. El reservado de esa cuenta baja su disponible (derivado, no mueve saldo).
+  async function handleAllocate(account: EntityRef) {
+    if (!uid || !allocating) return;
+    await markFixedAllocated(uid, allocating.id, account);
   }
 
   // Editar el tope de un fijo respaldado desde Fijos (§5.9): actualiza el monto del fijo del mes (M)
@@ -467,7 +477,7 @@ export function FijosScreen() {
             onEditCap={fixed.budgetBacked ? () => setEditingCap(fixed) : undefined}
             selected={selected.has(fixed.id)}
             onToggleSelect={() => toggleOne(fixed.id)}
-            onAllocate={() => uid && markFixedAllocated(uid, fixed.id)}
+            onAllocate={() => setAllocating(fixed)}
             onUnallocate={() => uid && markFixedPending(uid, fixed.id)}
             onPay={() => setPaying(fixed)}
             onMarkPaid={() => uid && markFixedPaidWithoutTransaction(uid, fixed.id)}
@@ -484,6 +494,15 @@ export function FijosScreen() {
         loans={loans.filter((l) => !l.archived)}
         onClose={() => setPaying(null)}
         onConfirm={handlePay}
+      />
+
+      <AllocateFixedModal
+        open={!!allocating}
+        fixed={allocating}
+        accounts={accounts.filter((a) => !a.archived)}
+        monthlyFixeds={fijos}
+        onClose={() => setAllocating(null)}
+        onConfirm={handleAllocate}
       />
 
       <FixedSyncModal

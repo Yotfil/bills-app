@@ -1,20 +1,21 @@
 import { Link } from 'react-router-dom';
 import { useUserCollection } from '../hooks/useUserCollection';
-import { useFixedMonthly } from '../hooks/useFixedMonthly';
 import { subscribeAccounts } from '../../data/accountRepository';
+import { subscribeAllocatedFixeds } from '../../data/fixedMonthlyRepository';
 import { disponibleReal } from '../../domain/derived';
-import { currentMonthKey } from '../../lib/date';
 import { formatCop } from '../../lib/currency';
-import type { Account } from '../../domain/types';
+import type { Account, FixedObligationMonthly } from '../../domain/types';
 
 // Barra compacta con el Disponible real (número-héroe, §4), para tenerlo a mano en Fijos y
 // Registro. El grande vive en Inicio. Toca para ir al dashboard.
 export function DisponibleRealBar() {
   const { items: accounts } = useUserCollection<Account>(subscribeAccounts);
-  const { items: monthlyFixeds } = useFixedMonthly(currentMonthKey());
+  // Reservado = todo lo destinado y no pagado, de cualquier mes (§5.1, §5.2).
+  const { items: allocatedFixeds } =
+    useUserCollection<FixedObligationMonthly>(subscribeAllocatedFixeds);
   const available = disponibleReal(
     accounts.filter((a) => !a.archived),
-    monthlyFixeds,
+    allocatedFixeds,
   );
 
   return (

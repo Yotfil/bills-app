@@ -38,6 +38,10 @@ vi.mock('../../data/fixedMonthlyRepository', () => ({
     cb([]);
     return () => {};
   },
+  subscribeAllocatedFixeds: (_uid: string, cb: (items: unknown[]) => void) => {
+    cb([]);
+    return () => {};
+  },
 }));
 
 beforeEach(() => {
