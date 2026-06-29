@@ -16,6 +16,10 @@ export interface FixedRowProps {
   // Selección para acciones masivas (opcional). Si se pasa onToggleSelect, se muestra el checkbox.
   selected?: boolean;
   onToggleSelect?: () => void;
+  // "Apagar" (§8.3): excluye este gasto del cálculo temporal de "Por destinar". Si se pasa
+  // onToggleMute, se muestra el icono de ojo; `muted` atenúa la fila.
+  muted?: boolean;
+  onToggleMute?: () => void;
   // Ítem del checklist de una bolsa (§5.9 ext.): se renderiza indentado bajo su presupuesto.
   nested?: boolean;
 }

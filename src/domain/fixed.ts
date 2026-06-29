@@ -46,6 +46,23 @@ export function fixedTotals(
   return totals;
 }
 
+/**
+ * Suma del aporte a "Por destinar" de los gastos "apagados" (§8.3): Σ `amountOf` de los items apagados
+ * que están PENDIENTES (los únicos que cuentan en `pendingAmount`). Apagar un pagado/destinado no suma
+ * (su aporte a Por destinar es 0). Es un cálculo de visualización temporal; no toca saldos.
+ */
+export function mutedPendingTotal(
+  monthlyFixeds: FixedObligationMonthly[],
+  isMuted: (id: string) => boolean,
+  statusOf: (fixed: FixedObligationMonthly) => FixedStatus = (f) => f.status,
+  amountOf: (fixed: FixedObligationMonthly) => number = (f) => f.paidAmount ?? f.budgetedAmount,
+): number {
+  return monthlyFixeds.reduce(
+    (sum, f) => (isMuted(f.id) && statusOf(f) === 'pending' ? sum + amountOf(f) : sum),
+    0,
+  );
+}
+
 // Transiciones permitidas (§5.2): pendiente→destinado, destinado→pagado, y el atajo
 // pendiente→pagado directo. No se permite "deshacer" hacia atrás desde aquí (editar un
 // pago se maneja como edición/eliminación de la transacción).

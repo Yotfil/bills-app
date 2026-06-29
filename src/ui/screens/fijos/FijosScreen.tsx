@@ -8,6 +8,14 @@ import { useFixedSyncStore } from '../../../store/fixedSyncStore';
 import { MonthSelector } from '../../components/MonthSelector';
 import { DisponibleRealBar } from '../../components/DisponibleRealBar';
 import { SearchBar } from '../../components/SearchBar';
+import { FixedFilters } from './FixedFilters';
+import { FixedMutedBar } from './FixedMutedBar';
+import {
+  EMPTY_FIXED_FILTER,
+  isFixedFilterActive,
+  matchesFixedFilter,
+  type FixedFilter,
+} from '../../../domain/fixedFilters';
 import { SegmentedTabs } from '../../components/SegmentedTabs';
 import { BulkSelectBar } from '../../components/BulkSelectBar';
 import { matchesQuery } from '../../../lib/text';
@@ -20,7 +28,7 @@ import { FixedSyncModal } from './FixedSyncModal';
 import { BudgetChecklistCard } from '../budgets/BudgetChecklistCard';
 import { BudgetCapModal } from '../budgets/BudgetCapModal';
 import { HormigaBudgetCard } from '../budgets/HormigaBudgetCard';
-import { fixedTotals } from '../../../domain/fixed';
+import { fixedTotals, mutedPendingTotal } from '../../../domain/fixed';
 import { budgetStatus } from '../../../domain/reports';
 import {
   budgetBackedAmount,
@@ -126,6 +134,22 @@ export function FijosScreen() {
   const search = searchByTab[tab];
   const setSearch = (value: string) => setSearchByTab((prev) => ({ ...prev, [tab]: value }));
   const [sort, setSort] = useState<FixedSort>('status');
+  const [gastoFilter, setGastoFilter] = useState<FixedFilter>(EMPTY_FIXED_FILTER);
+  const [filtersExpanded, setFiltersExpanded] = useState(false);
+  // "Apagar" gastos (§8.3): selección EFÍMERA (no se guarda) para el cálculo temporal de Por destinar.
+  const [mutedIds, setMutedIds] = useState<Set<string>>(new Set());
+  const toggleMute = (id: string) =>
+    setMutedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  // El "apagar" es temporal: al cambiar de mes se resetea (cada mes empieza sin apagados).
+  const changeMonth = (m: string) => {
+    setMonth(m);
+    setMutedIds(new Set());
+  };
   const [syncOpen, setSyncOpen] = useState(false);
   // Descarte del banner de sincronización, por mes (persistido en localStorage).
   const dismissed = useFixedSyncStore((s) => !!s.dismissedMonths[month]);
@@ -204,7 +228,30 @@ export function FijosScreen() {
     );
   };
 
-  const sorted = gastosItems.filter((f) => matchesQuery(search, f.name)).sort(compareFixed);
+  const sorted = gastosItems
+    .filter((f) => matchesQuery(search, f.name) && matchesFixedFilter(f, gastoFilter))
+    .sort(compareFixed);
+
+  // Opciones de los filtros (§8.3): solo las categorías y medios presentes entre los gastos del mes.
+  const gastoCategoryOptions = Array.from(
+    new Map(
+      gastosItems
+        .filter((f) => f.categoryId)
+        .map((f) => [f.categoryId, categoryName(f.categoryId) ?? f.categoryId]),
+    ),
+    ([value, label]) => ({ value, label }),
+  );
+  const methodLabel = (ref: EntityRef): string => {
+    if (ref.kind === 'account') return accounts.find((a) => a.id === ref.id)?.name ?? 'Cuenta';
+    if (ref.kind === 'card') return `${cards.find((c) => c.id === ref.id)?.name ?? 'Tarjeta'} (TC)`;
+    return 'Otro';
+  };
+  const gastoMethodOptions = Array.from(
+    new Map(
+      gastosItems.map((f) => [`${f.paymentMethod.kind}:${f.paymentMethod.id}`, methodLabel(f.paymentMethod)]),
+    ),
+    ([value, label]) => ({ value, label }),
+  );
 
   // Totales = fijos (gastos, sin anidados) + presupuestos de checklist (su tope cuenta en Por
   // destinar/Pagado; nunca quedan 'allocated'). Los anidados ya están representados por su bolsa.
@@ -221,6 +268,15 @@ export function FijosScreen() {
       total: fixedPart.counts.total + budgetPart.pendingCount + budgetPart.paidCount,
     },
   };
+
+  // "Apagados": aporte a Por destinar de los gastos apagados (§8.3). Cálculo temporal; no toca el bar
+  // canónico ni los saldos.
+  const apagados = mutedPendingTotal(
+    gastosItems,
+    (id) => mutedIds.has(id),
+    effectiveStatusOf,
+    amountOf,
+  );
 
   // Plantillas que SÍ generan fijo del mes (los respaldados ya no, §5.9).
   const activeTemplates = templates.filter(
@@ -431,6 +487,8 @@ export function FijosScreen() {
       onEditCap={fixed.budgetBacked ? () => openEditCapForCategory(fixed.categoryId) : undefined}
       selected={opts?.nested ? undefined : selected.has(fixed.id)}
       onToggleSelect={opts?.nested ? undefined : () => toggleOne(fixed.id)}
+      muted={opts?.nested ? undefined : mutedIds.has(fixed.id)}
+      onToggleMute={opts?.nested ? undefined : () => toggleMute(fixed.id)}
       onAllocate={() => setAllocating(fixed)}
       onUnallocate={() => uid && markFixedPending(uid, fixed.id)}
       onPay={() => setPaying(fixed)}
@@ -467,10 +525,14 @@ export function FijosScreen() {
 
       <MonthSelector
         month={month}
-        onPrev={() => setMonth(addMonths(month, -1))}
-        onNext={() => setMonth(addMonths(month, 1))}
+        onPrev={() => changeMonth(addMonths(month, -1))}
+        onNext={() => changeMonth(addMonths(month, 1))}
       />
       <FixedTotalsBar totals={totals} />
+      {/* Cálculo temporal de "apagar" gastos (§8.3): solo en Gastos y cuando hay ≥1 apagado. */}
+      {tab === 'gastos' && apagados > 0 && (
+        <FixedMutedBar pending={totals.pendingAmount - apagados} muted={apagados} />
+      )}
 
       {hasSyncChanges && !dismissed && (
         <FixedSyncBanner
@@ -514,25 +576,56 @@ export function FijosScreen() {
         />
       )}
 
-      {/* El ordenamiento aplica a la lista de gastos; los presupuestos se ordenan por categoría. */}
+      {/* Filtros (§8.3) y orden en una sola fila: toggle "Filtros ▾/▴" + Limpiar a la izquierda,
+          "Ordenar" a la derecha; el panel de filtros se despliega debajo. */}
       {tab === 'gastos' && gastosCount > 0 && (
-        <div className="flex items-center justify-end gap-2">
-          <label htmlFor="fixed-sort" className="text-xs text-slate-400">
-            Ordenar
-          </label>
-          <select
-            id="fixed-sort"
-            value={sort}
-            onChange={(e) => setSort(e.target.value as FixedSort)}
-            aria-label="Ordenar fijos"
-            className="rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-700 outline-none focus:border-slate-500"
-          >
-            <option value="status">Estado</option>
-            <option value="name-asc">Nombre A→Z</option>
-            <option value="name-desc">Nombre Z→A</option>
-            <option value="category">Categoría</option>
-          </select>
-        </div>
+        <>
+          <div className="flex items-center justify-between text-sm">
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setFiltersExpanded((v) => !v)}
+                className="text-slate-500 underline"
+              >
+                Filtros {filtersExpanded ? '▴' : '▾'}
+              </button>
+              {isFixedFilterActive(gastoFilter) && (
+                <button
+                  type="button"
+                  onClick={() => setGastoFilter(EMPTY_FIXED_FILTER)}
+                  className="text-slate-400 underline"
+                >
+                  Limpiar
+                </button>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <label htmlFor="fixed-sort" className="text-xs text-slate-400">
+                Ordenar
+              </label>
+              <select
+                id="fixed-sort"
+                value={sort}
+                onChange={(e) => setSort(e.target.value as FixedSort)}
+                aria-label="Ordenar fijos"
+                className="rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-700 outline-none focus:border-slate-500"
+              >
+                <option value="status">Estado</option>
+                <option value="name-asc">Nombre A→Z</option>
+                <option value="name-desc">Nombre Z→A</option>
+                <option value="category">Categoría</option>
+              </select>
+            </div>
+          </div>
+
+          <FixedFilters
+            filter={gastoFilter}
+            onChange={setGastoFilter}
+            categoryOptions={gastoCategoryOptions}
+            methodOptions={gastoMethodOptions}
+            expanded={filtersExpanded}
+          />
+        </>
       )}
 
       {/* Acciones masivas solo en Gastos: los presupuestos fijos no se pagan ni se destinan (§5.9). */}
@@ -594,7 +687,7 @@ export function FijosScreen() {
       )}
 
       {tab === 'gastos' && gastosCount > 0 && sorted.length === 0 && (
-        <p className="text-slate-500">Ningún fijo coincide con “{search}”.</p>
+        <p className="text-slate-500">Ningún fijo coincide con la búsqueda o los filtros.</p>
       )}
 
       {/* Tab Gastos: lista de fijos (los anidados consumen una bolsa y se ven en Presupuestos). */}
