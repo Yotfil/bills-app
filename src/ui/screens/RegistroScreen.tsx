@@ -7,7 +7,7 @@ import { DisponibleRealBar } from '../components/DisponibleRealBar';
 import { TransactionForm } from './TransactionForm';
 import { TransactionFilters } from './TransactionFilters';
 import { formatCop } from '../../lib/currency';
-import { dayKey, formatDayLabel } from '../../lib/date';
+import { dayKey, formatDayLabel, formatTime } from '../../lib/date';
 import { subscribeTransactions } from '../../data/transactionRepository';
 import { subscribeAccounts } from '../../data/accountRepository';
 import { subscribeCards } from '../../data/cardRepository';
@@ -47,6 +47,15 @@ const SIGN: Record<TransactionType, string> = {
   transfer: '',
   debt_payment: '−',
   adjustment: '',
+};
+
+// Etiqueta del tipo de movimiento, para mostrarla junto al medio de pago en cada card (§8.2).
+const TYPE_LABEL: Record<TransactionType, string> = {
+  expense: 'Gasto',
+  income: 'Ingreso',
+  transfer: 'Transferencia',
+  debt_payment: 'Abono',
+  adjustment: 'Ajuste',
 };
 
 export function RegistroScreen() {
@@ -148,6 +157,7 @@ export function RegistroScreen() {
             {dayTxns.map((txn) => {
               const cat = txn.categoryId ? categoryById.get(txn.categoryId) : undefined;
               const method = entityName(txn.source ?? txn.destination);
+              const time = formatTime(txn.createdAt);
               return (
                 <li key={txn.id}>
                   <button
@@ -161,11 +171,16 @@ export function RegistroScreen() {
                         {txn.concept}
                         {txn.tags.includes('hormiga') && ' 🐜'}
                       </span>
-                      <span className="block truncate text-xs text-slate-400">{method}</span>
+                      <span className="block truncate text-xs text-slate-400">
+                        {TYPE_LABEL[txn.type]} · {method}
+                      </span>
                     </span>
-                    <span className={`font-semibold ${AMOUNT_CLASS[txn.type]}`}>
-                      {SIGN[txn.type]}
-                      {formatCop(txn.amount)}
+                    <span className="flex flex-col items-end">
+                      <span className={`font-semibold ${AMOUNT_CLASS[txn.type]}`}>
+                        {SIGN[txn.type]}
+                        {formatCop(txn.amount)}
+                      </span>
+                      {time && <span className="text-xs text-slate-400">{time}</span>}
                     </span>
                   </button>
                 </li>
