@@ -16,7 +16,9 @@ export interface FixedSyncOptions {
 }
 
 function isUsable(template: FixedObligationTemplate): boolean {
-  return template.active && !template.archived;
+  // Las plantillas respaldadas ya no generan fijos (Opción C, §5.9): viven en su `Budget`. Se
+  // excluyen del diff plantilla→mes para no sugerirlas como "agregar".
+  return template.active && !template.archived && !(template.budgetBacked ?? false);
 }
 
 /** Campos del snapshot que difieren entre el fijo del mes y su plantilla. */

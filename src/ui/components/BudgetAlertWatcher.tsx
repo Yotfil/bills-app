@@ -43,8 +43,10 @@ export function BudgetAlertWatcher() {
   const pending: PendingAlert[] = [];
   if (uid) {
     for (const b of budgets) {
-      if (b.archived || !b.active) continue;
-      // El tope efectivo del mes vive en el `Budget` (§5.9, Opción B): override del mes o base.
+      // Solo los presupuestos "de checklist" se vigilan activamente (§5.9): los demás son tope base
+      // pasivo en la Plantilla, no alertan.
+      if (b.archived || !b.active || !b.inChecklist) continue;
+      // El tope efectivo del mes vive en el `Budget` (§5.9): override del mes o base.
       const cap = budgetCapForMonth(b, month);
       const consumed = budgetStatus(monthTxns, b.categoryId, 0).consumed;
       const level = budgetAlertLevel(consumed, cap, NEAR_LIMIT_RATIO);

@@ -20,7 +20,9 @@ export function generateMonthlyFixeds(
 ): MonthlyFixedDraft[] {
   const already = new Set(alreadyGeneratedTemplateIds);
   return templates
-    .filter((t) => t.active && !t.archived && !already.has(t.id))
+    // Los presupuestos de checklist viven en su `Budget`, no como fijo (Opción C, §5.9): las
+    // plantillas respaldadas ya no generan instancia mensual.
+    .filter((t) => t.active && !t.archived && !(t.budgetBacked ?? false) && !already.has(t.id))
     .map((t) => ({
       month,
       templateId: t.id,

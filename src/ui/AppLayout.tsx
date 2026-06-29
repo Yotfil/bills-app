@@ -3,6 +3,7 @@ import { Home, Receipt, Pin, MoreHorizontal, Plus } from 'lucide-react';
 import { Brand } from './components/Brand';
 import { BudgetAlertWatcher } from './components/BudgetAlertWatcher';
 import { BudgetCapMigrationWatcher } from './components/BudgetCapMigrationWatcher';
+import { BackedToBudgetMigrationWatcher } from './components/BackedToBudgetMigrationWatcher';
 import { MonthlyRolloverWatcher } from './components/MonthlyRolloverWatcher';
 
 // Esqueleto de la app autenticada: contenido + barra inferior con 5 destinos (CLAUDE.md §8).
@@ -35,6 +36,8 @@ export function AppLayout() {
       <BudgetAlertWatcher />
       {/* Migración única: topes respaldados → su Budget (§5.9, Opción B). */}
       <BudgetCapMigrationWatcher />
+      {/* Migración única: fijos respaldados → Budget de checklist (§5.9, Opción C, no destructiva). */}
+      <BackedToBudgetMigrationWatcher />
 
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white">
         <div className="mx-auto flex max-w-md items-center">

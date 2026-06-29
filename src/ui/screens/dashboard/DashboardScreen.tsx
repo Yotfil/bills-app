@@ -13,10 +13,8 @@ import { disponibleReal } from '../../../domain/derived';
 import { fixedTotals } from '../../../domain/fixed';
 import { budgetStatus, spendByCategory } from '../../../domain/reports';
 import {
-  budgetCapForMonth,
-  budgetForCategory,
-  exceededBudgetBacked,
-  nearLimitBudgetBacked,
+  exceededChecklistBudgets,
+  nearLimitChecklistBudgets,
 } from '../../../domain/budgetBackedFixed';
 import { monthlySummary } from '../../../domain/summary';
 import { addMonths, currentMonthKey, monthKey, transactionPeriodMonth } from '../../../lib/date';
@@ -97,37 +95,30 @@ export function DashboardScreen() {
     return map;
   }, [categories]);
 
-  // Tope del mes por categoría: vive en su `Budget` (§5.9, Opción B).
-  const capOf = useMemo(() => {
-    return (categoryId: string): number => {
-      const b = budgetForCategory(categoryId, budgets);
-      return b ? budgetCapForMonth(b, month) : 0;
-    };
-  }, [budgets, month]);
   const consumedOf = (categoryId: string) => budgetStatus(budgetMonthTxns, categoryId, 0).consumed;
 
-  // Topes excedidos del mes del selector: fijos respaldados cuyo gasto superó el tope (§5.9).
+  // Topes excedidos del mes del selector: presupuestos de checklist cuyo gasto superó el tope (§5.9).
   // Alimenta la alerta del Inicio, que solo aparece si la lista no está vacía.
   const exceededItems = useMemo(
     () =>
-      exceededBudgetBacked(selectedFixeds, consumedOf, capOf).map((e) => ({
-        id: e.fixed.id,
-        categoryName: categoryById.get(e.fixed.categoryId)?.name ?? 'Categoría',
+      exceededChecklistBudgets(budgets, month, consumedOf).map((e) => ({
+        id: e.budget.id,
+        categoryName: categoryById.get(e.budget.categoryId)?.name ?? 'Categoría',
         overspend: e.overspend,
       })),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [selectedFixeds, budgetMonthTxns, categoryById, capOf],
+    [budgets, month, budgetMonthTxns, categoryById],
   );
   // Topes muy cerca de excederse (sin pasarse aún): alerta preventiva (naranja).
   const nearLimitItems = useMemo(
     () =>
-      nearLimitBudgetBacked(selectedFixeds, consumedOf, capOf, NEAR_LIMIT_RATIO).map((n) => ({
-        id: n.fixed.id,
-        categoryName: categoryById.get(n.fixed.categoryId)?.name ?? 'Categoría',
+      nearLimitChecklistBudgets(budgets, month, consumedOf, NEAR_LIMIT_RATIO).map((n) => ({
+        id: n.budget.id,
+        categoryName: categoryById.get(n.budget.categoryId)?.name ?? 'Categoría',
         remaining: n.remaining,
       })),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [selectedFixeds, budgetMonthTxns, categoryById, capOf],
+    [budgets, month, budgetMonthTxns, categoryById],
   );
 
   const slices = useMemo(() => {

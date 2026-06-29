@@ -8,32 +8,39 @@ import type { BudgetTemplateCardProps } from './BudgetTemplateCardProps';
 export function BudgetTemplateCard({
   categoryName,
   base,
-  linkedToFixed = false,
+  inChecklist,
+  onToggleChecklist,
   onEdit,
   onArchive,
   onDelete,
 }: BudgetTemplateCardProps) {
   return (
-    <li className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-4">
-      <div className="min-w-0 flex-1">
-        <div className="flex min-w-0 items-center gap-2">
+    <li className="rounded-xl border border-slate-200 bg-white p-4">
+      <div className="flex items-center gap-3">
+        <div className="min-w-0 flex-1">
           <p className="truncate font-semibold text-slate-800">{categoryName}</p>
-          {linkedToFixed && (
-            <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-500">
-              Fijo ligado
-            </span>
-          )}
+          <p className="text-xs text-slate-400">{formatCop(base)} · base cada mes</p>
         </div>
-        <p className="text-xs text-slate-400">{formatCop(base)} · base cada mes</p>
+        <ActionMenu
+          ariaLabel={`Acciones de ${categoryName}`}
+          items={[
+            { label: 'Editar', icon: Pencil, onSelect: onEdit },
+            { label: 'Archivar', icon: Archive, onSelect: onArchive },
+            { label: 'Eliminar', icon: Trash2, onSelect: onDelete, danger: true },
+          ]}
+        />
       </div>
-      <ActionMenu
-        ariaLabel={`Acciones de ${categoryName}`}
-        items={[
-          { label: 'Editar', icon: Pencil, onSelect: onEdit },
-          { label: 'Archivar', icon: Archive, onSelect: onArchive },
-          { label: 'Eliminar', icon: Trash2, onSelect: onDelete, danger: true },
-        ]}
-      />
+      {/* "Mostrar en Fijos": el presupuesto aparece en el checklist mensual y su tope cuenta en
+          "Por destinar"/"Pagado" (§5.9). */}
+      <label className="mt-3 flex items-center gap-2 text-xs text-slate-500">
+        <input
+          type="checkbox"
+          checked={inChecklist}
+          onChange={(e) => onToggleChecklist(e.target.checked)}
+          className="h-4 w-4 shrink-0 accent-slate-800"
+        />
+        Mostrar en Fijos (checklist)
+      </label>
     </li>
   );
 }

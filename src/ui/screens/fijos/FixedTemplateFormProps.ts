@@ -14,9 +14,8 @@ export interface FixedTemplateFormProps {
   cards: CreditCard[];
   loans: Loan[];
   categories: Category[];
-  budgets: Budget[]; // para ofrecer "respaldar con presupuesto" solo si la categoría tiene uno (§5.9)
-  // Todas las plantillas: para saber si la categoría YA tiene un fijo respaldado (solo 1 bolsa por
-  // categoría) y así decidir qué opción mostrar (respaldar vs consumir).
-  templates: FixedObligationTemplate[];
+  // Para ofrecer "consume de un presupuesto" solo si la categoría tiene un presupuesto marcado
+  // "Mostrar en Fijos" (la bolsa, §5.9).
+  budgets: Budget[];
   onClose: () => void;
 }
