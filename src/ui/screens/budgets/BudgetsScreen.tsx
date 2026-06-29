@@ -9,7 +9,7 @@ import { BackButton } from '../../components/BackButton';
 import { ConfirmDeleteModal } from '../../components/ConfirmDeleteModal';
 import { budgetStatus } from '../../../domain/reports';
 import { linkedBudgetBackedFixed } from '../../../domain/budgetBackedFixed';
-import { currentMonthKey, monthKey } from '../../../lib/date';
+import { currentMonthKey, transactionPeriodMonth } from '../../../lib/date';
 import { archiveBudget, deleteBudget, subscribeBudgets } from '../../../data/budgetRepository';
 import { subscribeCategories } from '../../../data/categoryRepository';
 import { subscribeTransactions } from '../../../data/transactionRepository';
@@ -29,8 +29,10 @@ export function BudgetsScreen() {
   const active = budgets.filter((b) => !b.archived && b.active);
   const month = currentMonthKey();
   const { items: monthlyFixeds } = useFixedMonthly(month);
+  // Consumo por MES CONTABLE (periodMonth), no por fecha de caja: un fijo pagado por adelantado
+  // consume el presupuesto de su propio mes (§5.9).
   const monthTxns = useMemo(
-    () => transactions.filter((t) => monthKey(t.date) === month),
+    () => transactions.filter((t) => transactionPeriodMonth(t) === month),
     [transactions, month],
   );
   const categoryName = (id: string) => categories.find((c) => c.id === id)?.name ?? 'Categoría';

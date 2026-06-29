@@ -105,7 +105,7 @@ export function TransactionForm({ existing, onDone }: TransactionFormProps) {
 
     // El ajuste conserva su tipo, su categoría de sistema y su dirección; solo cambian monto, cuenta,
     // nota y fecha. No pasa por el builder manual (no contempla 'adjustment').
-    const draft: TransactionDraft =
+    const built: TransactionDraft =
       isAdjustment && existing
         ? {
             date: fromDateInputValue(dateValue),
@@ -119,6 +119,7 @@ export function TransactionForm({ existing, onDone }: TransactionFormProps) {
             tags: [],
             note: note.trim() ? note.trim() : null,
             fixedMonthlyId: null,
+            periodMonth: null,
           }
         : buildManualTransactionDraft({
             type,
@@ -134,6 +135,12 @@ export function TransactionForm({ existing, onDone }: TransactionFormProps) {
             hormiga,
             note,
           });
+
+    // Al EDITAR se conserva el mes contable original: un movimiento de un fijo pagado por adelantado
+    // sigue perteneciendo a su mes de presupuesto aunque se edite (el builder manual lo pondría null).
+    const draft: TransactionDraft = existing
+      ? { ...built, periodMonth: existing.periodMonth ?? null }
+      : built;
 
     const errors = validateTransaction(draft);
     if (errors.length > 0) {

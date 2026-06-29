@@ -9,6 +9,7 @@ export interface NewFixedTemplate {
   payKind: FixedPayKind; // 'debt_payment' para abonos a tarjeta/crédito
   debtTargetId: string | null; // tarjeta/crédito destino si es abono
   budgetBacked?: boolean; // respaldado por el presupuesto de su categoría (§5.9)
+  consumesBudget?: boolean; // consume de un presupuesto (checklist que descuenta la bolsa)
   active?: boolean;
   sortOrder?: number;
 }

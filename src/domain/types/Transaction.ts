@@ -23,6 +23,11 @@ export interface Transaction extends BaseDoc {
   tags: string[]; // p.ej. ['hormiga']
   note: string | null;
   fixedMonthlyId: string | null; // enlace al fijo que lo generó (si aplica)
+  // Mes contable 'YYYY-MM' al que pertenece el movimiento para PRESUPUESTOS (no para la caja). Si es
+  // null, se usa el mes de `date`. Lo setea el pago de un fijo con el mes del fijo: así pagar HOY un
+  // fijo de otro mes (p.ej. Julio por adelantado) consume el presupuesto de Julio, aunque el
+  // movimiento —y el Registro/caja— sea de hoy. Separa "cuándo pagué" de "a qué mes pertenece".
+  periodMonth: string | null;
 }
 
 /**

@@ -129,6 +129,7 @@ export async function updateMonthlyFromTemplate(
     // Coalesce: plantillas previas a la feature no tienen el campo (undefined) y Firestore rechaza
     // undefined al escribir; se normaliza a false.
     budgetBacked: template.budgetBacked ?? false,
+    consumesBudget: template.consumesBudget ?? false,
     paymentMethod: template.defaultPaymentMethod,
     updatedAt: serverTimestamp(),
   });
@@ -200,6 +201,7 @@ type MonthlySnapshot = Pick<
   | 'payKind'
   | 'debtTargetId'
   | 'budgetBacked'
+  | 'consumesBudget'
   | 'paymentMethod'
 >;
 
@@ -235,6 +237,9 @@ export async function payFixed(
 ): Promise<void> {
   const draft = buildTransactionFromFixed(fixed, {
     amount: input.amount,
+    // Fecha REAL del pago (hoy): así el Registro/caja muestra cuándo se pagó. La pertenencia al mes
+    // del fijo para el presupuesto la lleva `periodMonth` (lo pone buildTransactionFromFixed), no la
+    // fecha — así pagar hoy un fijo de Julio consume el presupuesto de Julio sin mentir la fecha.
     date: nowTimestamp(),
     paymentMethod: input.paymentMethod,
     debtTarget: input.debtTarget ?? null,

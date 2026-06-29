@@ -15,4 +15,6 @@ export interface FixedRowProps {
   // Selección para acciones masivas (opcional). Si se pasa onToggleSelect, se muestra el checkbox.
   selected?: boolean;
   onToggleSelect?: () => void;
+  // Ítem del checklist de una bolsa (§5.9 ext.): se renderiza indentado bajo su presupuesto.
+  nested?: boolean;
 }

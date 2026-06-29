@@ -50,5 +50,6 @@ export function buildReconciliationAdjustment(
     tags: [],
     note: options.note ?? null,
     fixedMonthlyId: null,
+    periodMonth: null,
   };
 }

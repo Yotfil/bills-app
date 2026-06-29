@@ -7,7 +7,7 @@ import { DisponibleRealBar } from '../components/DisponibleRealBar';
 import { TransactionForm } from './TransactionForm';
 import { TransactionFilters } from './TransactionFilters';
 import { formatCop } from '../../lib/currency';
-import { dayKey, formatDayLabel } from '../../lib/date';
+import { dayKey, formatDayLabel, formatMonthLabel, formatTime, monthKey } from '../../lib/date';
 import { subscribeTransactions } from '../../data/transactionRepository';
 import { subscribeAccounts } from '../../data/accountRepository';
 import { subscribeCards } from '../../data/cardRepository';
@@ -47,6 +47,15 @@ const SIGN: Record<TransactionType, string> = {
   transfer: '',
   debt_payment: '−',
   adjustment: '',
+};
+
+// Etiqueta del tipo de movimiento, para mostrarla junto al medio de pago en cada card (§8.2).
+const TYPE_LABEL: Record<TransactionType, string> = {
+  expense: 'Gasto',
+  income: 'Ingreso',
+  transfer: 'Transferencia',
+  debt_payment: 'Abono',
+  adjustment: 'Ajuste',
 };
 
 export function RegistroScreen() {
@@ -148,6 +157,13 @@ export function RegistroScreen() {
             {dayTxns.map((txn) => {
               const cat = txn.categoryId ? categoryById.get(txn.categoryId) : undefined;
               const method = entityName(txn.source ?? txn.destination);
+              const time = formatTime(txn.createdAt);
+              // Si el movimiento pertenece a un mes distinto al de su fecha (p.ej. un fijo pagado por
+              // adelantado), se muestra ese mes en un chip junto al nombre para saber a cuál aplica.
+              const periodLabel =
+                txn.periodMonth && txn.periodMonth !== monthKey(txn.date)
+                  ? formatMonthLabel(txn.periodMonth)
+                  : null;
               return (
                 <li key={txn.id}>
                   <button
@@ -157,15 +173,27 @@ export function RegistroScreen() {
                   >
                     <span className="text-xl">{cat?.icon ?? '↔️'}</span>
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate font-medium text-slate-800">
-                        {txn.concept}
-                        {txn.tags.includes('hormiga') && ' 🐜'}
+                      <span className="flex items-center gap-2">
+                        <span className="truncate font-medium text-slate-800">
+                          {txn.concept}
+                          {txn.tags.includes('hormiga') && ' 🐜'}
+                        </span>
+                        {periodLabel && (
+                          <span className="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500 capitalize">
+                            {periodLabel}
+                          </span>
+                        )}
                       </span>
-                      <span className="block truncate text-xs text-slate-400">{method}</span>
+                      <span className="block truncate text-xs text-slate-400">
+                        {TYPE_LABEL[txn.type]} · {method}
+                      </span>
                     </span>
-                    <span className={`font-semibold ${AMOUNT_CLASS[txn.type]}`}>
-                      {SIGN[txn.type]}
-                      {formatCop(txn.amount)}
+                    <span className="flex flex-col items-end">
+                      <span className={`font-semibold ${AMOUNT_CLASS[txn.type]}`}>
+                        {SIGN[txn.type]}
+                        {formatCop(txn.amount)}
+                      </span>
+                      {time && <span className="text-xs text-slate-400">{time}</span>}
                     </span>
                   </button>
                 </li>

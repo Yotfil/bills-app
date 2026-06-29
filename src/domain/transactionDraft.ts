@@ -17,6 +17,7 @@ export function buildManualTransactionDraft(input: ManualEntryInput): Transactio
     amount: input.amount,
     note: input.note?.trim() ? input.note.trim() : null,
     fixedMonthlyId: null,
+    periodMonth: null, // entrada manual: pertenece al mes de su fecha
     adjustmentDirection: null,
     // La etiqueta hormiga solo tiene sentido en gastos.
     tags: input.type === 'expense' && input.hormiga ? [HORMIGA_TAG] : [],
