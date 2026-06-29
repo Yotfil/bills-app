@@ -31,13 +31,9 @@ import { HormigaBudgetCard } from '../budgets/HormigaBudgetCard';
 import { fixedTotals, mutedPendingTotal } from '../../../domain/fixed';
 import { budgetStatus } from '../../../domain/reports';
 import {
-  budgetBackedAmount,
-  budgetBackedFilled,
   budgetCapForMonth,
   budgetChecklistTotals,
-  budgetForCategory,
   budgetManuallyPaid,
-  effectiveFixedStatus,
   isBudgetItem,
   linkedBudgetItems,
 } from '../../../domain/budgetBackedFixed';
@@ -73,7 +69,6 @@ import {
   markFixedPending,
   payFixed,
   revertFixedPayment,
-  setMonthlyBudgetBacked,
   updateMonthlyFromTemplate,
 } from '../../../data/fixedMonthlyRepository';
 import type { PayFixedInput } from '../../../data/PayFixedInput';
@@ -95,7 +90,7 @@ import type {
 const STATUS_ORDER: Record<FixedStatus, number> = { pending: 0, allocated: 1, paid: 2 };
 
 // Tabs internos de la pantalla (§8.3): los gastos fijos (se pagan/destinan) van separados de los
-// presupuestos fijos (respaldados por presupuesto, `budgetBacked`). Ambos siguen alimentando los
+// presupuestos de checklist (su tope cuenta, no se pagan con movimiento). Ambos alimentan los
 // totales de arriba; los tabs solo separan la lista de abajo.
 type FixedTab = 'gastos' | 'presupuestos';
 
@@ -167,27 +162,7 @@ export function FijosScreen() {
   const monthTxns = transactions.filter((t) => transactionPeriodMonth(t) === month);
   const consumedForCategory = (categoryId: string) =>
     budgetStatus(monthTxns, categoryId, 0).consumed;
-  // Tope del mes de una categoría: vive en su `Budget` (§5.9, Opción B). Para un respaldado siempre
-  // hay budget; si faltara, 0 (defensivo).
-  const capOf = (categoryId: string): number => {
-    const b = budgetForCategory(categoryId, budgets);
-    return b ? budgetCapForMonth(b, month) : 0;
-  };
-  // Estado efectivo: un respaldado deriva pending/paid del consumo vs el tope de su presupuesto
-  // (§5.9); el resto conserva su estado guardado.
-  const effectiveStatusOf = (f: FixedObligationMonthly): FixedStatus =>
-    effectiveFixedStatus(f, (cat) => budgetBackedFilled(consumedForCategory(cat), capOf(cat)));
-  // Monto que cada fijo aporta a los totales: un respaldado lleno/excedido aporta su gasto REAL
-  // (Pagado incluye el sobrepaso, §5.9); en curso aporta su tope; el resto, su pagado/presupuestado.
-  const amountOf = (f: FixedObligationMonthly): number =>
-    f.budgetBacked
-      ? budgetBackedAmount(f, consumedForCategory(f.categoryId), capOf(f.categoryId))
-      : (f.paidAmount ?? f.budgetedAmount);
-
-  // Fijos respaldados (Opción C, §5.9): ya NO se usan; los presupuestos viven en su `Budget`. Las
-  // instancias respaldadas que aún existan (previas a la migración) quedan DORMIDAS: se ignoran en
-  // listas, totales y sincronización (el PR de limpieza las borra).
-  const activeFijos = fijos.filter((f) => !f.budgetBacked);
+  const activeFijos = fijos;
 
   // En /fijos SOLO aparecen los presupuestos marcados "Mostrar en Fijos" (inChecklist): cuentan en
   // los totales y anidan su bolsa. Los demás presupuestos viven solo en la Plantilla (base), no aquí.
@@ -223,7 +198,7 @@ export function FijosScreen() {
       return groupLabel(a).localeCompare(groupLabel(b)) || a.name.localeCompare(b.name);
     // 'status': lo pendiente primero, lo pagado al final; desempata por nombre.
     return (
-      STATUS_ORDER[effectiveStatusOf(a)] - STATUS_ORDER[effectiveStatusOf(b)] ||
+      STATUS_ORDER[a.status] - STATUS_ORDER[b.status] ||
       a.name.localeCompare(b.name)
     );
   };
@@ -255,7 +230,7 @@ export function FijosScreen() {
 
   // Totales = fijos (gastos, sin anidados) + presupuestos de checklist (su tope cuenta en Por
   // destinar/Pagado; nunca quedan 'allocated'). Los anidados ya están representados por su bolsa.
-  const fixedPart = fixedTotals(gastosItems, effectiveStatusOf, amountOf);
+  const fixedPart = fixedTotals(gastosItems);
   const budgetPart = budgetChecklistTotals(inChecklistBudgets, month, consumedForCategory);
   const totals = {
     pendingAmount: fixedPart.pendingAmount + budgetPart.pendingAmount,
@@ -271,16 +246,11 @@ export function FijosScreen() {
 
   // "Apagados": aporte a Por destinar de los gastos apagados (§8.3). Cálculo temporal; no toca el bar
   // canónico ni los saldos.
-  const apagados = mutedPendingTotal(
-    gastosItems,
-    (id) => mutedIds.has(id),
-    effectiveStatusOf,
-    amountOf,
-  );
+  const apagados = mutedPendingTotal(gastosItems, (id) => mutedIds.has(id));
 
   // Plantillas que SÍ generan fijo del mes (los respaldados ya no, §5.9).
   const activeTemplates = templates.filter(
-    (t) => t.active && !t.archived && !(t.budgetBacked ?? false),
+    (t) => t.active && !t.archived,
   );
   const unpaid = gastosItems.filter((f) => f.status !== 'paid');
 
@@ -294,21 +264,6 @@ export function FijosScreen() {
   useEffect(() => {
     if (!hasSyncChanges && dismissed) undismissSync(month);
   }, [hasSyncChanges, dismissed, month, undismissSync]);
-
-  // Auto-sincroniza el MODO respaldado al abrir el mes (§5.9): si la plantilla activa pasó a (o dejó
-  // de ser) respaldada y el snapshot del fijo quedó desfasado, se realinea solo el flag (no el monto
-  // por-mes ni el resto: eso va por el banner). Mismo patrón que la auto-reconciliación de cuotas en
-  // LoansScreen. Solo toca fijos NO pagados; converge porque la suscripción refresca tras escribir.
-  useEffect(() => {
-    if (!uid) return;
-    for (const f of fijos) {
-      if (f.status === 'paid') continue;
-      const tpl = templates.find((t) => t.id === f.templateId && t.active && !t.archived);
-      if (tpl && (tpl.budgetBacked ?? false) !== f.budgetBacked) {
-        void setMonthlyBudgetBacked(uid, f.id, tpl.budgetBacked ?? false);
-      }
-    }
-  }, [uid, fijos, templates]);
 
   // La selección se cuenta solo sobre lo VISIBLE (respeta el buscador).
   const selectedFijos = sorted.filter((f) => selected.has(f.id));
@@ -357,16 +312,7 @@ export function FijosScreen() {
 
   async function handleBulkDelete() {
     if (!uid || selectedFijos.length === 0) return;
-    // Al eliminar una bolsa (fijo respaldado) se eliminan también sus ítems ligados del mes (el
-    // checklist que cuelga de ella): no tiene sentido dejar ítems sin su bolsa. Se deduplica por id.
-    const withItems = new Map<string, FixedObligationMonthly>();
-    for (const f of selectedFijos) {
-      withItems.set(f.id, f);
-      if (f.budgetBacked) {
-        for (const item of linkedBudgetItems(f.categoryId, fijos)) withItems.set(item.id, item);
-      }
-    }
-    const targets = [...withItems.values()];
+    const targets = selectedFijos;
     if (
       !confirm(
         `¿Eliminar ${targets.length} fijo(s) de este mes? Si alguno tenía movimiento, se revertirá (el dinero vuelve a su cuenta). No se puede deshacer.`,
@@ -427,13 +373,6 @@ export function FijosScreen() {
     await markFixedAllocated(uid, allocating.id, account);
   }
 
-  // Abre la edición del tope de ESTE mes para una categoría (override). El tope vive en el `Budget`
-  // (§5.9), así que respaldados y normales usan el mismo flujo.
-  function openEditCapForCategory(categoryId: string) {
-    const b = budgetForCategory(categoryId, budgets);
-    if (b) setEditingBudgetCap(b);
-  }
-
   // Editar el tope de un presupuesto para ESTE mes (override): no toca la base ni otros meses.
   async function handleEditBudgetCap(amount: number) {
     if (!uid || !editingBudgetCap) return;
@@ -482,9 +421,6 @@ export function FijosScreen() {
       key={fixed.id}
       fixed={fixed}
       nested={opts?.nested}
-      cap={fixed.budgetBacked ? capOf(fixed.categoryId) : undefined}
-      budgetConsumed={fixed.budgetBacked ? consumedForCategory(fixed.categoryId) : undefined}
-      onEditCap={fixed.budgetBacked ? () => openEditCapForCategory(fixed.categoryId) : undefined}
       selected={opts?.nested ? undefined : selected.has(fixed.id)}
       onToggleSelect={opts?.nested ? undefined : () => toggleOne(fixed.id)}
       muted={opts?.nested ? undefined : mutedIds.has(fixed.id)}
