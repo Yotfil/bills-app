@@ -23,6 +23,7 @@ export function FixedTemplateForm({
   loans,
   categories,
   budgets,
+  templates,
   onClose,
 }: FixedTemplateFormProps) {
   const uid = useSessionStore((s) => s.user?.uid);
@@ -46,7 +47,19 @@ export function FixedTemplateForm({
   // se crean presupuestos automáticamente. Si la categoría no tiene, la opción no se muestra.
   const categoryBudget =
     payKind === 'expense' && categoryId ? budgetForCategory(categoryId, budgets) : null;
-  const canBudgetBack = !!categoryBudget;
+  const hasBudget = !!categoryBudget;
+  // ¿La categoría YA tiene OTRA plantilla respaldada (la bolsa)? Solo puede haber UNA por categoría.
+  // Si ya existe, este fijo no puede "respaldar" (se oculta esa opción) pero sí puede "consumir" de
+  // ella. Si no existe aún, se ofrece "respaldar" (para crear la bolsa) y todavía no "consumir".
+  const categoryHasBolsa = templates.some(
+    (t) =>
+      t.id !== template?.id &&
+      !t.archived &&
+      t.categoryId === categoryId &&
+      (t.budgetBacked ?? false),
+  );
+  const canBudgetBack = hasBudget && !categoryHasBolsa; // puede ser la bolsa (respaldar)
+  const canConsumeBudget = hasBudget && categoryHasBolsa; // puede consumir una bolsa existente
   // Un fijo respaldado no se paga con un único medio (su tope se llena con gastos variables de la
   // categoría), así que se oculta "Medio por defecto" mientras el check esté activo.
   const hidePaymentMethod = payKind === 'expense' && canBudgetBack && budgetBacked;
@@ -66,8 +79,9 @@ export function FixedTemplateForm({
     event.preventDefault();
     // Solo un gasto con presupuesto en su categoría puede quedar respaldado (§5.9).
     const isBudgetBacked = payKind === 'expense' && canBudgetBack && budgetBacked;
-    // "Consume de un presupuesto": gasto de una categoría con presupuesto, NO respaldado (excluyente).
-    const isConsumesBudget = payKind === 'expense' && canBudgetBack && consumesBudget && !budgetBacked;
+    // "Consume de un presupuesto": gasto de una categoría cuya bolsa YA existe, NO respaldado.
+    const isConsumesBudget =
+      payKind === 'expense' && canConsumeBudget && consumesBudget && !budgetBacked;
 
     // El modelo exige un medio (EntityRef no-nulo). Para un respaldado el campo se oculta y el medio
     // no se usa (no se paga): si no hay uno elegido, se rellena con la primera cuenta como placeholder.
@@ -189,8 +203,9 @@ export function FixedTemplateForm({
         )}
 
         {/* Consume de un presupuesto (§5.9 ext.): el fijo es un ítem del checklist de la bolsa de su
-            categoría. Se paga normal, descuenta esa bolsa y NO suma aparte al total de fijos. */}
-        {canBudgetBack && (
+            categoría. Se paga normal, descuenta esa bolsa y NO suma aparte al total de fijos. Solo se
+            ofrece si la categoría YA tiene una bolsa (un fijo respaldado). */}
+        {canConsumeBudget && (
           <label className="flex items-start gap-2 rounded-xl bg-slate-50 p-3">
             <input
               type="checkbox"
