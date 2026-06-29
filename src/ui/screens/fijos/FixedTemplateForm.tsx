@@ -8,7 +8,6 @@ import { currentMonthKey } from '../../../lib/date';
 import { createFixedTemplate, updateFixedTemplate } from '../../../data/fixedTemplateRepository';
 import { syncMonthlyToTemplate } from '../../../data/fixedMonthlyRepository';
 import { syncCuotaFromTemplate } from '../../../data/cuotaService';
-import { setBudgetBackedBase } from '../../../data/budgetFixedService';
 import { budgetForCategory } from '../../../domain/budgetBackedFixed';
 import type { FixedTemplateFormProps } from './FixedTemplateFormProps';
 import type { FixedPayKind } from '../../../domain/types';
@@ -63,6 +62,8 @@ export function FixedTemplateForm({
   // Un fijo respaldado no se paga con un único medio (su tope se llena con gastos variables de la
   // categoría), así que se oculta "Medio por defecto" mientras el check esté activo.
   const hidePaymentMethod = payKind === 'expense' && canBudgetBack && budgetBacked;
+  // El tope de un respaldado vive en su presupuesto (§5.9): se oculta "Monto" aquí para no confundir.
+  const hideAmount = payKind === 'expense' && canBudgetBack && budgetBacked;
 
   const spendCategories = categories.filter((c) => !c.archived && !c.isSystem);
   const accountOptions = accounts
@@ -95,7 +96,11 @@ export function FixedTemplateForm({
     if (payKind === 'debt_payment' && !debtTargetId) return;
     const data = {
       name: name.trim(),
-      budgetedAmount: Math.round(Number(amount) || 0),
+      // Para un respaldado el tope vive en su `Budget` (§5.9): el monto del fijo es vestigial, se deja
+      // en la base del presupuesto como referencia. Para el resto, el monto que escribió el usuario.
+      budgetedAmount: isBudgetBacked
+        ? (categoryBudget?.monthlyLimit ?? 0)
+        : Math.round(Number(amount) || 0),
       categoryId: payKind === 'expense' ? categoryId : '',
       defaultPaymentMethod: method,
       payKind,
@@ -124,14 +129,9 @@ export function FixedTemplateForm({
         if (data.budgetedAmount !== template.budgetedAmount) {
           await syncCuotaFromTemplate(uid, template, data.budgetedAmount, loans);
         }
-        // La plantilla edita la BASE recurrente (§5.9): si es respaldado, deja el presupuesto y la
-        // base del mes en curso/futuros en el nuevo monto. No pisa overrides por mes (`capOverride`).
-        if (isBudgetBacked) {
-          await setBudgetBackedBase(uid, data.categoryId, data.budgetedAmount);
-        }
+        // El tope de un respaldado se administra en su `Budget` (Presupuestos), no aquí (§5.9).
       } else {
         await createFixedTemplate(uid, data);
-        if (isBudgetBacked) await setBudgetBackedBase(uid, data.categoryId, data.budgetedAmount);
       }
       onClose();
     } finally {
@@ -149,12 +149,14 @@ export function FixedTemplateForm({
           onChange={(e) => setName(e.target.value)}
           className="rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-500"
         />
-        <MoneyInput
-          placeholder="Monto mensual (COP)"
-          value={amount}
-          onChange={setAmount}
-          className="rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-500"
-        />
+        {!hideAmount && (
+          <MoneyInput
+            placeholder="Monto mensual (COP)"
+            value={amount}
+            onChange={setAmount}
+            className="rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-500"
+          />
+        )}
 
         <div className="flex gap-2">
           {(['expense', 'debt_payment'] as FixedPayKind[]).map((k) => (

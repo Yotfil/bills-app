@@ -1,7 +1,6 @@
 import { AlertTriangle } from 'lucide-react';
 import { Modal } from './Modal';
 import { useUserCollection } from '../hooks/useUserCollection';
-import { useFixedMonthly } from '../hooks/useFixedMonthly';
 import { useSessionStore } from '../../store/sessionStore';
 import { useBudgetAlertStore } from '../../store/budgetAlertStore';
 import { subscribeBudgets } from '../../data/budgetRepository';
@@ -9,7 +8,7 @@ import { subscribeCategories } from '../../data/categoryRepository';
 import { subscribeTransactions } from '../../data/transactionRepository';
 import { budgetStatus } from '../../domain/reports';
 import { budgetAlertLevel, budgetAlertRank } from '../../domain/budgetAlert';
-import { budgetCapForMonth, fixedCap, linkedBudgetBackedFixed } from '../../domain/budgetBackedFixed';
+import { budgetCapForMonth } from '../../domain/budgetBackedFixed';
 import { formatCop } from '../../lib/currency';
 import { NEAR_LIMIT_RATIO } from '../../lib/progress';
 import { currentMonthKey, transactionPeriodMonth } from '../../lib/date';
@@ -34,7 +33,6 @@ export function BudgetAlertWatcher() {
   const { items: categories } = useUserCollection<Category>(subscribeCategories);
   const { items: transactions } = useUserCollection<Transaction>(subscribeTransactions);
   const month = currentMonthKey();
-  const { items: monthlyFixeds } = useFixedMonthly(month);
   const acknowledged = useBudgetAlertStore((s) => s.acknowledged);
   const acknowledge = useBudgetAlertStore((s) => s.acknowledge);
 
@@ -46,10 +44,8 @@ export function BudgetAlertWatcher() {
   if (uid) {
     for (const b of budgets) {
       if (b.archived || !b.active) continue;
-      // El tope efectivo del mes es el del fijo respaldado si lo hay (override del mes o base); si no,
-      // el del presupuesto.
-      const linked = linkedBudgetBackedFixed(b.categoryId, monthlyFixeds);
-      const cap = linked ? fixedCap(linked) : budgetCapForMonth(b, month);
+      // El tope efectivo del mes vive en el `Budget` (§5.9, Opción B): override del mes o base.
+      const cap = budgetCapForMonth(b, month);
       const consumed = budgetStatus(monthTxns, b.categoryId, 0).consumed;
       const level = budgetAlertLevel(consumed, cap, NEAR_LIMIT_RATIO);
       if (level === 'none') continue;

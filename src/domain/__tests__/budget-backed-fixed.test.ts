@@ -7,7 +7,6 @@ import {
   budgetForCategory,
   effectiveFixedStatus,
   exceededBudgetBacked,
-  fixedCap,
   linkedBudgetBackedFixed,
   nearLimitBudgetBacked,
 } from '../budgetBackedFixed';
@@ -98,7 +97,8 @@ describe('budgetBackedFixed', () => {
     ];
     const consumedOf = (cat: string) =>
       cat === 'cat-comidas' ? 450 : cat === 'cat-ocio' ? 200 : 999;
-    const exceeded = exceededBudgetBacked(monthlies, consumedOf);
+    const capOf = () => 400; // el tope del mes lo da el Budget de la categoría
+    const exceeded = exceededBudgetBacked(monthlies, consumedOf, capOf);
     expect(exceeded).toHaveLength(1);
     expect(exceeded[0]?.fixed.id).toBe('over');
     expect(exceeded[0]?.overspend).toBe(50);
@@ -111,25 +111,14 @@ describe('budgetBackedFixed', () => {
     expect(budgetCapForMonth(makeBudget({ monthlyLimit: 400_000 }), '2026-06')).toBe(400_000);
   });
 
-  it('fixedCap: usa el override del mes si lo hay; si no, la base (budgetedAmount)', () => {
-    expect(fixedCap(makeFixed({ budgetedAmount: 650_000 }))).toBe(650_000); // sin override
-    expect(fixedCap(makeFixed({ budgetedAmount: 650_000, capOverride: null }))).toBe(650_000);
-    expect(fixedCap(makeFixed({ budgetedAmount: 650_000, capOverride: 900_000 }))).toBe(900_000);
-    expect(fixedCap(makeFixed({ budgetedAmount: 650_000, capOverride: 0 }))).toBe(0); // override explícito
-  });
-
-  it('el override del mes manda sobre la base en exceeded/nearLimit/budgetBackedAmount', () => {
-    // Base 400, override 900: con gasto 450 NO se excede (tope efectivo 900), a diferencia de la base.
-    const overridden = makeFixed({
-      budgetBacked: true,
-      categoryId: 'cat-ocio',
-      budgetedAmount: 400,
-      capOverride: 900,
-    });
-    expect(exceededBudgetBacked([overridden], () => 450)).toHaveLength(0);
-    expect(nearLimitBudgetBacked([overridden], () => 450, 0.8)).toHaveLength(0); // 450/900 = 50%
-    // En curso aporta el tope efectivo (override), no la base.
-    expect(budgetBackedAmount(overridden, 450)).toBe(900);
+  it('el tope (capOf/cap) manda en exceeded/nearLimit/budgetBackedAmount, no el fijo', () => {
+    // Tope del mes 900 (del Budget); con gasto 450 NO se excede ni está cerca.
+    const f = makeFixed({ budgetBacked: true, categoryId: 'cat-ocio', budgetedAmount: 400 });
+    const capOf = () => 900;
+    expect(exceededBudgetBacked([f], () => 450, capOf)).toHaveLength(0);
+    expect(nearLimitBudgetBacked([f], () => 450, capOf, 0.8)).toHaveLength(0); // 450/900 = 50%
+    // En curso aporta el tope dado (900), no el budgetedAmount del fijo (400).
+    expect(budgetBackedAmount(f, 450, 900)).toBe(900);
   });
 
   it('nearLimitBudgetBacked: lista los que pasan el ratio sin exceder (excluye los ya excedidos)', () => {
@@ -140,7 +129,7 @@ describe('budgetBackedFixed', () => {
     ];
     const consumedOf = (cat: string) =>
       cat === 'cat-a' ? 200 : cat === 'cat-b' ? 360 : 450;
-    const near = nearLimitBudgetBacked(monthlies, consumedOf, 0.8);
+    const near = nearLimitBudgetBacked(monthlies, consumedOf, () => 400, 0.8);
     expect(near).toHaveLength(1);
     expect(near[0]?.fixed.id).toBe('near'); // 'low' no llega al 80%, 'over' ya se pasó
     expect(near[0]?.remaining).toBe(40);

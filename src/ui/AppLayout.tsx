@@ -2,6 +2,7 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { Home, Receipt, Pin, MoreHorizontal, Plus } from 'lucide-react';
 import { Brand } from './components/Brand';
 import { BudgetAlertWatcher } from './components/BudgetAlertWatcher';
+import { BudgetCapMigrationWatcher } from './components/BudgetCapMigrationWatcher';
 import { MonthlyRolloverWatcher } from './components/MonthlyRolloverWatcher';
 
 // Esqueleto de la app autenticada: contenido + barra inferior con 5 destinos (CLAUDE.md §8).
@@ -32,6 +33,8 @@ export function AppLayout() {
       {/* Carga automática de los fijos del mes si faltan (§5.10) + aviso de topes (§5.9). */}
       <MonthlyRolloverWatcher />
       <BudgetAlertWatcher />
+      {/* Migración única: topes respaldados → su Budget (§5.9, Opción B). */}
+      <BudgetCapMigrationWatcher />
 
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white">
         <div className="mx-auto flex max-w-md items-center">

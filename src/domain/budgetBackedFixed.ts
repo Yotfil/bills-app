@@ -10,15 +10,6 @@ export function isBudgetBacked(item: { budgetBacked: boolean }): boolean {
 }
 
 /**
- * Tope EFECTIVO de un fijo respaldado para ESTE mes (§5.9): el override del mes (`capOverride`) si lo
- * tiene, o la base (`budgetedAmount`). Único punto que decide el tope del mes; usarlo en vez de leer
- * `budgetedAmount` directo para respaldados, así un override de un mes no afecta a los demás.
- */
-export function fixedCap(fixed: { capOverride?: number | null; budgetedAmount: number }): number {
-  return fixed.capOverride ?? fixed.budgetedAmount;
-}
-
-/**
  * `true` si el fijo CONSUME de un presupuesto (es un ítem del checklist de una bolsa, §5.9 ext.):
  * descuenta la bolsa de su categoría al pagarse y NO suma aparte a los totales de fijos.
  */
@@ -55,9 +46,9 @@ export function budgetCapForMonth(
 }
 
 /**
- * El fijo respaldado de una categoría en el mes dado, o null. El tope POR MES vive en este fijo
- * (`budgetedAmount` = M), así que es la fuente de verdad del tope de esa categoría ese mes (§5.9):
- * la tarjeta del presupuesto lee de aquí para el mes en curso. `monthlies` = fijos de un solo mes.
+ * El fijo respaldado de una categoría en el mes dado, o null. Indica que la categoría TIENE un
+ * presupuesto respaldado este mes (la "bolsa"); el tope en sí vive en el `Budget` de la categoría
+ * (`budgetCapForMonth`), no en el fijo. `monthlies` = fijos de un solo mes.
  */
 export function linkedBudgetBackedFixed(
   categoryId: string,
@@ -88,17 +79,19 @@ export interface ExceededBudgetBacked {
 
 /**
  * Fijos respaldados cuyo gasto SUPERÓ el tope (consumed > cap), con el sobrepaso. Para la alerta del
- * dashboard (§8.1). `consumedOf` da el gasto del mes por categoría.
+ * dashboard (§8.1). `consumedOf` da el gasto del mes por categoría; `capOf` da el tope del mes por
+ * categoría (vive en el `Budget`, §5.9).
  */
 export function exceededBudgetBacked(
   monthlies: FixedObligationMonthly[],
   consumedOf: (categoryId: string) => number,
+  capOf: (categoryId: string) => number,
 ): ExceededBudgetBacked[] {
   const result: ExceededBudgetBacked[] = [];
   for (const fixed of monthlies) {
     if (!fixed.budgetBacked) continue;
     const consumed = consumedOf(fixed.categoryId);
-    const cap = fixedCap(fixed);
+    const cap = capOf(fixed.categoryId);
     if (consumed > cap) {
       result.push({ fixed, consumed, overspend: consumed - cap });
     }
@@ -121,12 +114,13 @@ export interface NearLimitBudgetBacked {
 export function nearLimitBudgetBacked(
   monthlies: FixedObligationMonthly[],
   consumedOf: (categoryId: string) => number,
+  capOf: (categoryId: string) => number,
   ratio: number,
 ): NearLimitBudgetBacked[] {
   const result: NearLimitBudgetBacked[] = [];
   for (const fixed of monthlies) {
     if (!fixed.budgetBacked) continue;
-    const cap = fixedCap(fixed);
+    const cap = capOf(fixed.categoryId);
     if (cap <= 0) continue;
     const consumed = consumedOf(fixed.categoryId);
     if (consumed > ratio * cap && consumed <= cap) {
@@ -157,9 +151,13 @@ export function effectiveFixedStatus(
 /**
  * Monto que aporta un respaldado a los totales contemplando el "pagado manual": si se marcó pagado
  * sin movimiento (status 'paid') cuenta su TOPE como pagado (no su consumo, que puede ser 0). Si no,
- * usa la regla normal por consumo (§5.9).
+ * usa la regla normal por consumo (§5.9). `cap` es el tope del mes (del `Budget` de la categoría).
  */
-export function budgetBackedAmount(fixed: FixedObligationMonthly, consumed: number): number {
-  if (fixed.status === 'paid') return fixedCap(fixed);
-  return budgetBackedTotalAmount(consumed, fixedCap(fixed));
+export function budgetBackedAmount(
+  fixed: FixedObligationMonthly,
+  consumed: number,
+  cap: number,
+): number {
+  if (fixed.status === 'paid') return cap;
+  return budgetBackedTotalAmount(consumed, cap);
 }
