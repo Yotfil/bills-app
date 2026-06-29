@@ -32,7 +32,12 @@ import {
   fixedSyncChangeCount,
   hasFixedSyncChanges,
 } from '../../../domain/fixedTemplateSync';
-import { addMonths, currentMonthKey, formatMonthLabel, monthKey } from '../../../lib/date';
+import {
+  addMonths,
+  currentMonthKey,
+  formatMonthLabel,
+  transactionPeriodMonth,
+} from '../../../lib/date';
 import { subscribeAccounts } from '../../../data/accountRepository';
 import { subscribeCards } from '../../../data/cardRepository';
 import { subscribeLoans } from '../../../data/loanRepository';
@@ -114,7 +119,9 @@ export function FijosScreen() {
   // Fijos respaldados por presupuesto (§5.9): su gasto es Σ movimientos de la categoría este mes.
   // El tope es el del presupuesto (espejo del monto). El estado se DERIVA: lleno → cuenta como
   // pagado en los totales; en curso → como por destinar. Nunca "destinado".
-  const monthTxns = transactions.filter((t) => monthKey(t.date) === month);
+  // Consumo de presupuesto: por MES CONTABLE (periodMonth), no por la fecha de caja. Así un fijo
+  // pagado hoy pero perteneciente a otro mes consume el presupuesto de ese mes (§5.9).
+  const monthTxns = transactions.filter((t) => transactionPeriodMonth(t) === month);
   const consumedForCategory = (categoryId: string) =>
     budgetStatus(monthTxns, categoryId, 0).consumed;
   // Estado efectivo: un respaldado deriva pending/paid del consumo (su tope POR MES es su propio

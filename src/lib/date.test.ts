@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { addMonths, currentMonthKey, fixedPaymentDate, monthKey, recentMonthKeys } from './date';
+import { Timestamp } from 'firebase/firestore';
+import { addMonths, recentMonthKeys, transactionPeriodMonth } from './date';
 
 describe('addMonths', () => {
   it('desplaza meses cruzando el cambio de año', () => {
@@ -23,17 +24,15 @@ describe('recentMonthKeys', () => {
   });
 });
 
-describe('fixedPaymentDate', () => {
-  it('un fijo de OTRO mes se fecha dentro de ese mes (no hoy)', () => {
-    // Febrero 2020 nunca es el mes en curso: cae en la rama "otro mes".
-    const ts = fixedPaymentDate('2020-02');
-    expect(monthKey(ts)).toBe('2020-02');
-    // El día se acota al último del mes (feb 2020 tuvo 29 días).
-    expect(ts.toDate().getDate()).toBeLessThanOrEqual(29);
+describe('transactionPeriodMonth', () => {
+  // 15 de junio 2026 a mediodía local.
+  const juneDate = Timestamp.fromDate(new Date(2026, 5, 15, 12, 0, 0));
+
+  it('usa periodMonth cuando existe (fijo pagado por adelantado)', () => {
+    expect(transactionPeriodMonth({ periodMonth: '2026-07', date: juneDate })).toBe('2026-07');
   });
 
-  it('un fijo del mes en curso se fecha en el mes en curso', () => {
-    const ts = fixedPaymentDate(currentMonthKey());
-    expect(monthKey(ts)).toBe(currentMonthKey());
+  it('cae al mes de la fecha cuando periodMonth es null', () => {
+    expect(transactionPeriodMonth({ periodMonth: null, date: juneDate })).toBe('2026-06');
   });
 });

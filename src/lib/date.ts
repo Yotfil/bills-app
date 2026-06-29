@@ -58,19 +58,12 @@ export function currentMonthKey(): string {
 }
 
 /**
- * Fecha del movimiento que genera pagar un fijo. Debe caer en el MES del fijo (§5.9, §5.10) para que
- * consuma el presupuesto y aparezca en el mes correcto: si el fijo es del mes en curso, es AHORA
- * (fecha y hora reales); si es de otro mes (p.ej. pagar Julio por adelantado), el mismo día —acotado
- * al último día de ese mes— a mediodía. Sin esto, pagar un fijo de otro mes lo registraba HOY y
- * consumía el presupuesto del mes en curso, no el del fijo.
+ * Mes contable 'YYYY-MM' de un movimiento PARA PRESUPUESTOS (§5.9): su `periodMonth` si lo tiene
+ * (p.ej. un fijo pagado por adelantado pertenece a SU mes, no al de la fecha de pago), o el mes de su
+ * fecha. La caja/Registro siempre usa la fecha real; solo los presupuestos usan este mes contable.
  */
-export function fixedPaymentDate(month: string): Timestamp {
-  const now = new Date();
-  if (month === currentMonthKey()) return Timestamp.fromDate(now);
-  const [year, m] = month.split('-').map(Number);
-  const lastDay = new Date(year ?? 1970, m ?? 1, 0).getDate(); // día 0 del mes siguiente = último del mes
-  const day = Math.min(now.getDate(), lastDay);
-  return Timestamp.fromDate(new Date(year ?? 1970, (m ?? 1) - 1, day, 12, 0, 0));
+export function transactionPeriodMonth(txn: { periodMonth: string | null; date: Timestamp }): string {
+  return txn.periodMonth ?? monthKey(txn.date);
 }
 
 /** Fecha local de hoy como 'YYYY-MM-DD' (p.ej. para la caché diaria de la tasa, §5.11). */

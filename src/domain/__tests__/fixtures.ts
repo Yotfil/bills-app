@@ -32,6 +32,7 @@ export function makeTxn(partial: Partial<TransactionDraft> = {}): TransactionDra
     tags: [],
     note: null,
     fixedMonthlyId: null,
+    periodMonth: null,
     ...partial,
   };
 }

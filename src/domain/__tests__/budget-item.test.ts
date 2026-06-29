@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { isBudgetItem, linkedBudgetItems } from '../budgetBackedFixed';
-import { fixedTotals } from '../fixed';
-import { makeFixed } from './fixtures';
+import { fixedTotals, buildTransactionFromFixed } from '../fixed';
+import { accountRef, makeFixed, STUB_TS } from './fixtures';
 import type { FixedObligationMonthly } from '../types';
 
 // Fijos que CONSUMEN de un presupuesto (§5.9 ext.): ítems del checklist de una bolsa. No suman
@@ -56,5 +56,19 @@ describe('totales: los ítems ligados NO se suman aparte', () => {
     const totals = fixedTotals(fijos.filter((f) => !isNested(f)));
     expect(totals.pendingAmount).toBe(650_000); // 650k, NO 680k
     expect(totals.counts.total).toBe(1);
+  });
+});
+
+describe('pago de un fijo: pertenece al mes del fijo (periodMonth)', () => {
+  it('el movimiento generado lleva periodMonth = el mes del fijo, no el de la fecha de pago', () => {
+    // Fijo de Julio pagado con fecha de hoy (STUB): el presupuesto debe ser el de Julio.
+    const fixed = makeFixed({ month: '2026-07', name: 'Agua mamá', categoryId: MAMA });
+    const draft = buildTransactionFromFixed(fixed, {
+      amount: 30_000,
+      date: STUB_TS,
+      paymentMethod: accountRef('acc-1'),
+      debtTarget: null,
+    });
+    expect(draft.periodMonth).toBe('2026-07');
   });
 });

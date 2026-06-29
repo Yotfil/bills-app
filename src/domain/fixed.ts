@@ -76,6 +76,9 @@ export function buildTransactionFromFixed(
     tags: [] as string[],
     note: null,
     fixedMonthlyId: fixed.id,
+    // El movimiento se fecha cuando se paga (options.date = hoy), pero pertenece al MES del fijo para
+    // los presupuestos: pagar por adelantado un fijo de otro mes consume el presupuesto de ESE mes.
+    periodMonth: fixed.month,
   };
 
   if (fixed.payKind === 'debt_payment') {
