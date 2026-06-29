@@ -55,7 +55,7 @@ test('onboarding completo siembra cuentas, tarjetas y plantilla de fijos', async
   await expect(page.getByText('Bancolombia')).toBeVisible();
   await openMore(page, 'Tarjetas');
   await expect(page.getByText('TC Test')).toBeVisible();
-  await openMore(page, 'Obligaciones fijas');
+  await openMore(page, 'Plantilla');
   await expect(page.getByText('Arriendo')).toBeVisible();
 });
 
@@ -83,8 +83,8 @@ test('registrar un gasto se refleja en el saldo y el dashboard', async ({ page }
 
 /** Crea una plantilla de fijo (gasto) y genera los fijos del mes. Deja la pantalla en Fijos. */
 async function seedFixedAndGenerate(page: Page, name: string, amount: number, account: string) {
-  await openMore(page, 'Obligaciones fijas');
-  await page.getByRole('button', { name: '+ Nuevo' }).click();
+  await openMore(page, 'Plantilla');
+  await page.getByRole('button', { name: '+ Nuevo gasto fijo' }).click();
   await page.getByPlaceholder('Concepto (p.ej. Arriendo)').fill(name);
   await page.getByPlaceholder('Monto mensual (COP)').fill(String(amount));
   await page.getByLabel('Categoría').selectOption({ label: 'Servicios' });
@@ -165,4 +165,36 @@ test('reconciliar una cuenta crea el movimiento de ajuste', async ({ page }) => 
   // Y se creó el movimiento de ajuste (aparece en el registro con su concepto de sistema).
   await tab(page, /Registro/).click();
   await expect(page.getByText('Ajuste por reconciliación')).toBeVisible();
+});
+
+test('el tope de un presupuesto se ajusta por mes sin afectar la base ni otros meses', async ({
+  page,
+}) => {
+  await signUpWithAccount(page, { name: 'Cuenta Test', balance: 1_000_000 });
+
+  // Crear un presupuesto normal (base 400.000) en la Plantilla → tab Presupuestos.
+  await openMore(page, 'Plantilla');
+  await page.getByRole('tab', { name: /Presupuestos/ }).click();
+  await page.getByRole('button', { name: '+ Nuevo presupuesto' }).click();
+  await page.getByLabel('Categoría').selectOption({ label: 'Comidas' });
+  await page.getByPlaceholder(/Tope base/).fill('400000');
+  await page.getByRole('button', { name: 'Crear presupuesto' }).click();
+  await expect(page.getByText('Comidas')).toBeVisible();
+
+  // Vista mensual → tab Presupuestos: el presupuesto aparece con su base (400.000).
+  await tab(page, /Fijos/).click();
+  await page.getByRole('tab', { name: /Presupuestos/ }).click();
+  await expect(page.getByText(copDigits(400_000))).toBeVisible();
+
+  // Ajustar el tope SOLO de este mes a 900.000.
+  await page.getByRole('button', { name: 'Editar tope' }).click();
+  await page.getByPlaceholder(/Tope del mes/).fill('900000');
+  await page.getByRole('button', { name: 'Guardar' }).click();
+  await expect(page.getByText('Ajustado este mes')).toBeVisible();
+  await expect(page.getByText(copDigits(900_000))).toBeVisible();
+
+  // Mes siguiente: vuelve a la base (400.000), sin el chip de "Ajustado este mes".
+  await page.getByLabel('Mes siguiente').click();
+  await expect(page.getByText(copDigits(400_000))).toBeVisible();
+  await expect(page.getByText('Ajustado este mes')).toHaveCount(0);
 });
