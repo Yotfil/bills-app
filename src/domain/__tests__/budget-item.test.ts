@@ -68,14 +68,14 @@ describe('presupuesto respaldado: "ya estaba pagado (sin movimiento)"', () => {
   it('marcado pagado a mano (status paid) cuenta como pagado aunque el consumo sea 0', () => {
     const fixed = makeFixed({ budgetBacked: true, budgetedAmount: 650_000, status: 'paid', categoryId: MAMA });
     expect(effectiveFixedStatus(fixed, () => false)).toBe('paid'); // no lleno por consumo, pero pagado
-    expect(budgetBackedAmount(fixed, 0)).toBe(650_000); // aporta el tope a "Pagado", no el consumo (0)
+    expect(budgetBackedAmount(fixed, 0, 650_000)).toBe(650_000); // aporta el tope a "Pagado", no el consumo (0)
   });
 
   it('sin marca manual, el estado se deriva del consumo', () => {
     const fixed = makeFixed({ budgetBacked: true, budgetedAmount: 650_000, status: 'pending', categoryId: MAMA });
     expect(effectiveFixedStatus(fixed, () => false)).toBe('pending');
     expect(effectiveFixedStatus(fixed, () => true)).toBe('paid');
-    expect(budgetBackedAmount(fixed, 0)).toBe(650_000); // en curso aporta su tope a "Por destinar"
+    expect(budgetBackedAmount(fixed, 0, 650_000)).toBe(650_000); // en curso aporta su tope a "Por destinar"
   });
 });
 

@@ -1,18 +1,14 @@
 import type { Timestamp } from 'firebase/firestore';
 
-/**
- * Override MANUAL del tope de gasto hormiga para un mes concreto (§5.8). El tope es automático cada
- * mes (promedio de los meses más bajos); si el usuario lo edita, se guarda este override SOLO para
- * ese mes. Al cambiar de mes, el override queda "viejo" y el tope vuelve a ser automático.
- */
-export type HormigaCapOverride = { month: string; value: number };
-
 export interface UserSettings {
   currency: 'COP';
   locale: string; // 'es-CO'
   onboardingCompleted: boolean;
-  // Override manual del tope de gasto hormiga del mes en curso (§5.8); null = usar el automático.
-  hormigaCapOverride: HormigaCapOverride | null;
+  // Override MANUAL del tope de gasto hormiga POR MES ('YYYY-MM' → monto, §5.8). El tope es automático
+  // cada mes (promedio de los meses más bajos); si el usuario lo edita un mes, se guarda aquí solo para
+  // ese mes. Ausente para un mes = ese mes usa el tope automático. Permite ajustar varios meses sin
+  // pisar los demás (vista mensual en /fijos).
+  hormigaCapOverrides?: Record<string, number>;
   schemaVersion: number;
   createdAt: Timestamp;
   updatedAt: Timestamp;

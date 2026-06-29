@@ -5,10 +5,18 @@
 // NOTA: cuando exista la capa de converters (Paso 5) y el tipo de dominio UserSettings
 // (Paso 4, §9.1), esta escritura se moverá detrás de un converter `withConverter`. Por
 // ahora escribe los campos directamente para no bloquear el login.
-import { doc, getDoc, onSnapshot, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore';
+import {
+  deleteField,
+  doc,
+  getDoc,
+  onSnapshot,
+  serverTimestamp,
+  setDoc,
+  updateDoc,
+} from 'firebase/firestore';
 import { db } from './firebase';
 import { seedBaseCategories } from './categoryRepository';
-import type { HormigaCapOverride, UserSettings } from '../domain/types';
+import type { UserSettings } from '../domain/types';
 
 const CURRENT_SCHEMA_VERSION = 1;
 
@@ -26,7 +34,6 @@ export async function ensureUserSettings(uid: string): Promise<void> {
       currency: 'COP',
       locale: 'es-CO',
       onboardingCompleted: false,
-      hormigaCapOverride: null,
       schemaVersion: CURRENT_SCHEMA_VERSION,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
@@ -65,17 +72,18 @@ export async function completeOnboarding(uid: string): Promise<void> {
 }
 
 /**
- * Guarda el override manual del tope de gasto hormiga (§5.8) para un mes, o lo quita con `null`
- * (vuelve al tope automático). El override aplica solo al mes que indica; al cambiar de mes, el
- * tope vuelve a ser automático.
+ * Guarda el override manual del tope de gasto hormiga (§5.8) para UN mes ('YYYY-MM'), o lo quita con
+ * `null` (ese mes vuelve al tope automático). Solo toca ese mes del mapa `hormigaCapOverrides`; los
+ * demás meses no se ven afectados.
  */
 export async function setHormigaCapOverride(
   uid: string,
-  override: HormigaCapOverride | null,
+  month: string,
+  value: number | null,
 ): Promise<void> {
   if (!db) return;
   await updateDoc(doc(db, 'users', uid), {
-    hormigaCapOverride: override,
+    [`hormigaCapOverrides.${month}`]: value === null ? deleteField() : value,
     updatedAt: serverTimestamp(),
   });
 }

@@ -2,7 +2,6 @@
 // los meses MÁS BAJOS del propio usuario, objetivo alcanzable "según cada uno"); el usuario puede
 // editarlo para el mes en curso (override) y al mes siguiente vuelve a ser automático. El nivel de
 // aviso reusa `budgetAlertLevel` (domain/budgetAlert.ts), igual que los topes de presupuesto.
-import type { HormigaCapOverride } from './types';
 
 /**
  * Tope sugerido = promedio de los `lowestN` meses con MENOR gasto hormiga, redondeado. Recibe el
@@ -23,15 +22,14 @@ export function suggestHormigaCap(
 }
 
 /**
- * Tope EFECTIVO del mes en curso (§5.8): el override manual si es de ESTE mes; si no, el automático
- * (`autoCap`). Así, al cambiar de mes el override queda viejo y el tope vuelve a ser automático.
- * Devuelve null si no hay override de este mes ni base para el automático (sin historia).
+ * Tope EFECTIVO de un mes (§5.8): el override manual de ESE mes si existe; si no, el automático
+ * (`autoCap`). Cada mes sin override usa el automático, así varios meses pueden tener su propio
+ * override sin pisarse. Devuelve null si no hay override del mes ni base automática (sin historia).
  */
 export function resolveHormigaCap(
-  override: HormigaCapOverride | null,
-  currentMonth: string,
+  overrides: Record<string, number> | undefined,
+  month: string,
   autoCap: number | null,
 ): number | null {
-  if (override && override.month === currentMonth) return override.value;
-  return autoCap;
+  return overrides?.[month] ?? autoCap;
 }

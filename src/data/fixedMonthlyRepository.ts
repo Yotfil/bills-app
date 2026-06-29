@@ -130,6 +130,7 @@ export async function updateMonthlyFromTemplate(
     // undefined al escribir; se normaliza a false.
     budgetBacked: template.budgetBacked ?? false,
     consumesBudget: template.consumesBudget ?? false,
+    autoPayDay: template.autoPayDay ?? null,
     paymentMethod: template.defaultPaymentMethod,
     updatedAt: serverTimestamp(),
   });
@@ -202,6 +203,7 @@ type MonthlySnapshot = Pick<
   | 'debtTargetId'
   | 'budgetBacked'
   | 'consumesBudget'
+  | 'autoPayDay'
   | 'paymentMethod'
 >;
 
@@ -234,6 +236,7 @@ export async function payFixed(
   uid: string,
   fixed: FixedObligationMonthly,
   input: PayFixedInput,
+  opts: { auto?: boolean } = {},
 ): Promise<void> {
   const draft = buildTransactionFromFixed(fixed, {
     amount: input.amount,
@@ -253,6 +256,8 @@ export async function payFixed(
     transactionId,
     paidAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
+    // Auto-registro: marca el mes como ya auto-pagado (guard que persiste tras "Deshacer pago").
+    ...(opts.auto ? { autoPaidAt: serverTimestamp() } : {}),
   });
 }
 
@@ -270,6 +275,18 @@ export async function deleteFixedMonthly(
     await deleteTransaction(uid, fixed.transactionId);
   }
   await hardDelete(fixedMonthlyCol(uid), fixed.id);
+}
+
+/**
+ * Vacía un mes: elimina TODAS las instancias de fijos de ese mes (gastos, ítems de bolsa y los
+ * respaldados dormidos), revirtiendo los movimientos de los pagados (§9.3). Deja el mes "como nuevo"
+ * (sin plantilla cargada): vuelve a ofrecer "Generar". No toca la plantilla ni los presupuestos.
+ * Devuelve cuántos eliminó.
+ */
+export async function clearFixedMonthly(uid: string, month: string): Promise<number> {
+  const fijos = await listFixedMonthlyForMonth(uid, month);
+  await Promise.all(fijos.map((f) => deleteFixedMonthly(uid, f)));
+  return fijos.length;
 }
 
 /**

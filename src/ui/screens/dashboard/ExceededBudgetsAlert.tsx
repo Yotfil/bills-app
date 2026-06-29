@@ -27,7 +27,7 @@ export function ExceededBudgetsAlert({ items }: ExceededBudgetsAlertProps) {
         ))}
       </ul>
       <Link
-        to="/mas/presupuestos"
+        to="/fijos?tab=presupuestos"
         className="mt-2 inline-block text-xs font-medium text-red-700 underline"
       >
         Ver presupuestos

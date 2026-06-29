@@ -4,11 +4,11 @@ import { HormigaCapModal } from '../../components/HormigaCapModal';
 import { formatCop } from '../../../lib/currency';
 import { progressBarColor } from '../../../lib/progress';
 
-// Item RESALTADO de gasto hormiga dentro de la lista de presupuestos (CLAUDE.md §5.8): se ve distinto
-// (ámbar) porque su tope es AUTOMÁTICO cada mes, pero el usuario puede editarlo cuando quiera. Muestra
-// el gasto hormiga del mes en curso vs el tope efectivo.
-export function HormigaBudgetCard() {
-  const { currentHormiga, effectiveCap, hasOverride, setCap } = useHormigaCap();
+// Item RESALTADO de gasto hormiga dentro de la lista de presupuestos del mes (CLAUDE.md §5.8): se ve
+// distinto (ámbar) porque su tope es AUTOMÁTICO cada mes, pero el usuario puede editarlo (override de
+// ese mes). Muestra el gasto hormiga del `month` dado (por defecto el mes en curso) vs el tope efectivo.
+export function HormigaBudgetCard({ month }: { month?: string }) {
+  const { currentHormiga, effectiveCap, hasOverride, setCap } = useHormigaCap(month);
   const [modalOpen, setModalOpen] = useState(false);
 
   const cap = effectiveCap ?? 0;
@@ -20,7 +20,7 @@ export function HormigaBudgetCard() {
     <li className="rounded-xl border border-amber-300 bg-amber-50 p-4">
       <div className="flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
-          <p className="truncate font-semibold text-slate-800">🐜 Gasto hormiga</p>
+          <p className="truncate font-semibold text-amber-900">🐜 Gasto hormiga</p>
           <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700">
             {hasOverride ? 'Tope manual' : 'Tope automático'}
           </span>
@@ -40,10 +40,10 @@ export function HormigaBudgetCard() {
             <div className={`h-full ${progressBarColor(ratio)}`} style={{ width: `${pct}%` }} />
           </div>
           <div className="mt-2 flex items-center justify-between text-xs">
-            <span className="text-slate-600">
+            <span className="text-amber-800">
               {formatCop(currentHormiga)} de {formatCop(effectiveCap)}
             </span>
-            <span className={exceeded ? 'font-medium text-red-600' : 'text-slate-500'}>
+            <span className={exceeded ? 'font-medium text-red-600' : 'text-amber-700'}>
               {exceeded
                 ? `Te pasaste ${formatCop(currentHormiga - effectiveCap)}`
                 : `Quedan ${formatCop(effectiveCap - currentHormiga)}`}
@@ -51,7 +51,7 @@ export function HormigaBudgetCard() {
           </div>
         </>
       ) : (
-        <p className="mt-1 text-xs text-slate-500">
+        <p className="mt-1 text-xs text-amber-800">
           Sin tope este mes (aún no hay historia para calcularlo). Llevas{' '}
           {formatCop(currentHormiga)}.
         </p>

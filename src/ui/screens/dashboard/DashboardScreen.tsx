@@ -7,11 +7,15 @@ import { subscribeCards } from '../../../data/cardRepository';
 import { subscribeLoans } from '../../../data/loanRepository';
 import { subscribeCategories } from '../../../data/categoryRepository';
 import { subscribeTransactions } from '../../../data/transactionRepository';
+import { subscribeBudgets } from '../../../data/budgetRepository';
 import { subscribeAllocatedFixeds } from '../../../data/fixedMonthlyRepository';
 import { disponibleReal } from '../../../domain/derived';
 import { fixedTotals } from '../../../domain/fixed';
 import { budgetStatus, spendByCategory } from '../../../domain/reports';
-import { exceededBudgetBacked, nearLimitBudgetBacked } from '../../../domain/budgetBackedFixed';
+import {
+  exceededChecklistBudgets,
+  nearLimitChecklistBudgets,
+} from '../../../domain/budgetBackedFixed';
 import { monthlySummary } from '../../../domain/summary';
 import { addMonths, currentMonthKey, monthKey, transactionPeriodMonth } from '../../../lib/date';
 import { NEAR_LIMIT_RATIO } from '../../../lib/progress';
@@ -26,6 +30,7 @@ import { CategoryDonut } from './CategoryDonut';
 import { ExchangeRateNote } from './ExchangeRateNote';
 import type {
   Account,
+  Budget,
   Category,
   CreditCard,
   FixedObligationMonthly,
@@ -42,6 +47,7 @@ export function DashboardScreen() {
   const { items: loans, loading: loansLoading } = useUserCollection<Loan>(subscribeLoans);
   const { items: transactions } = useUserCollection<Transaction>(subscribeTransactions);
   const { items: categories } = useUserCollection<Category>(subscribeCategories);
+  const { items: budgets } = useUserCollection<Budget>(subscribeBudgets);
   const [month, setMonth] = useState(currentMonthKey());
 
   const activeAccounts = accounts.filter((a) => !a.archived);
@@ -89,33 +95,30 @@ export function DashboardScreen() {
     return map;
   }, [categories]);
 
-  // Topes excedidos del mes del selector: fijos respaldados cuyo gasto superó el tope (§5.9).
+  const consumedOf = (categoryId: string) => budgetStatus(budgetMonthTxns, categoryId, 0).consumed;
+
+  // Topes excedidos del mes del selector: presupuestos de checklist cuyo gasto superó el tope (§5.9).
   // Alimenta la alerta del Inicio, que solo aparece si la lista no está vacía.
   const exceededItems = useMemo(
     () =>
-      exceededBudgetBacked(
-        selectedFixeds,
-        (categoryId) => budgetStatus(budgetMonthTxns, categoryId, 0).consumed,
-      ).map((e) => ({
-        id: e.fixed.id,
-        categoryName: categoryById.get(e.fixed.categoryId)?.name ?? 'Categoría',
+      exceededChecklistBudgets(budgets, month, consumedOf).map((e) => ({
+        id: e.budget.id,
+        categoryName: categoryById.get(e.budget.categoryId)?.name ?? 'Categoría',
         overspend: e.overspend,
       })),
-    [selectedFixeds, budgetMonthTxns, categoryById],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [budgets, month, budgetMonthTxns, categoryById],
   );
   // Topes muy cerca de excederse (sin pasarse aún): alerta preventiva (naranja).
   const nearLimitItems = useMemo(
     () =>
-      nearLimitBudgetBacked(
-        selectedFixeds,
-        (categoryId) => budgetStatus(budgetMonthTxns, categoryId, 0).consumed,
-        NEAR_LIMIT_RATIO,
-      ).map((n) => ({
-        id: n.fixed.id,
-        categoryName: categoryById.get(n.fixed.categoryId)?.name ?? 'Categoría',
+      nearLimitChecklistBudgets(budgets, month, consumedOf, NEAR_LIMIT_RATIO).map((n) => ({
+        id: n.budget.id,
+        categoryName: categoryById.get(n.budget.categoryId)?.name ?? 'Categoría',
         remaining: n.remaining,
       })),
-    [selectedFixeds, budgetMonthTxns, categoryById],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [budgets, month, budgetMonthTxns, categoryById],
   );
 
   const slices = useMemo(() => {

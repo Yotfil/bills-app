@@ -1,5 +1,6 @@
 import type { Timestamp } from 'firebase/firestore';
 import type { BaseDoc } from './BaseDoc';
+import type { BudgetBoost } from './BudgetBoost';
 import type { EntityRef } from './EntityRef';
 
 export type TransactionType =
@@ -28,6 +29,10 @@ export interface Transaction extends BaseDoc {
   // fijo de otro mes (p.ej. Julio por adelantado) consume el presupuesto de Julio, aunque el
   // movimiento —y el Registro/caja— sea de hoy. Separa "cuándo pagué" de "a qué mes pertenece".
   periodMonth: string | null;
+  // Aumentos de presupuesto ligados a este ingreso (§5.9): parte del ingreso sube el tope de uno o
+  // varios presupuestos en el mes elegido. Solo en `income`. Se hornea en el override del presupuesto
+  // al crear y se revierte al borrar/editar. Ausente = sin aumentos.
+  budgetBoosts?: BudgetBoost[];
 }
 
 /**

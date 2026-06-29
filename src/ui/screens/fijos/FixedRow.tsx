@@ -1,3 +1,4 @@
+import { Eye, EyeOff } from 'lucide-react';
 import { formatCop } from '../../../lib/currency';
 import { progressBarColor } from '../../../lib/progress';
 import { budgetBackedFilled } from '../../../domain/budgetBackedFixed';
@@ -18,16 +19,19 @@ export function FixedRow({
   onPay,
   onMarkPaid,
   onRevert,
+  cap = 0,
   budgetConsumed = 0,
   onEditCap,
   selected = false,
   onToggleSelect,
+  muted = false,
+  onToggleMute,
   nested = false,
 }: FixedRowProps) {
   // Fijo respaldado por presupuesto (§5.9): no se paga; muestra el avance del gasto vs el tope y se
   // marca "Lleno" cuando el gasto de su categoría alcanza el tope.
   if (fixed.budgetBacked) {
-    const cap = fixed.budgetedAmount;
+    // El tope efectivo del mes lo da el `Budget` de la categoría (`cap`, §5.9, Opción B).
     // "Ya estaba pagado (sin movimiento)": el respaldado se marcó pagado a mano (status 'paid'), sin
     // gasto que alcance el tope. Cuenta como lleno y manda sobre el cálculo por consumo (§5.9 ext.).
     const manuallyPaid = fixed.status === 'paid';
@@ -120,7 +124,7 @@ export function FixedRow({
     <li
       className={`rounded-xl border bg-white p-4 ${
         selected ? 'border-slate-800 ring-1 ring-slate-800' : 'border-slate-200'
-      } ${nested ? 'ml-5 border-l-4 border-l-slate-200' : ''}`}
+      } ${nested ? 'ml-5 border-l-4 border-l-slate-200' : ''} ${muted ? 'opacity-50' : ''}`}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="flex min-w-0 items-start gap-3">
@@ -141,9 +145,22 @@ export function FixedRow({
             </p>
           </div>
         </div>
-        <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${badge.className}`}>
-          {badge.label}
-        </span>
+        <div className="flex shrink-0 items-center gap-2">
+          {onToggleMute && (
+            <button
+              type="button"
+              onClick={onToggleMute}
+              aria-label={muted ? `Encender ${fixed.name}` : `Apagar ${fixed.name}`}
+              title={muted ? 'Encender (vuelve a contar)' : 'Apagar (no cuenta en Por destinar)'}
+              className="text-slate-400 hover:text-slate-600"
+            >
+              {muted ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          )}
+          <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${badge.className}`}>
+            {badge.label}
+          </span>
+        </div>
       </div>
 
       {fixed.status !== 'paid' && (

@@ -8,7 +8,6 @@ import { currentMonthKey } from '../../../lib/date';
 import { createFixedTemplate, updateFixedTemplate } from '../../../data/fixedTemplateRepository';
 import { syncMonthlyToTemplate } from '../../../data/fixedMonthlyRepository';
 import { syncCuotaFromTemplate } from '../../../data/cuotaService';
-import { alignBudgetToTemplate } from '../../../data/budgetFixedService';
 import { budgetForCategory } from '../../../domain/budgetBackedFixed';
 import type { FixedTemplateFormProps } from './FixedTemplateFormProps';
 import type { FixedPayKind } from '../../../domain/types';
@@ -23,7 +22,6 @@ export function FixedTemplateForm({
   loans,
   categories,
   budgets,
-  templates,
   onClose,
 }: FixedTemplateFormProps) {
   const uid = useSessionStore((s) => s.user?.uid);
@@ -36,33 +34,20 @@ export function FixedTemplateForm({
     template ? refToValue(template.defaultPaymentMethod) : '',
   );
   const [debtTargetId, setDebtTargetId] = useState(template?.debtTargetId ?? '');
-  const [budgetBacked, setBudgetBacked] = useState(template?.budgetBacked ?? false);
   // "Consume de un presupuesto" (§5.9 ext.): el fijo es un ítem del checklist de una bolsa; descuenta
-  // ese presupuesto al pagarse y no suma aparte al total. Excluyente con "Respaldar con presupuesto".
+  // ese presupuesto al pagarse y no suma aparte al total.
   const [consumesBudget, setConsumesBudget] = useState(template?.consumesBudget ?? false);
+  // Día de cobro automático (§5.3): vacío = sin auto. Se registra solo al abrir la app ese día o después.
+  const [autoPayDay, setAutoPayDay] = useState(String(template?.autoPayDay ?? ''));
   const [busy, setBusy] = useState(false);
   const formKey = template?.id ?? 'new';
 
-  // "Respaldar con presupuesto" solo aplica a gastos cuya categoría YA tiene presupuesto (§5.9): no
-  // se crean presupuestos automáticamente. Si la categoría no tiene, la opción no se muestra.
+  // "Consume de un presupuesto" (§5.9 ext.): este fijo es un ítem del checklist de la bolsa de su
+  // categoría. Solo se ofrece si la categoría tiene un presupuesto MARCADO "Mostrar en Fijos"
+  // (`inChecklist`), que es la bolsa. La bolsa se administra como `Budget`, no como fijo (Opción C).
   const categoryBudget =
     payKind === 'expense' && categoryId ? budgetForCategory(categoryId, budgets) : null;
-  const hasBudget = !!categoryBudget;
-  // ¿La categoría YA tiene OTRA plantilla respaldada (la bolsa)? Solo puede haber UNA por categoría.
-  // Si ya existe, este fijo no puede "respaldar" (se oculta esa opción) pero sí puede "consumir" de
-  // ella. Si no existe aún, se ofrece "respaldar" (para crear la bolsa) y todavía no "consumir".
-  const categoryHasBolsa = templates.some(
-    (t) =>
-      t.id !== template?.id &&
-      !t.archived &&
-      t.categoryId === categoryId &&
-      (t.budgetBacked ?? false),
-  );
-  const canBudgetBack = hasBudget && !categoryHasBolsa; // puede ser la bolsa (respaldar)
-  const canConsumeBudget = hasBudget && categoryHasBolsa; // puede consumir una bolsa existente
-  // Un fijo respaldado no se paga con un único medio (su tope se llena con gastos variables de la
-  // categoría), así que se oculta "Medio por defecto" mientras el check esté activo.
-  const hidePaymentMethod = payKind === 'expense' && canBudgetBack && budgetBacked;
+  const canConsumeBudget = categoryBudget?.inChecklist === true;
 
   const spendCategories = categories.filter((c) => !c.archived && !c.isSystem);
   const accountOptions = accounts
@@ -77,22 +62,16 @@ export function FixedTemplateForm({
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
-    // Solo un gasto con presupuesto en su categoría puede quedar respaldado (§5.9).
-    const isBudgetBacked = payKind === 'expense' && canBudgetBack && budgetBacked;
-    // "Consume de un presupuesto": gasto de una categoría cuya bolsa YA existe, NO respaldado.
-    const isConsumesBudget =
-      payKind === 'expense' && canConsumeBudget && consumesBudget && !budgetBacked;
+    // "Consume de un presupuesto": gasto de una categoría cuya bolsa (presupuesto de checklist) existe.
+    const isConsumesBudget = payKind === 'expense' && canConsumeBudget && consumesBudget;
 
-    // El modelo exige un medio (EntityRef no-nulo). Para un respaldado el campo se oculta y el medio
-    // no se usa (no se paga): si no hay uno elegido, se rellena con la primera cuenta como placeholder.
-    let method = valueToRef(paymentMethod);
-    if (isBudgetBacked && !method) {
-      const firstAccount = accounts.find((a) => !a.archived);
-      method = firstAccount ? { kind: 'account', id: firstAccount.id } : null;
-    }
+    const method = valueToRef(paymentMethod);
     if (!uid || !name.trim() || !method) return;
     if (payKind === 'expense' && !categoryId) return;
     if (payKind === 'debt_payment' && !debtTargetId) return;
+    // Día de cobro automático: entero válido 1–31, o null si vacío/fuera de rango (§5.3).
+    const parsedDay = Math.round(Number(autoPayDay));
+    const autoDay = parsedDay >= 1 && parsedDay <= 31 ? parsedDay : null;
     const data = {
       name: name.trim(),
       budgetedAmount: Math.round(Number(amount) || 0),
@@ -100,8 +79,9 @@ export function FixedTemplateForm({
       defaultPaymentMethod: method,
       payKind,
       debtTargetId: payKind === 'debt_payment' ? debtTargetId : null,
-      budgetBacked: isBudgetBacked,
+      budgetBacked: false,
       consumesBudget: isConsumesBudget,
+      autoPayDay: autoDay,
     };
 
     setBusy(true);
@@ -117,6 +97,7 @@ export function FixedTemplateForm({
           debtTargetId: data.debtTargetId,
           budgetBacked: data.budgetBacked,
           consumesBudget: data.consumesBudget,
+          autoPayDay: data.autoPayDay,
           paymentMethod: method,
         });
         // Sync bidireccional crédito↔cuota (§5.6): si cambió el monto y el destino es un crédito,
@@ -124,13 +105,9 @@ export function FixedTemplateForm({
         if (data.budgetedAmount !== template.budgetedAmount) {
           await syncCuotaFromTemplate(uid, template, data.budgetedAmount, loans);
         }
-        // Espejo fijo→presupuesto (§5.9): si es respaldado, el tope del presupuesto = monto (T→B).
-        if (isBudgetBacked) {
-          await alignBudgetToTemplate(uid, data);
-        }
+        // El tope de un respaldado se administra en su `Budget` (Presupuestos), no aquí (§5.9).
       } else {
         await createFixedTemplate(uid, data);
-        if (isBudgetBacked) await alignBudgetToTemplate(uid, data);
       }
       onClose();
     } finally {
@@ -180,40 +157,15 @@ export function FixedTemplateForm({
           />
         )}
 
-        {/* Respaldar con presupuesto (§5.9): solo si la categoría YA tiene presupuesto. No se paga;
-            se llena solo cuando el gasto de la categoría alcanza el tope. */}
-        {canBudgetBack && (
-          <label className="flex items-start gap-2 rounded-xl bg-slate-50 p-3">
-            <input
-              type="checkbox"
-              checked={budgetBacked}
-              onChange={(e) => {
-                setBudgetBacked(e.target.checked);
-                if (e.target.checked) setConsumesBudget(false); // excluyente
-              }}
-              className="mt-0.5 h-5 w-5 shrink-0 accent-slate-800"
-            />
-            <span className="text-sm text-slate-600">
-              <span className="font-medium text-slate-800">Respaldar con presupuesto</span>
-              <br />
-              No se paga: se marca lleno cuando el gasto de esta categoría alcanza el tope. El monto
-              va en espejo con el presupuesto.
-            </span>
-          </label>
-        )}
-
         {/* Consume de un presupuesto (§5.9 ext.): el fijo es un ítem del checklist de la bolsa de su
             categoría. Se paga normal, descuenta esa bolsa y NO suma aparte al total de fijos. Solo se
-            ofrece si la categoría YA tiene una bolsa (un fijo respaldado). */}
+            ofrece si la categoría tiene un presupuesto marcado "Mostrar en Fijos". */}
         {canConsumeBudget && (
           <label className="flex items-start gap-2 rounded-xl bg-slate-50 p-3">
             <input
               type="checkbox"
               checked={consumesBudget}
-              onChange={(e) => {
-                setConsumesBudget(e.target.checked);
-                if (e.target.checked) setBudgetBacked(false); // excluyente
-              }}
+              onChange={(e) => setConsumesBudget(e.target.checked)}
               className="mt-0.5 h-5 w-5 shrink-0 accent-slate-800"
             />
             <span className="text-sm text-slate-600">
@@ -225,15 +177,13 @@ export function FixedTemplateForm({
           </label>
         )}
 
-        {!hidePaymentMethod && (
-          <SelectField
-            label={payKind === 'expense' ? 'Medio por defecto' : 'Abonar desde'}
-            value={paymentMethod}
-            onChange={setPaymentMethod}
-            options={paymentOptions}
-            placeholder="Selecciona…"
-          />
-        )}
+        <SelectField
+          label={payKind === 'expense' ? 'Medio por defecto' : 'Abonar desde'}
+          value={paymentMethod}
+          onChange={setPaymentMethod}
+          options={paymentOptions}
+          placeholder="Selecciona…"
+        />
 
         {payKind === 'debt_payment' && (
           <SelectField
@@ -251,6 +201,22 @@ export function FixedTemplateForm({
             placeholder="Selecciona tarjeta o crédito…"
           />
         )}
+
+        {/* Día de cobro automático (§5.3): al abrir la app ese día (o después, dentro del mes) se
+            registra el pago solo, con este monto y medio. Vacío = sin auto. */}
+        <label className="flex flex-col gap-1">
+          <span className="text-xs text-slate-400">Día de cobro automático (opcional)</span>
+          <input
+            type="number"
+            min={1}
+            max={31}
+            inputMode="numeric"
+            placeholder="Ej. 29 (vacío = sin auto)"
+            value={autoPayDay}
+            onChange={(e) => setAutoPayDay(e.target.value)}
+            className="rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-500"
+          />
+        </label>
 
         <button
           type="submit"

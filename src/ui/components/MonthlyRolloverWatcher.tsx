@@ -4,7 +4,6 @@ import { useFixedMonthly } from '../hooks/useFixedMonthly';
 import { useSessionStore } from '../../store/sessionStore';
 import { subscribeFixedTemplates } from '../../data/fixedTemplateRepository';
 import { generateFixedMonthly } from '../../data/fixedMonthlyRepository';
-import { alignBudgetToTemplate } from '../../data/budgetFixedService';
 import { currentMonthKey } from '../../lib/date';
 import type { FixedObligationTemplate } from '../../domain/types';
 
@@ -29,11 +28,9 @@ export function MonthlyRolloverWatcher() {
     if (activeTemplates.length === 0) return; // no hay plantilla que cargar
     if (attempted.current.has(month)) return;
     attempted.current.add(month);
-    void (async () => {
-      await generateFixedMonthly(uid, month);
-      // Alinea el tope del presupuesto al de la plantilla para los respaldados (B = T, §5.9, §5.10).
-      await Promise.all(activeTemplates.map((t) => alignBudgetToTemplate(uid, t)));
-    })();
+    // El tope de los respaldados vive en su `Budget` (§5.9), independiente de la plantilla: generar el
+    // mes basta; no hay que alinear nada (un mes sin override usa la base del presupuesto).
+    void generateFixedMonthly(uid, month);
   }, [uid, loading, fijos, templates, month]);
 
   return null;

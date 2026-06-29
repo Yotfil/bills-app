@@ -20,7 +20,7 @@ export function useHormigaCap(monthArg?: string) {
   // Por defecto el mes en curso; el Inicio pasa el mes del selector para que la tarjeta refleje
   // el periodo elegido (el gasto hormiga es por mes).
   const month = monthArg ?? currentMonthKey();
-  const override = settings?.hormigaCapOverride ?? null;
+  const overrides = settings?.hormigaCapOverrides;
 
   const currentHormiga = useMemo(
     () => totalHormiga(transactions.filter((t) => monthKey(t.date) === month)),
@@ -34,13 +34,13 @@ export function useHormigaCap(monthArg?: string) {
     return suggestHormigaCap(perMonth.map((m) => m.hormiga));
   }, [transactions, month]);
 
-  const effectiveCap = resolveHormigaCap(override, month, autoCap);
-  const hasOverride = override?.month === month;
+  const effectiveCap = resolveHormigaCap(overrides, month, autoCap);
+  const hasOverride = overrides?.[month] != null;
 
-  /** Fija el tope del mes en curso (override) o, con null, vuelve al automático. */
+  /** Fija el tope de ESTE mes (override) o, con null, vuelve al automático. */
   const setCap = (value: number | null) => {
     if (!uid) return Promise.resolve();
-    return setHormigaCapOverride(uid, value === null ? null : { month, value });
+    return setHormigaCapOverride(uid, month, value);
   };
 
   return { month, currentHormiga, autoCap, effectiveCap, hasOverride, setCap };

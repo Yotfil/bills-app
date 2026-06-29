@@ -4,12 +4,11 @@ import { MoneyInput } from '../../components/MoneyInput';
 import { SelectField } from '../../components/SelectField';
 import { useSessionStore } from '../../../store/sessionStore';
 import { createBudget, updateBudget } from '../../../data/budgetRepository';
-import { syncMonthlyFromBudget } from '../../../data/budgetFixedService';
-import { currentMonthKey } from '../../../lib/date';
 import type { BudgetFormProps } from './BudgetFormProps';
 
-// Crear/editar un presupuesto por categoría (CLAUDE.md §5.9). Al crear, solo se ofrecen
-// categorías que aún no tienen presupuesto (uno por categoría).
+// Crear/editar un presupuesto por categoría (CLAUDE.md §5.9). Edita el tope BASE (con lo que arranca
+// cada mes); el ajuste por mes se hace en /fijos. Al crear, solo se ofrecen categorías que aún no
+// tienen presupuesto (uno por categoría).
 export function BudgetForm({
   open,
   budget,
@@ -36,10 +35,9 @@ export function BudgetForm({
     setBusy(true);
     try {
       if (isEdit && budget) {
+        // Edita la BASE recurrente del tope (§5.9): el valor con el que arranca cada mes. Los meses con
+        // override puntual (`monthlyOverrides`) se conservan; el ajuste por mes se hace en /fijos.
         await updateBudget(uid, budget.id, { monthlyLimit });
-        // Espejo presupuesto→fijo (§5.9): si hay fijos respaldados de esta categoría en el mes en
-        // curso, su monto se actualiza al nuevo tope. No toca la plantilla.
-        await syncMonthlyFromBudget(uid, { ...budget, monthlyLimit }, monthlyLimit, currentMonthKey());
       } else {
         await createBudget(uid, { categoryId, monthlyLimit });
       }
@@ -71,7 +69,7 @@ export function BudgetForm({
         )}
         <MoneyInput
           autoFocus
-          placeholder="Tope mensual (COP)"
+          placeholder="Tope base, cada mes inicia aquí (COP)"
           value={limit}
           onChange={setLimit}
           className="rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-500"

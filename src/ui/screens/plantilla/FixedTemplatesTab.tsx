@@ -1,9 +1,8 @@
 import { useState } from 'react';
 import { useUserCollection } from '../../hooks/useUserCollection';
 import { useSessionStore } from '../../../store/sessionStore';
-import { FixedTemplateForm } from './FixedTemplateForm';
+import { FixedTemplateForm } from '../fijos/FixedTemplateForm';
 import { Pencil, Archive, Trash2 } from 'lucide-react';
-import { BackButton } from '../../components/BackButton';
 import { SearchBar } from '../../components/SearchBar';
 import { ActionMenu } from '../../components/ActionMenu';
 import { BulkSelectBar } from '../../components/BulkSelectBar';
@@ -33,9 +32,9 @@ import type {
 // categorías quedan contiguas) y dentro de cada grupo ordena por nombre.
 type TemplateSort = 'name-asc' | 'name-desc' | 'category';
 
-// Plantilla de obligaciones fijas (CLAUDE.md §8.4): CRUD. Desde aquí se generan los fijos de
-// cada mes en la pantalla de Fijos.
-export function FixedTemplatesScreen() {
+// Tab "Gastos" de la Plantilla (CLAUDE.md §8.4): CRUD de obligaciones fijas. Es la PLANTILLA
+// (valores base con los que arranca cada mes); el detalle por mes se ve/edita en /fijos.
+export function FixedTemplatesTab() {
   const uid = useSessionStore((s) => s.user?.uid);
   const { items: templates, loading } =
     useUserCollection<FixedObligationTemplate>(subscribeFixedTemplates);
@@ -54,7 +53,11 @@ export function FixedTemplatesScreen() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
 
-  const allActive = templates.filter((t) => !t.archived).sort((a, b) => a.sortOrder - b.sortOrder);
+  // Las plantillas respaldadas (Opción C) ya no son gastos fijos: viven como presupuesto de checklist
+  // en el tab Presupuestos. Se ocultan aquí (quedan dormidas hasta el PR de limpieza).
+  const allActive = templates
+    .filter((t) => !t.archived && !(t.budgetBacked ?? false))
+    .sort((a, b) => a.sortOrder - b.sortOrder);
   const active = allActive.filter((t) => matchesQuery(search, t.name));
   const categoryName = (id: string) => categories.find((c) => c.id === id)?.name;
   // Etiqueta usada para agrupar/ordenar por categoría: los abonos a deuda no tienen categoría,
@@ -126,18 +129,16 @@ export function FixedTemplatesScreen() {
   }
 
   return (
-    <div className="mx-auto flex max-w-md flex-col gap-4 p-4 pb-24">
-      <BackButton />
-      <header className="flex items-center justify-between">
-        <h1 className="text-xl font-bold text-slate-800">Obligaciones fijas</h1>
+    <>
+      <div className="flex justify-end">
         <button
           type="button"
           onClick={() => setCreating(true)}
           className="rounded-lg bg-slate-800 px-3 py-2 text-sm font-medium text-white"
         >
-          + Nuevo
+          + Nuevo gasto fijo
         </button>
-      </header>
+      </div>
 
       {allActive.length > 0 && (
         <SearchBar value={search} onChange={setSearch} placeholder="Buscar obligación…" />
@@ -203,6 +204,7 @@ export function FixedTemplatesScreen() {
                   ? 'Abono a deuda'
                   : (categoryName(template.categoryId) ?? 'Gasto')}
                 {template.consumesBudget ? ' · en presupuesto' : ''}
+                {template.autoPayDay ? ` · auto día ${template.autoPayDay}` : ''}
               </p>
             </div>
             <ActionMenu
@@ -230,7 +232,6 @@ export function FixedTemplatesScreen() {
         loans={loans}
         categories={categories}
         budgets={budgets}
-        templates={templates}
         onClose={() => setCreating(false)}
       />
       <FixedTemplateForm
@@ -242,7 +243,6 @@ export function FixedTemplatesScreen() {
         loans={loans}
         categories={categories}
         budgets={budgets}
-        templates={templates}
         onClose={() => setEditing(null)}
       />
       <ConfirmDeleteModal
@@ -259,6 +259,6 @@ export function FixedTemplatesScreen() {
         onConfirm={() => void handleBulkDelete()}
         onClose={() => setBulkDeleting(false)}
       />
-    </div>
+    </>
   );
 }

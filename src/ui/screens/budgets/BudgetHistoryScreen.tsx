@@ -1,11 +1,10 @@
 import { useMemo, useState } from 'react';
 import { useUserCollection } from '../../hooks/useUserCollection';
-import { useFixedMonthly } from '../../hooks/useFixedMonthly';
 import { BackButton } from '../../components/BackButton';
 import { MonthSelector } from '../../components/MonthSelector';
 import { BudgetHistoryRow } from './BudgetHistoryRow';
 import { budgetStatus } from '../../../domain/reports';
-import { linkedBudgetBackedFixed } from '../../../domain/budgetBackedFixed';
+import { budgetCapForMonth } from '../../../domain/budgetBackedFixed';
 import { formatCop } from '../../../lib/currency';
 import { addMonths, currentMonthKey, transactionPeriodMonth } from '../../../lib/date';
 import { subscribeBudgets } from '../../../data/budgetRepository';
@@ -23,7 +22,6 @@ export function BudgetHistoryScreen() {
   const { items: transactions } = useUserCollection<Transaction>(subscribeTransactions);
   // Arranca en el mes ANTERIOR (es un histórico).
   const [month, setMonth] = useState(addMonths(currentMonthKey(), -1));
-  const { items: monthlyFixeds } = useFixedMonthly(month);
 
   const active = budgets.filter((b) => !b.archived && b.active);
   // Consumo por MES CONTABLE (periodMonth): un fijo pagado por adelantado pertenece a su mes (§5.9).
@@ -34,13 +32,13 @@ export function BudgetHistoryScreen() {
   const categoryName = (id: string) => categories.find((c) => c.id === id)?.name ?? 'Categoría';
 
   const rows = active.map((budget) => {
-    const linkedFixed = linkedBudgetBackedFixed(budget.categoryId, monthlyFixeds);
-    const limit = linkedFixed?.budgetedAmount ?? budget.monthlyLimit;
+    // Tope efectivo de ESE mes: del `Budget` (override del mes o base, §5.9).
+    const limit = budgetCapForMonth(budget, month);
     return {
       id: budget.id,
       categoryName: categoryName(budget.categoryId),
       status: budgetStatus(monthTxns, budget.categoryId, limit),
-      linkedToFixed: !!linkedFixed,
+      linkedToFixed: budget.inChecklist ?? false,
     };
   });
   const totalSpent = rows.reduce((sum, r) => sum + r.status.consumed, 0);

@@ -17,7 +17,9 @@ export type ValidationError =
   | 'debt_payment_requires_card_or_loan_destination'
   | 'adjustment_requires_source'
   | 'adjustment_requires_category'
-  | 'adjustment_requires_direction';
+  | 'adjustment_requires_direction'
+  | 'budget_boosts_only_on_income'
+  | 'budget_boost_invalid';
 
 /** El monto se guarda como entero de pesos, SIEMPRE positivo (CLAUDE.md §3, §11). */
 function isPositiveIntegerAmount(amount: number): boolean {
@@ -95,6 +97,18 @@ export function validateTransaction(txn: TransactionDraft): ValidationError[] {
       }
       break;
     }
+  }
+
+  // Aumentos de presupuesto ligados (§5.9): solo en ingresos; cada uno con monto entero > 0 y
+  // presupuesto/mes definidos.
+  if (txn.budgetBoosts && txn.budgetBoosts.length > 0) {
+    if (txn.type !== 'income') {
+      errors.push('budget_boosts_only_on_income');
+    }
+    const allValid = txn.budgetBoosts.every(
+      (b) => !!b.budgetId && !!b.month && isPositiveIntegerAmount(b.amount),
+    );
+    if (!allValid) errors.push('budget_boost_invalid');
   }
 
   return errors;
