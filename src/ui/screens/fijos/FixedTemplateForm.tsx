@@ -8,7 +8,7 @@ import { currentMonthKey } from '../../../lib/date';
 import { createFixedTemplate, updateFixedTemplate } from '../../../data/fixedTemplateRepository';
 import { syncMonthlyToTemplate } from '../../../data/fixedMonthlyRepository';
 import { syncCuotaFromTemplate } from '../../../data/cuotaService';
-import { alignBudgetToTemplate } from '../../../data/budgetFixedService';
+import { setBudgetBackedBase } from '../../../data/budgetFixedService';
 import { budgetForCategory } from '../../../domain/budgetBackedFixed';
 import type { FixedTemplateFormProps } from './FixedTemplateFormProps';
 import type { FixedPayKind } from '../../../domain/types';
@@ -124,13 +124,14 @@ export function FixedTemplateForm({
         if (data.budgetedAmount !== template.budgetedAmount) {
           await syncCuotaFromTemplate(uid, template, data.budgetedAmount, loans);
         }
-        // Espejo fijo→presupuesto (§5.9): si es respaldado, el tope del presupuesto = monto (T→B).
+        // La plantilla edita la BASE recurrente (§5.9): si es respaldado, deja el presupuesto y la
+        // base del mes en curso/futuros en el nuevo monto. No pisa overrides por mes (`capOverride`).
         if (isBudgetBacked) {
-          await alignBudgetToTemplate(uid, data);
+          await setBudgetBackedBase(uid, data.categoryId, data.budgetedAmount);
         }
       } else {
         await createFixedTemplate(uid, data);
-        if (isBudgetBacked) await alignBudgetToTemplate(uid, data);
+        if (isBudgetBacked) await setBudgetBackedBase(uid, data.categoryId, data.budgetedAmount);
       }
       onClose();
     } finally {

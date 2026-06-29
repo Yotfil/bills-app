@@ -1,6 +1,6 @@
 import { formatCop } from '../../../lib/currency';
 import { progressBarColor } from '../../../lib/progress';
-import { budgetBackedFilled } from '../../../domain/budgetBackedFixed';
+import { budgetBackedFilled, fixedCap } from '../../../domain/budgetBackedFixed';
 import type { FixedStatus } from '../../../domain/types';
 import type { FixedRowProps } from './FixedRowProps';
 
@@ -27,7 +27,7 @@ export function FixedRow({
   // Fijo respaldado por presupuesto (§5.9): no se paga; muestra el avance del gasto vs el tope y se
   // marca "Lleno" cuando el gasto de su categoría alcanza el tope.
   if (fixed.budgetBacked) {
-    const cap = fixed.budgetedAmount;
+    const cap = fixedCap(fixed); // tope efectivo del mes: override si lo hay, o la base (§5.9)
     // "Ya estaba pagado (sin movimiento)": el respaldado se marcó pagado a mano (status 'paid'), sin
     // gasto que alcance el tope. Cuenta como lleno y manda sobre el cálculo por consumo (§5.9 ext.).
     const manuallyPaid = fixed.status === 'paid';

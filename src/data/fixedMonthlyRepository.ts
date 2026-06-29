@@ -15,7 +15,7 @@ import { create, hardDelete, listAll } from './crud';
 import { createTransaction, deleteTransaction } from './transactionService';
 import { generateMonthlyFixeds } from '../domain/rollover';
 import { buildTransactionFromFixed } from '../domain/fixed';
-import { nowTimestamp } from '../lib/date';
+import { currentMonthKey, nowTimestamp } from '../lib/date';
 import type { PayFixedInput } from './PayFixedInput';
 import type { EntityRef, FixedObligationMonthly, FixedObligationTemplate } from '../domain/types';
 
@@ -76,6 +76,46 @@ export async function syncMonthlyAmount(
   await Promise.all(
     targets.map((d) =>
       updateDoc(rawDoc(uid, d.id), { budgetedAmount: amount, updatedAt: serverTimestamp() }),
+    ),
+  );
+  return targets.length;
+}
+
+/**
+ * Fija el override del tope de UN fijo respaldado para ESE mes (§5.9): "Editar tope" en Fijos. Solo
+ * afecta a ese mes; la base (`budgetedAmount`) y los demás meses no se tocan. El próximo mes nace en
+ * la base. El banner de sincronización no lo revierte (compara la base, no el override).
+ */
+export async function setFixedCapOverride(
+  uid: string,
+  fixedId: string,
+  amount: number,
+): Promise<void> {
+  await updateDoc(rawDoc(uid, fixedId), { capOverride: amount, updatedAt: serverTimestamp() });
+}
+
+/**
+ * Cambia la BASE (`budgetedAmount`) de los fijos respaldados de una plantilla en el mes en curso y
+ * los meses FUTUROS ya generados (§5.9): al editar el tope base desde Presupuestos o la plantilla.
+ * NO toca el `capOverride` (los meses con override conservan su valor de ese mes) ni los meses
+ * PASADOS (histórico). Usa `transactionId == null` —no el estado— para que un mes marcado "ya estaba
+ * pagado (sin movimiento)", que no tiene movimiento, también adopte la nueva base. Devuelve cuántos
+ * actualizó.
+ */
+export async function setBudgetBackedBaseAmount(
+  uid: string,
+  templateId: string,
+  newBase: number,
+): Promise<number> {
+  const currentMonth = currentMonthKey();
+  const snap = await getDocs(query(fixedMonthlyCol(uid), where('templateId', '==', templateId)));
+  const targets = snap.docs.filter((d) => {
+    const m = d.data();
+    return m.transactionId == null && m.month >= currentMonth && m.budgetedAmount !== newBase;
+  });
+  await Promise.all(
+    targets.map((d) =>
+      updateDoc(rawDoc(uid, d.id), { budgetedAmount: newBase, updatedAt: serverTimestamp() }),
     ),
   );
   return targets.length;

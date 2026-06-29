@@ -1,17 +1,19 @@
 // Orquesta el vínculo fijo ↔ presupuesto (CLAUDE.md §5.9). El vínculo es IMPLÍCITO por categoría:
-// un fijo `budgetBacked` (gasto) está ligado al presupuesto ACTIVO de su misma categoría. Mantiene
-// en espejo el monto del fijo del mes (M) y el tope del presupuesto (B), sin tocar la plantilla (T).
-// Reglas (T = plantilla, M = fijo del mes, B = tope del presupuesto):
-//   - Editar T (o generar el mes): B = T.            -> alignBudgetToTemplate
-//   - Editar M (mes en curso):     B = M.            -> syncBudgetFromMonthly
-//   - Editar B (presupuestos):     M (mes en curso) = B. -> syncMonthlyFromBudget
+// un fijo `budgetBacked` (gasto) está ligado al presupuesto ACTIVO de su misma categoría. Hay DOS
+// "topes" que se editan distinto (T = plantilla, M = fijo del mes, B = tope del presupuesto):
+//   - BASE recurrente (con lo que arranca cada mes): editable desde Presupuestos o la plantilla.
+//     -> `setBudgetBackedBase` deja T = B = base, y la base de M en el mes en curso y futuros.
+//   - OVERRIDE de solo ese mes (`capOverride` de M): editable desde Fijos ("Editar tope").
+//     -> `setFixedCapOverride` (fixedMonthlyRepository); ortogonal a la base, no la toca.
+//   - Al generar el mes / rollover: B = T -> `alignBudgetToTemplate`.
 // No tocan saldos: el gasto real son los movimientos de la categoría (que consumen el presupuesto).
 import { listAll } from './crud';
-import { budgetsCol } from './collections';
+import { budgetsCol, fixedTemplatesCol } from './collections';
 import { updateBudget } from './budgetRepository';
-import { listFixedMonthlyForMonth, syncMonthlyAmount } from './fixedMonthlyRepository';
+import { updateFixedTemplate } from './fixedTemplateRepository';
+import { setBudgetBackedBaseAmount } from './fixedMonthlyRepository';
 import { budgetForCategory } from '../domain/budgetBackedFixed';
-import type { Budget, FixedObligationMonthly } from '../domain/types';
+import type { Budget } from '../domain/types';
 
 /** Lo mínimo que define la liga de una plantilla con su presupuesto (§5.9). */
 export interface BudgetBackedRef {
@@ -40,35 +42,31 @@ export async function alignBudgetToTemplate(uid: string, ref: BudgetBackedRef): 
 }
 
 /**
- * Espejo M → B: al editar el monto del fijo del mes (respaldado), actualiza el tope del presupuesto
- * de su categoría. No toca la plantilla.
+ * Cambia la BASE recurrente del tope respaldado de una categoría (§5.9): el valor con el que arranca
+ * cada mes. Deja en `newBase` el tope del presupuesto (B), el monto de la(s) plantilla(s) respaldada(s)
+ * (T) y la base de los fijos del mes en curso y futuros (M.budgetedAmount). NO toca los `capOverride`
+ * por mes (los ajustes de un mes puntual se conservan) ni los meses pasados. Si la categoría no tiene
+ * fijo respaldado (presupuesto "normal"), solo actualiza B.
  */
-export async function syncBudgetFromMonthly(
+export async function setBudgetBackedBase(
   uid: string,
-  fixed: FixedObligationMonthly,
-  amount: number,
+  categoryId: string,
+  newBase: number,
 ): Promise<void> {
-  if (!fixed.budgetBacked) return;
-  const budget = await activeBudgetForCategory(uid, fixed.categoryId);
-  if (!budget || budget.monthlyLimit === amount) return;
-  await updateBudget(uid, budget.id, { monthlyLimit: amount });
-}
-
-/**
- * Espejo B → M: al editar el tope del presupuesto, actualiza el monto de los fijos respaldados de
- * esa categoría en el mes en curso (no pagados). No toca la plantilla. Lee los fijos del mes solo.
- */
-export async function syncMonthlyFromBudget(
-  uid: string,
-  budget: Budget,
-  amount: number,
-  month: string,
-): Promise<void> {
-  const monthlies = await listFixedMonthlyForMonth(uid, month);
-  const linked = monthlies.filter((m) => m.budgetBacked && m.categoryId === budget.categoryId);
+  const budget = await activeBudgetForCategory(uid, categoryId);
+  if (budget && budget.monthlyLimit !== newBase) {
+    await updateBudget(uid, budget.id, { monthlyLimit: newBase });
+  }
+  const templates = await listAll(fixedTemplatesCol(uid));
+  const backed = templates.filter(
+    (t) => !t.archived && (t.budgetBacked ?? false) && t.categoryId === categoryId,
+  );
   await Promise.all(
-    linked
-      .filter((m) => m.budgetedAmount !== amount)
-      .map((m) => syncMonthlyAmount(uid, m.templateId, month, amount)),
+    backed.map(async (t) => {
+      if (t.budgetedAmount !== newBase) {
+        await updateFixedTemplate(uid, t.id, { budgetedAmount: newBase });
+      }
+      await setBudgetBackedBaseAmount(uid, t.id, newBase);
+    }),
   );
 }
