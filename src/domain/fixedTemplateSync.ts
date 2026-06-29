@@ -16,9 +16,7 @@ export interface FixedSyncOptions {
 }
 
 function isUsable(template: FixedObligationTemplate): boolean {
-  // Las plantillas respaldadas ya no generan fijos (Opción C, §5.9): viven en su `Budget`. Se
-  // excluyen del diff plantilla→mes para no sugerirlas como "agregar".
-  return template.active && !template.archived && !(template.budgetBacked ?? false);
+  return template.active && !template.archived;
 }
 
 /** Campos del snapshot que difieren entre el fijo del mes y su plantilla. */
@@ -33,10 +31,6 @@ function changedFields(
   if (fixed.categoryId !== template.categoryId) changed.push('categoryId');
   if (fixed.payKind !== template.payKind) changed.push('payKind');
   if (fixed.debtTargetId !== template.debtTargetId) changed.push('debtTargetId');
-  // Coalesce: docs previos a la feature no tienen el campo (undefined); equivale a false.
-  if ((fixed.budgetBacked ?? false) !== (template.budgetBacked ?? false)) {
-    changed.push('budgetBacked');
-  }
   if ((fixed.consumesBudget ?? false) !== (template.consumesBudget ?? false)) {
     changed.push('consumesBudget');
   }
