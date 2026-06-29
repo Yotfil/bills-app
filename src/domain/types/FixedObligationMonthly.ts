@@ -15,11 +15,6 @@ export interface FixedObligationMonthly extends BaseDoc {
   payKind: FixedPayKind;
   debtTargetId: string | null;
   budgetBacked: boolean; // snapshot: fijo respaldado por el presupuesto de su categoría (§5.9)
-  // Override del tope SOLO para ESTE mes en un fijo respaldado (§5.9): el usuario lo ajusta desde
-  // Fijos ("Editar tope") cuando este mes difiere de la base (ej. llegó una cuota extra). null/ausente
-  // = usar la base (`budgetedAmount`). Tope efectivo = `capOverride ?? budgetedAmount` (`fixedCap`).
-  // Es ORTOGONAL a la base: editar la base no lo pisa, y el rollover nace sin él (reset cada mes).
-  capOverride?: number | null;
   // snapshot: fijo que CONSUME de un presupuesto (checklist que descuenta la bolsa; §5.9 ext.). No
   // suma aparte al total de fijos. Opcional: instancias previas a la feature no lo traen (= false).
   consumesBudget?: boolean;
