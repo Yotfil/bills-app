@@ -129,6 +129,7 @@ export async function updateMonthlyFromTemplate(
     // Coalesce: plantillas previas a la feature no tienen el campo (undefined) y Firestore rechaza
     // undefined al escribir; se normaliza a false.
     budgetBacked: template.budgetBacked ?? false,
+    consumesBudget: template.consumesBudget ?? false,
     paymentMethod: template.defaultPaymentMethod,
     updatedAt: serverTimestamp(),
   });
@@ -200,6 +201,7 @@ type MonthlySnapshot = Pick<
   | 'payKind'
   | 'debtTargetId'
   | 'budgetBacked'
+  | 'consumesBudget'
   | 'paymentMethod'
 >;
 

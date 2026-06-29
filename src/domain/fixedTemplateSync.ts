@@ -35,6 +35,9 @@ function changedFields(
   if ((fixed.budgetBacked ?? false) !== (template.budgetBacked ?? false)) {
     changed.push('budgetBacked');
   }
+  if ((fixed.consumesBudget ?? false) !== (template.consumesBudget ?? false)) {
+    changed.push('consumesBudget');
+  }
   if (
     comparePaymentMethod &&
     (fixed.paymentMethod.kind !== template.defaultPaymentMethod.kind ||

@@ -9,6 +9,25 @@ export function isBudgetBacked(item: { budgetBacked: boolean }): boolean {
   return item.budgetBacked;
 }
 
+/**
+ * `true` si el fijo CONSUME de un presupuesto (es un ítem del checklist de una bolsa, §5.9 ext.):
+ * descuenta la bolsa de su categoría al pagarse y NO suma aparte a los totales de fijos.
+ */
+export function isBudgetItem(item: { consumesBudget?: boolean }): boolean {
+  return item.consumesBudget === true;
+}
+
+/**
+ * Los ítems del checklist que cuelgan del presupuesto de una categoría en el mes: los fijos que
+ * CONSUMEN de esa bolsa (no el respaldado, que ES la bolsa). `monthlies` = fijos de un solo mes.
+ */
+export function linkedBudgetItems(
+  categoryId: string,
+  monthlies: FixedObligationMonthly[],
+): FixedObligationMonthly[] {
+  return monthlies.filter((m) => isBudgetItem(m) && !m.budgetBacked && m.categoryId === categoryId);
+}
+
 /** El presupuesto ACTIVO de una categoría, o null si no hay (la liga es 1:1 por categoría). */
 export function budgetForCategory(categoryId: string, budgets: Budget[]): Budget | null {
   return budgets.find((b) => !b.archived && b.active && b.categoryId === categoryId) ?? null;

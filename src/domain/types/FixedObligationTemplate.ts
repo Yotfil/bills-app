@@ -15,6 +15,11 @@ export interface FixedObligationTemplate extends BaseDoc, Archivable {
   // el presupuesto de su categoría llega a 0. Su valor va en espejo con el tope del presupuesto.
   // Solo aplica a payKind 'expense' y a categorías que YA tienen presupuesto.
   budgetBacked: boolean;
+  // Fijo que CONSUME de un presupuesto (caso "bolsa", §5.9 ext.): es un gasto normal de la categoría
+  // de un presupuesto, pero como CHECKLIST que descuenta esa bolsa. NO suma aparte al total de fijos
+  // (la cuota/presupuesto ya lo representa). Distinto de `budgetBacked` (ese fijo ES la bolsa); son
+  // mutuamente excluyentes. Opcional: las plantillas previas no lo traen (se lee como false).
+  consumesBudget?: boolean;
   active: boolean; // si entra en el rollover mensual
   sortOrder: number;
   // Metadato del módulo de Suscripciones (§15): solo es relevante para fijos de la categoría

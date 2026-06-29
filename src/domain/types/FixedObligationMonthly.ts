@@ -15,6 +15,9 @@ export interface FixedObligationMonthly extends BaseDoc {
   payKind: FixedPayKind;
   debtTargetId: string | null;
   budgetBacked: boolean; // snapshot: fijo respaldado por el presupuesto de su categoría (§5.9)
+  // snapshot: fijo que CONSUME de un presupuesto (checklist que descuenta la bolsa; §5.9 ext.). No
+  // suma aparte al total de fijos. Opcional: instancias previas a la feature no lo traen (= false).
+  consumesBudget?: boolean;
   paymentMethod: EntityRef; // medio asignado este mes (editable)
   status: FixedStatus;
   // Monto REALMENTE pagado (§5.3): puede diferir del presupuestado (ej. Apple cobró 16.900

@@ -19,6 +19,7 @@ const FIELD_LABEL: Record<FixedChangedField, string> = {
   payKind: 'Tipo',
   debtTargetId: 'Deuda destino',
   budgetBacked: 'Respaldo de presupuesto',
+  consumesBudget: 'Consume de un presupuesto',
   paymentMethod: 'Medio de pago',
 };
 
@@ -81,6 +82,8 @@ export function FixedSyncModal({
         return debtName(source.debtTargetId);
       case 'budgetBacked':
         return source.budgetBacked ? 'Sí' : 'No';
+      case 'consumesBudget':
+        return source.consumesBudget ? 'Sí' : 'No';
       case 'paymentMethod': {
         const ref = 'paymentMethod' in source ? source.paymentMethod : source.defaultPaymentMethod;
         return `${ref.kind === 'card' ? 'TC ' : ''}${ref.id}`;
