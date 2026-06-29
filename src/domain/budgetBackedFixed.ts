@@ -43,6 +43,18 @@ export function budgetForCategory(categoryId: string, budgets: Budget[]): Budget
 }
 
 /**
+ * Tope EFECTIVO de un presupuesto NORMAL para un mes (§5.9): el override de ese mes si existe, o la
+ * base (`monthlyLimit`). Análogo a `fixedCap` para respaldados; permite editar un mes sin afectar la
+ * base ni los demás meses.
+ */
+export function budgetCapForMonth(
+  budget: { monthlyOverrides?: Record<string, number>; monthlyLimit: number },
+  month: string,
+): number {
+  return budget.monthlyOverrides?.[month] ?? budget.monthlyLimit;
+}
+
+/**
  * El fijo respaldado de una categoría en el mes dado, o null. El tope POR MES vive en este fijo
  * (`budgetedAmount` = M), así que es la fuente de verdad del tope de esa categoría ese mes (§5.9):
  * la tarjeta del presupuesto lee de aquí para el mes en curso. `monthlies` = fijos de un solo mes.
