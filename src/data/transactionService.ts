@@ -33,7 +33,8 @@ import {
   type LedgerDelta,
 } from '../domain/ledger';
 import { listAll } from './crud';
-import type { TransactionDraft } from '../domain/types';
+import { applyBudgetBoosts } from './budgetBoostService';
+import type { BudgetBoost, TransactionDraft } from '../domain/types';
 import type { RecalculationCorrections } from './RecalculationCorrections';
 
 export type { RecalculationCorrections } from './RecalculationCorrections';
@@ -90,6 +91,10 @@ export async function createTransaction(uid: string, draft: TransactionDraft): P
     applyDeltaToCaches(tx, uid, delta);
   });
 
+  // Aumentos de presupuesto ligados al ingreso (§5.9): suben el tope del mes elegido. Paso aparte
+  // del runTransaction (no afectan saldos); si fallara, el ingreso queda sin aumento y se reaplica.
+  await applyBudgetBoosts(uid, draft.budgetBoosts, 1);
+
   return newRef.id;
 }
 
@@ -105,18 +110,27 @@ export async function editTransaction(
   assertValidTransaction(newDraft);
   const ref = doc(transactionsCol(uid), id);
 
+  let oldBoosts: BudgetBoost[] | undefined;
   await runTransaction(requireDb(), async (tx) => {
     const snap = await tx.get(ref); // lectura ANTES de cualquier escritura
     if (!snap.exists()) throw new Error('La transacción a editar no existe.');
     const oldTxn = snap.data();
+    oldBoosts = oldTxn.budgetBoosts;
 
     const delta = editTransactionDelta(oldTxn, newDraft);
     tx.update(rawDoc(transactionsCol(uid), id), {
       ...newDraft,
+      // Siempre refleja los boosts del nuevo draft (vacío si el tipo dejó de ser ingreso): así no
+      // queda un `budgetBoosts` viejo que se revertiría doble al borrar luego el movimiento.
+      budgetBoosts: newDraft.budgetBoosts ?? [],
       updatedAt: serverTimestamp(),
     });
     applyDeltaToCaches(tx, uid, delta);
   });
+
+  // Aumentos de presupuesto ligados (§5.9): revierte los viejos y aplica los nuevos.
+  await applyBudgetBoosts(uid, oldBoosts, -1);
+  await applyBudgetBoosts(uid, newDraft.budgetBoosts, 1);
 }
 
 /**
@@ -129,10 +143,12 @@ export async function editTransaction(
 export async function deleteTransaction(uid: string, id: string): Promise<void> {
   const ref = doc(transactionsCol(uid), id);
 
+  let oldBoosts: BudgetBoost[] | undefined;
   await runTransaction(requireDb(), async (tx) => {
     const snap = await tx.get(ref);
     if (!snap.exists()) return; // ya no existe: nada que revertir
     const data = snap.data();
+    oldBoosts = data.budgetBoosts;
 
     // Todas las LECTURAS antes de cualquier escritura (regla de runTransaction).
     let fixedRef: DocumentReference | null = null;
@@ -155,6 +171,9 @@ export async function deleteTransaction(uid: string, id: string): Promise<void> 
       });
     }
   });
+
+  // Revierte los aumentos de presupuesto que este ingreso había aplicado (§5.9).
+  await applyBudgetBoosts(uid, oldBoosts, -1);
 }
 
 /**

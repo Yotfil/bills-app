@@ -3,6 +3,7 @@
 import {
   deleteField,
   doc,
+  getDoc,
   serverTimestamp,
   updateDoc,
   type DocumentReference,
@@ -39,6 +40,12 @@ export const subscribeBudgets = (uid: string, onChange: (items: Budget[]) => voi
 
 export const createBudget = (uid: string, input: NewBudget) =>
   create(budgetsCol(uid), buildBudgetCreateInput(input));
+
+/** Lee un presupuesto puntual (o null). Útil para orquestaciones (p.ej. aumentos ligados a ingresos). */
+export async function getBudget(uid: string, id: string): Promise<Budget | null> {
+  const snap = await getDoc(doc(budgetsCol(uid), id));
+  return snap.exists() ? snap.data() : null;
+}
 
 export const updateBudget = (uid: string, id: string, data: UpdateInput<Budget>) =>
   update(budgetsCol(uid), id, data);
