@@ -27,10 +27,6 @@ describe('isAutoPayDue', () => {
     expect(isAutoPayDue(f, 10)).toBe(false);
   });
 
-  it('no vence para un respaldado (no se paga con movimiento)', () => {
-    expect(isAutoPayDue(makeFixed({ autoPayDay: 5, budgetBacked: true }), 10)).toBe(false);
-  });
-
   it('en meses cortos, el día 31 se dispara el último día del mes', () => {
     const f = makeFixed({ autoPayDay: 31, status: 'pending' });
     expect(isAutoPayDue(f, 28, 28)).toBe(true); // 28 de febrero (último día) → vence

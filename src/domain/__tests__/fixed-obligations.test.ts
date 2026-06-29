@@ -25,17 +25,6 @@ describe('Obligaciones fijas: transiciones de estado', () => {
       expect(disponibleReal(accounts, [fixedAllocated])).toBe(770_000);
     });
 
-    it('un respaldado con estado allocated colgado NO reserva (no se destina, §5.9)', () => {
-      // Caso atípico: un fijo se destinó y luego se convirtió en presupuesto respaldado; quedó con
-      // 'allocated' viejo. No debe reservar (un respaldado no tiene flujo de destinar).
-      const ghost = makeFixed({
-        status: 'allocated',
-        budgetBacked: true,
-        budgetedAmount: 650_000,
-        paymentMethod: accountRef('acc-1'),
-      });
-      expect(accountReserved([ghost], 'acc-1')).toBe(0);
-    });
   });
 
   describe('allocated → paid (pagar lo destinado)', () => {

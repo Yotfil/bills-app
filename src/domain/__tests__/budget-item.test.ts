@@ -1,16 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import {
-  budgetBackedAmount,
-  effectiveFixedStatus,
-  isBudgetItem,
-  linkedBudgetItems,
-} from '../budgetBackedFixed';
+import { isBudgetItem, linkedBudgetItems } from '../budgetBackedFixed';
 import { fixedTotals, buildTransactionFromFixed } from '../fixed';
 import { accountRef, makeFixed, STUB_TS } from './fixtures';
 import type { FixedObligationMonthly } from '../types';
 
 // Fijos que CONSUMEN de un presupuesto (§5.9 ext.): ítems del checklist de una bolsa. No suman
-// aparte a los totales; cuelgan de su presupuesto respaldado.
+// aparte a los totales; cuelgan del presupuesto de checklist de su categoría.
 const MAMA = 'cat-mama';
 
 describe('isBudgetItem', () => {
@@ -22,21 +17,19 @@ describe('isBudgetItem', () => {
 });
 
 describe('linkedBudgetItems', () => {
-  const cuota = makeFixed({ id: 'env', budgetBacked: true, categoryId: MAMA, budgetedAmount: 650_000 });
   const agua = makeFixed({ id: 'agua', consumesBudget: true, categoryId: MAMA, budgetedAmount: 30_000 });
   const luz = makeFixed({ id: 'luz', consumesBudget: true, categoryId: MAMA, budgetedAmount: 60_000 });
   const otro = makeFixed({ id: 'otro', consumesBudget: true, categoryId: 'cat-ocio' });
   const normal = makeFixed({ id: 'n', categoryId: MAMA });
-  const fijos = [cuota, agua, luz, otro, normal];
+  const fijos = [agua, luz, otro, normal];
 
   it('devuelve los ítems que consumen el presupuesto de esa categoría', () => {
     const items = linkedBudgetItems(MAMA, fijos);
     expect(items.map((i) => i.id).sort()).toEqual(['agua', 'luz']);
   });
 
-  it('excluye el respaldado (que ES la bolsa), los de otra categoría y los normales', () => {
+  it('excluye los de otra categoría y los fijos normales (no consumen presupuesto)', () => {
     const items = linkedBudgetItems(MAMA, fijos);
-    expect(items.find((i) => i.id === 'env')).toBeUndefined();
     expect(items.find((i) => i.id === 'otro')).toBeUndefined();
     expect(items.find((i) => i.id === 'n')).toBeUndefined();
   });
@@ -46,36 +39,22 @@ describe('linkedBudgetItems', () => {
   });
 });
 
-describe('totales: los ítems ligados NO se suman aparte', () => {
-  // Réplica de la exclusión que hace FijosScreen: un ítem que consume una bolsa existente no entra
-  // a los totales (la cuota/presupuesto ya lo representa, evita duplicar).
-  const cuota = makeFixed({ id: 'env', budgetBacked: true, categoryId: MAMA, budgetedAmount: 650_000, status: 'pending' });
+describe('totales: los ítems anidados (consumen una bolsa) NO se suman aparte', () => {
+  // Réplica de la exclusión que hace FijosScreen: un ítem que consume el presupuesto de una categoría
+  // de checklist no entra a los totales de Gastos (la bolsa/presupuesto ya lo representa).
+  const cuota = makeFixed({ id: 'env', categoryId: MAMA, budgetedAmount: 650_000, status: 'pending' });
   const agua = makeFixed({ id: 'agua', consumesBudget: true, categoryId: MAMA, budgetedAmount: 30_000, status: 'pending' });
   const fijos = [cuota, agua];
 
-  const envelopeCategoryIds = new Set(fijos.filter((f) => f.budgetBacked).map((f) => f.categoryId));
+  // Las categorías con presupuesto de checklist vienen de los Budgets (aquí, simulado).
+  const checklistCategoryIds = new Set([MAMA]);
   const isNested = (f: FixedObligationMonthly) =>
-    isBudgetItem(f) && !f.budgetBacked && envelopeCategoryIds.has(f.categoryId);
+    isBudgetItem(f) && checklistCategoryIds.has(f.categoryId);
 
-  it('el total cuenta el presupuesto (650k) una vez y excluye el servicio ligado', () => {
+  it('el total cuenta la cuota (650k) y excluye el servicio anidado', () => {
     const totals = fixedTotals(fijos.filter((f) => !isNested(f)));
     expect(totals.pendingAmount).toBe(650_000); // 650k, NO 680k
     expect(totals.counts.total).toBe(1);
-  });
-});
-
-describe('presupuesto respaldado: "ya estaba pagado (sin movimiento)"', () => {
-  it('marcado pagado a mano (status paid) cuenta como pagado aunque el consumo sea 0', () => {
-    const fixed = makeFixed({ budgetBacked: true, budgetedAmount: 650_000, status: 'paid', categoryId: MAMA });
-    expect(effectiveFixedStatus(fixed, () => false)).toBe('paid'); // no lleno por consumo, pero pagado
-    expect(budgetBackedAmount(fixed, 0, 650_000)).toBe(650_000); // aporta el tope a "Pagado", no el consumo (0)
-  });
-
-  it('sin marca manual, el estado se deriva del consumo', () => {
-    const fixed = makeFixed({ budgetBacked: true, budgetedAmount: 650_000, status: 'pending', categoryId: MAMA });
-    expect(effectiveFixedStatus(fixed, () => false)).toBe('pending');
-    expect(effectiveFixedStatus(fixed, () => true)).toBe('paid');
-    expect(budgetBackedAmount(fixed, 0, 650_000)).toBe(650_000); // en curso aporta su tope a "Por destinar"
   });
 });
 

@@ -20,7 +20,6 @@ function makeTemplate(partial: Partial<FixedObligationTemplate> = {}): FixedObli
     defaultPaymentMethod: accountRef('acc-1'),
     payKind: 'expense',
     debtTargetId: null,
-    budgetBacked: false,
     active: true,
     sortOrder: 0,
     ...partial,
