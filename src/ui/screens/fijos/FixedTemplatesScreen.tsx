@@ -70,8 +70,11 @@ export function FixedTemplatesScreen() {
     return a.name.localeCompare(b.name);
   });
 
-  // Total de lo que suman las obligaciones visibles (respeta el buscador).
-  const visibleTotal = active.reduce((sum, t) => sum + t.budgetedAmount, 0);
+  // Total de lo que suman las obligaciones visibles (respeta el buscador). Los fijos que CONSUMEN de
+  // un presupuesto (§5.9 ext.) NO se suman: su monto ya está dentro de la bolsa de su categoría,
+  // contarlos aparte duplicaría. Siguen apareciendo en la lista, solo no en el total.
+  const summable = active.filter((t) => !(t.consumesBudget ?? false));
+  const visibleTotal = summable.reduce((sum, t) => sum + t.budgetedAmount, 0);
 
   // La selección se cuenta solo sobre lo VISIBLE (respeta el filtro de búsqueda): así
   // "seleccionar todas" y el conteo no incluyen ítems ocultos por el buscador.
@@ -144,7 +147,7 @@ export function FixedTemplatesScreen() {
         <div className="flex items-center justify-between gap-3 rounded-xl bg-white px-4 py-3 shadow-sm">
           <div className="min-w-0">
             <p className="text-xs text-slate-400">
-              Total · {active.length} {active.length === 1 ? 'fijo' : 'fijos'}
+              Total · {summable.length} {summable.length === 1 ? 'fijo' : 'fijos'}
             </p>
             <p className="text-lg font-bold text-slate-800">{formatCop(visibleTotal)}</p>
           </div>
@@ -199,6 +202,7 @@ export function FixedTemplatesScreen() {
                 {template.payKind === 'debt_payment'
                   ? 'Abono a deuda'
                   : (categoryName(template.categoryId) ?? 'Gasto')}
+                {template.consumesBudget ? ' · en presupuesto' : ''}
               </p>
             </div>
             <ActionMenu
@@ -226,6 +230,7 @@ export function FixedTemplatesScreen() {
         loans={loans}
         categories={categories}
         budgets={budgets}
+        templates={templates}
         onClose={() => setCreating(false)}
       />
       <FixedTemplateForm
@@ -237,6 +242,7 @@ export function FixedTemplatesScreen() {
         loans={loans}
         categories={categories}
         budgets={budgets}
+        templates={templates}
         onClose={() => setEditing(null)}
       />
       <ConfirmDeleteModal

@@ -3,6 +3,7 @@ import { useUserCollection } from '../hooks/useUserCollection';
 import { useSessionStore } from '../../store/sessionStore';
 import { AccountForm } from './AccountForm';
 import { ReconcileModal } from './ReconcileModal';
+import { ReservedBreakdownModal } from './ReservedBreakdownModal';
 import { BackButton } from '../components/BackButton';
 import { Pencil, Scale, Archive, Trash2 } from 'lucide-react';
 import { ActionMenu } from '../components/ActionMenu';
@@ -11,7 +12,7 @@ import { formatCop, formatCopPlain } from '../../lib/currency';
 import { accountAvailable, accountReserved } from '../../domain/derived';
 import { entityHasMovements } from '../../domain/entityUsage';
 import { archiveAccount, deleteAccount, subscribeAccounts } from '../../data/accountRepository';
-import { subscribeAllocatedFixeds } from '../../data/fixedMonthlyRepository';
+import { markFixedPending, subscribeAllocatedFixeds } from '../../data/fixedMonthlyRepository';
 import { subscribeTransactions } from '../../data/transactionRepository';
 import { reconcileAccount } from '../../data/reconciliationService';
 import type { AccountsScreenProps } from './AccountsScreenProps';
@@ -37,6 +38,7 @@ export function AccountsScreen({ savingsBucket = false }: AccountsScreenProps) {
   const { items: transactions } = useUserCollection<Transaction>(subscribeTransactions);
   const [editing, setEditing] = useState<Account | null>(null);
   const [reconciling, setReconciling] = useState<Account | null>(null);
+  const [reservedFor, setReservedFor] = useState<Account | null>(null);
   const [deleting, setDeleting] = useState<Account | null>(null);
   const [creating, setCreating] = useState(false);
 
@@ -148,7 +150,20 @@ export function AccountsScreen({ savingsBucket = false }: AccountsScreenProps) {
                 </div>
                 <div>
                   <dt className="text-xs text-slate-400">Reservado</dt>
-                  <dd className="text-sm font-medium text-amber-600">{formatCop(reserved)}</dd>
+                  {/* Si hay reservado, se puede tocar para ver QUÉ fijos lo apartan y deshacerlos. */}
+                  {reserved > 0 ? (
+                    <dd>
+                      <button
+                        type="button"
+                        onClick={() => setReservedFor(account)}
+                        className="text-sm font-medium text-amber-600 underline"
+                      >
+                        {formatCop(reserved)}
+                      </button>
+                    </dd>
+                  ) : (
+                    <dd className="text-sm font-medium text-amber-600">{formatCop(reserved)}</dd>
+                  )}
                 </div>
                 <div>
                   <dt className="text-xs text-slate-400">Disponible</dt>
@@ -176,6 +191,22 @@ export function AccountsScreen({ savingsBucket = false }: AccountsScreenProps) {
         open={!!reconciling}
         target={reconcileTarget}
         onClose={() => setReconciling(null)}
+      />
+      <ReservedBreakdownModal
+        open={!!reservedFor}
+        accountName={reservedFor?.name ?? ''}
+        items={
+          reservedFor
+            ? allocatedFixeds.filter(
+                (f) =>
+                  !f.budgetBacked &&
+                  f.paymentMethod.kind === 'account' &&
+                  f.paymentMethod.id === reservedFor.id,
+              )
+            : []
+        }
+        onUndestine={(fixed) => uid && markFixedPending(uid, fixed.id)}
+        onClose={() => setReservedFor(null)}
       />
       <ConfirmDeleteModal
         open={!!deleting}

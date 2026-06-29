@@ -9,6 +9,7 @@ export type FixedChangedField =
   | 'payKind'
   | 'debtTargetId'
   | 'budgetBacked'
+  | 'consumesBudget'
   | 'paymentMethod';
 
 /** Un fijo del mes cuyo snapshot difiere de su plantilla actual, con los campos que cambiaron. */

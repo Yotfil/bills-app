@@ -7,7 +7,7 @@ import { BudgetHistoryRow } from './BudgetHistoryRow';
 import { budgetStatus } from '../../../domain/reports';
 import { linkedBudgetBackedFixed } from '../../../domain/budgetBackedFixed';
 import { formatCop } from '../../../lib/currency';
-import { addMonths, currentMonthKey, monthKey } from '../../../lib/date';
+import { addMonths, currentMonthKey, transactionPeriodMonth } from '../../../lib/date';
 import { subscribeBudgets } from '../../../data/budgetRepository';
 import { subscribeCategories } from '../../../data/categoryRepository';
 import { subscribeTransactions } from '../../../data/transactionRepository';
@@ -26,8 +26,9 @@ export function BudgetHistoryScreen() {
   const { items: monthlyFixeds } = useFixedMonthly(month);
 
   const active = budgets.filter((b) => !b.archived && b.active);
+  // Consumo por MES CONTABLE (periodMonth): un fijo pagado por adelantado pertenece a su mes (§5.9).
   const monthTxns = useMemo(
-    () => transactions.filter((t) => monthKey(t.date) === month),
+    () => transactions.filter((t) => transactionPeriodMonth(t) === month),
     [transactions, month],
   );
   const categoryName = (id: string) => categories.find((c) => c.id === id)?.name ?? 'Categoría';

@@ -27,6 +27,16 @@ export function dayKey(ts: Timestamp): string {
   return toDateInputValue(ts);
 }
 
+/** Hora local 'HH:MM' (24h), p.ej. a qué hora se registró un movimiento (§8.2). '' si no hay dato. */
+export function formatTime(ts: Timestamp | null): string {
+  if (!ts) return '';
+  return ts.toDate().toLocaleTimeString('es-CO', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
+}
+
 /** Etiqueta amigable del día: "Hoy", "Ayer" o "D de mes". */
 export function formatDayLabel(ts: Timestamp): string {
   const key = dayKey(ts);
@@ -45,6 +55,15 @@ export function monthKey(ts: Timestamp): string {
 /** Mes actual como 'YYYY-MM' (periodo por defecto del dashboard, §8.1). */
 export function currentMonthKey(): string {
   return monthKey(nowTimestamp());
+}
+
+/**
+ * Mes contable 'YYYY-MM' de un movimiento PARA PRESUPUESTOS (§5.9): su `periodMonth` si lo tiene
+ * (p.ej. un fijo pagado por adelantado pertenece a SU mes, no al de la fecha de pago), o el mes de su
+ * fecha. La caja/Registro siempre usa la fecha real; solo los presupuestos usan este mes contable.
+ */
+export function transactionPeriodMonth(txn: { periodMonth: string | null; date: Timestamp }): string {
+  return txn.periodMonth ?? monthKey(txn.date);
 }
 
 /** Fecha local de hoy como 'YYYY-MM-DD' (p.ej. para la caché diaria de la tasa, §5.11). */

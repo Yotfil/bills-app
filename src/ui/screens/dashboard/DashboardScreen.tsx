@@ -13,7 +13,7 @@ import { fixedTotals } from '../../../domain/fixed';
 import { budgetStatus, spendByCategory } from '../../../domain/reports';
 import { exceededBudgetBacked, nearLimitBudgetBacked } from '../../../domain/budgetBackedFixed';
 import { monthlySummary } from '../../../domain/summary';
-import { addMonths, currentMonthKey, monthKey } from '../../../lib/date';
+import { addMonths, currentMonthKey, monthKey, transactionPeriodMonth } from '../../../lib/date';
 import { NEAR_LIMIT_RATIO } from '../../../lib/progress';
 import { MonthSelector } from '../../components/MonthSelector';
 import { HeroBalance } from './HeroBalance';
@@ -70,8 +70,15 @@ export function DashboardScreen() {
   const { items: selectedFixeds } = useFixedMonthly(month);
   const ft = fixedTotals(selectedFixeds);
 
+  // Caja del mes (resumen y dona): por FECHA real del movimiento (cuándo entró/salió la plata).
   const monthTxns = useMemo(
     () => transactions.filter((t) => monthKey(t.date) === month),
+    [transactions, month],
+  );
+  // Presupuestos del mes: por MES CONTABLE (periodMonth), así un fijo pagado por adelantado consume
+  // el presupuesto de su mes, no el de la fecha de pago (§5.9). Distinto del de caja a propósito.
+  const budgetMonthTxns = useMemo(
+    () => transactions.filter((t) => transactionPeriodMonth(t) === month),
     [transactions, month],
   );
   const summary = useMemo(() => monthlySummary(monthTxns), [monthTxns]);
@@ -88,27 +95,27 @@ export function DashboardScreen() {
     () =>
       exceededBudgetBacked(
         selectedFixeds,
-        (categoryId) => budgetStatus(monthTxns, categoryId, 0).consumed,
+        (categoryId) => budgetStatus(budgetMonthTxns, categoryId, 0).consumed,
       ).map((e) => ({
         id: e.fixed.id,
         categoryName: categoryById.get(e.fixed.categoryId)?.name ?? 'Categoría',
         overspend: e.overspend,
       })),
-    [selectedFixeds, monthTxns, categoryById],
+    [selectedFixeds, budgetMonthTxns, categoryById],
   );
   // Topes muy cerca de excederse (sin pasarse aún): alerta preventiva (naranja).
   const nearLimitItems = useMemo(
     () =>
       nearLimitBudgetBacked(
         selectedFixeds,
-        (categoryId) => budgetStatus(monthTxns, categoryId, 0).consumed,
+        (categoryId) => budgetStatus(budgetMonthTxns, categoryId, 0).consumed,
         NEAR_LIMIT_RATIO,
       ).map((n) => ({
         id: n.fixed.id,
         categoryName: categoryById.get(n.fixed.categoryId)?.name ?? 'Categoría',
         remaining: n.remaining,
       })),
-    [selectedFixeds, monthTxns, categoryById],
+    [selectedFixeds, budgetMonthTxns, categoryById],
   );
 
   const slices = useMemo(() => {

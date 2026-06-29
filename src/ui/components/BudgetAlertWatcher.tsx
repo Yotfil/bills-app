@@ -12,7 +12,7 @@ import { budgetAlertLevel, budgetAlertRank } from '../../domain/budgetAlert';
 import { linkedBudgetBackedFixed } from '../../domain/budgetBackedFixed';
 import { formatCop } from '../../lib/currency';
 import { NEAR_LIMIT_RATIO } from '../../lib/progress';
-import { currentMonthKey, monthKey } from '../../lib/date';
+import { currentMonthKey, transactionPeriodMonth } from '../../lib/date';
 import type { AcknowledgedLevel } from '../../store/BudgetAlertState';
 import type { Budget, Category, Transaction } from '../../domain/types';
 
@@ -38,7 +38,8 @@ export function BudgetAlertWatcher() {
   const acknowledged = useBudgetAlertStore((s) => s.acknowledged);
   const acknowledge = useBudgetAlertStore((s) => s.acknowledge);
 
-  const monthTxns = transactions.filter((t) => monthKey(t.date) === month);
+  // Consumo por MES CONTABLE (periodMonth), igual que el resto de presupuestos (§5.9).
+  const monthTxns = transactions.filter((t) => transactionPeriodMonth(t) === month);
   const categoryName = (id: string) => categories.find((c) => c.id === id)?.name ?? 'Categoría';
 
   const pending: PendingAlert[] = [];
