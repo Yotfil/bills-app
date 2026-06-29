@@ -21,8 +21,8 @@ import { EditCapModal } from './EditCapModal';
 import { fixedTotals } from '../../../domain/fixed';
 import { budgetStatus } from '../../../domain/reports';
 import {
+  budgetBackedAmount,
   budgetBackedFilled,
-  budgetBackedTotalAmount,
   effectiveFixedStatus,
   isBudgetItem,
   linkedBudgetItems,
@@ -132,7 +132,7 @@ export function FijosScreen() {
   // (Pagado incluye el sobrepaso, §5.9); en curso aporta su tope; el resto, su pagado/presupuestado.
   const amountOf = (f: FixedObligationMonthly): number =>
     f.budgetBacked
-      ? budgetBackedTotalAmount(consumedForCategory(f.categoryId), f.budgetedAmount)
+      ? budgetBackedAmount(f, consumedForCategory(f.categoryId))
       : (f.paidAmount ?? f.budgetedAmount);
 
   // Fijos que CONSUMEN de un presupuesto (§5.9 ext.): son ítems del checklist de una bolsa y se

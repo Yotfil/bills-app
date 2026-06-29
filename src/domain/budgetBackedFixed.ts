@@ -125,5 +125,19 @@ export function effectiveFixedStatus(
   filledByCategory: (categoryId: string) => boolean,
 ): FixedStatus {
   if (!fixed.budgetBacked) return fixed.status;
+  // "Ya estaba pagado (sin movimiento)": un respaldado puede marcarse pagado a mano (status guardado
+  // 'paid') aunque su gasto no alcance el tope — útil para meses que ya estaban saldados al empezar a
+  // usar la app. Ese override manda sobre el cálculo por consumo.
+  if (fixed.status === 'paid') return 'paid';
   return filledByCategory(fixed.categoryId) ? 'paid' : 'pending';
+}
+
+/**
+ * Monto que aporta un respaldado a los totales contemplando el "pagado manual": si se marcó pagado
+ * sin movimiento (status 'paid') cuenta su TOPE como pagado (no su consumo, que puede ser 0). Si no,
+ * usa la regla normal por consumo (§5.9).
+ */
+export function budgetBackedAmount(fixed: FixedObligationMonthly, consumed: number): number {
+  if (fixed.status === 'paid') return fixed.budgetedAmount;
+  return budgetBackedTotalAmount(consumed, fixed.budgetedAmount);
 }

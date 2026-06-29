@@ -28,12 +28,16 @@ export function FixedRow({
   // marca "Lleno" cuando el gasto de su categoría alcanza el tope.
   if (fixed.budgetBacked) {
     const cap = fixed.budgetedAmount;
-    const filled = budgetBackedFilled(budgetConsumed, cap);
-    const exceeded = budgetConsumed > cap; // gastó MÁS que el tope (§5.9)
+    // "Ya estaba pagado (sin movimiento)": el respaldado se marcó pagado a mano (status 'paid'), sin
+    // gasto que alcance el tope. Cuenta como lleno y manda sobre el cálculo por consumo (§5.9 ext.).
+    const manuallyPaid = fixed.status === 'paid';
+    const filledByConsumption = budgetBackedFilled(budgetConsumed, cap);
+    const filled = manuallyPaid || filledByConsumption;
+    const exceeded = !manuallyPaid && budgetConsumed > cap; // gastó MÁS que el tope (§5.9)
     const overspend = budgetConsumed - cap;
     const ratio = cap > 0 ? budgetConsumed / cap : 0;
-    const pct = Math.min(100, Math.round(ratio * 100));
-    const barColor = progressBarColor(ratio);
+    const pct = manuallyPaid ? 100 : Math.min(100, Math.round(ratio * 100));
+    const barColor = manuallyPaid ? 'bg-emerald-500' : progressBarColor(ratio);
 
     const chip = exceeded
       ? { label: 'Excedido', className: 'bg-red-100 text-red-700' }
@@ -73,9 +77,11 @@ export function FixedRow({
         </div>
         <div className="mt-2 flex items-center justify-between text-xs">
           <span className={exceeded ? 'font-medium text-red-600' : 'text-slate-500'}>
-            {exceeded
-              ? `Te excediste ${formatCop(overspend)}`
-              : `${formatCop(budgetConsumed)} de ${formatCop(cap)}`}
+            {manuallyPaid
+              ? 'Pagado (sin movimiento)'
+              : exceeded
+                ? `Te excediste ${formatCop(overspend)}`
+                : `${formatCop(budgetConsumed)} de ${formatCop(cap)}`}
           </span>
           {onEditCap && (
             <button type="button" onClick={onEditCap} className="text-slate-400 underline">
@@ -83,6 +89,27 @@ export function FixedRow({
             </button>
           )}
         </div>
+
+        {/* "Ya estaba pagado (sin movimiento)" para el presupuesto: solo cuando NO está lleno por gasto
+            ni marcado a mano. Útil para meses ya saldados al empezar a usar la app. */}
+        {!manuallyPaid && !filledByConsumption && onMarkPaid && (
+          <button
+            type="button"
+            onClick={onMarkPaid}
+            className="mt-2 w-full text-center text-xs text-slate-400 underline"
+          >
+            Ya estaba pagado (sin movimiento)
+          </button>
+        )}
+        {manuallyPaid && onRevert && (
+          <button
+            type="button"
+            onClick={onRevert}
+            className="mt-2 w-full text-center text-xs text-slate-400 underline"
+          >
+            Deshacer
+          </button>
+        )}
       </li>
     );
   }

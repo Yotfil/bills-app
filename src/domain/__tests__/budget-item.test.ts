@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { isBudgetItem, linkedBudgetItems } from '../budgetBackedFixed';
+import {
+  budgetBackedAmount,
+  effectiveFixedStatus,
+  isBudgetItem,
+  linkedBudgetItems,
+} from '../budgetBackedFixed';
 import { fixedTotals, buildTransactionFromFixed } from '../fixed';
 import { accountRef, makeFixed, STUB_TS } from './fixtures';
 import type { FixedObligationMonthly } from '../types';
@@ -56,6 +61,21 @@ describe('totales: los ítems ligados NO se suman aparte', () => {
     const totals = fixedTotals(fijos.filter((f) => !isNested(f)));
     expect(totals.pendingAmount).toBe(650_000); // 650k, NO 680k
     expect(totals.counts.total).toBe(1);
+  });
+});
+
+describe('presupuesto respaldado: "ya estaba pagado (sin movimiento)"', () => {
+  it('marcado pagado a mano (status paid) cuenta como pagado aunque el consumo sea 0', () => {
+    const fixed = makeFixed({ budgetBacked: true, budgetedAmount: 650_000, status: 'paid', categoryId: MAMA });
+    expect(effectiveFixedStatus(fixed, () => false)).toBe('paid'); // no lleno por consumo, pero pagado
+    expect(budgetBackedAmount(fixed, 0)).toBe(650_000); // aporta el tope a "Pagado", no el consumo (0)
+  });
+
+  it('sin marca manual, el estado se deriva del consumo', () => {
+    const fixed = makeFixed({ budgetBacked: true, budgetedAmount: 650_000, status: 'pending', categoryId: MAMA });
+    expect(effectiveFixedStatus(fixed, () => false)).toBe('pending');
+    expect(effectiveFixedStatus(fixed, () => true)).toBe('paid');
+    expect(budgetBackedAmount(fixed, 0)).toBe(650_000); // en curso aporta su tope a "Por destinar"
   });
 });
 
