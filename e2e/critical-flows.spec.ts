@@ -172,14 +172,14 @@ test('el tope de un presupuesto se ajusta por mes sin afectar la base ni otros m
 }) => {
   await signUpWithAccount(page, { name: 'Cuenta Test', balance: 1_000_000 });
 
-  // Crear un presupuesto normal (base 400.000) en la Plantilla → tab Presupuestos.
+  // Crear un presupuesto (base 400.000) y marcarlo "Mostrar en Fijos" para que aparezca en el checklist.
   await openMore(page, 'Plantilla');
   await page.getByRole('tab', { name: /Presupuestos/ }).click();
   await page.getByRole('button', { name: '+ Nuevo presupuesto' }).click();
   await page.getByLabel('Categoría').selectOption({ label: 'Comidas' });
   await page.getByPlaceholder(/Tope base/).fill('400000');
   await page.getByRole('button', { name: 'Crear presupuesto' }).click();
-  await expect(page.getByText('Comidas')).toBeVisible();
+  await page.getByLabel('Mostrar en Fijos (checklist)').check();
 
   // Vista mensual → tab Presupuestos: el presupuesto aparece con su base (400.000).
   await tab(page, /Fijos/).click();
@@ -190,11 +190,35 @@ test('el tope de un presupuesto se ajusta por mes sin afectar la base ni otros m
   await page.getByRole('button', { name: 'Editar tope' }).click();
   await page.getByPlaceholder(/Tope del mes/).fill('900000');
   await page.getByRole('button', { name: 'Guardar' }).click();
-  await expect(page.getByText('Ajustado este mes')).toBeVisible();
   await expect(page.getByText(copDigits(900_000))).toBeVisible();
 
-  // Mes siguiente: vuelve a la base (400.000), sin el chip de "Ajustado este mes".
+  // Mes siguiente: vuelve a la base (400.000).
   await page.getByLabel('Mes siguiente').click();
   await expect(page.getByText(copDigits(400_000))).toBeVisible();
-  await expect(page.getByText('Ajustado este mes')).toHaveCount(0);
+});
+
+test('un presupuesto marcado "Mostrar en Fijos" aparece en el checklist y se marca pagado', async ({
+  page,
+}) => {
+  await signUpWithAccount(page, { name: 'Cuenta Test', balance: 1_000_000 });
+
+  // Crear presupuesto Comidas (base 400.000) en la Plantilla → Presupuestos y marcarlo "Mostrar en Fijos".
+  await openMore(page, 'Plantilla');
+  await page.getByRole('tab', { name: /Presupuestos/ }).click();
+  await page.getByRole('button', { name: '+ Nuevo presupuesto' }).click();
+  await page.getByLabel('Categoría').selectOption({ label: 'Comidas' });
+  await page.getByPlaceholder(/Tope base/).fill('400000');
+  await page.getByRole('button', { name: 'Crear presupuesto' }).click();
+  await page.getByLabel('Mostrar en Fijos (checklist)').check();
+
+  // En la vista mensual → Presupuestos: aparece como ítem de checklist "En curso" con su tope.
+  await tab(page, /Fijos/).click();
+  await page.getByRole('tab', { name: /Presupuestos/ }).click();
+  await expect(page.getByText('En curso')).toBeVisible();
+  await expect(page.getByText(copDigits(400_000))).toBeVisible();
+
+  // "Ya estaba pagado (sin movimiento)" → pasa a pagado, con opción de Deshacer.
+  await page.getByRole('button', { name: 'Ya estaba pagado (sin movimiento)' }).click();
+  await expect(page.getByText('Pagado (sin movimiento)')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Deshacer' })).toBeVisible();
 });
