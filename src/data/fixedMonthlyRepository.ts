@@ -130,6 +130,7 @@ export async function updateMonthlyFromTemplate(
     // undefined al escribir; se normaliza a false.
     budgetBacked: template.budgetBacked ?? false,
     consumesBudget: template.consumesBudget ?? false,
+    autoPayDay: template.autoPayDay ?? null,
     paymentMethod: template.defaultPaymentMethod,
     updatedAt: serverTimestamp(),
   });
@@ -202,6 +203,7 @@ type MonthlySnapshot = Pick<
   | 'debtTargetId'
   | 'budgetBacked'
   | 'consumesBudget'
+  | 'autoPayDay'
   | 'paymentMethod'
 >;
 
@@ -234,6 +236,7 @@ export async function payFixed(
   uid: string,
   fixed: FixedObligationMonthly,
   input: PayFixedInput,
+  opts: { auto?: boolean } = {},
 ): Promise<void> {
   const draft = buildTransactionFromFixed(fixed, {
     amount: input.amount,
@@ -253,6 +256,8 @@ export async function payFixed(
     transactionId,
     paidAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
+    // Auto-registro: marca el mes como ya auto-pagado (guard que persiste tras "Deshacer pago").
+    ...(opts.auto ? { autoPaidAt: serverTimestamp() } : {}),
   });
 }
 
