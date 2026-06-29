@@ -15,7 +15,7 @@ import { create, hardDelete, listAll } from './crud';
 import { createTransaction, deleteTransaction } from './transactionService';
 import { generateMonthlyFixeds } from '../domain/rollover';
 import { buildTransactionFromFixed } from '../domain/fixed';
-import { nowTimestamp } from '../lib/date';
+import { fixedPaymentDate } from '../lib/date';
 import type { PayFixedInput } from './PayFixedInput';
 import type { EntityRef, FixedObligationMonthly, FixedObligationTemplate } from '../domain/types';
 
@@ -237,7 +237,9 @@ export async function payFixed(
 ): Promise<void> {
   const draft = buildTransactionFromFixed(fixed, {
     amount: input.amount,
-    date: nowTimestamp(),
+    // El gasto se fecha en el MES del fijo (§5.9): así un fijo de otro mes consume el presupuesto de
+    // ESE mes y no el del mes en curso (antes se fechaba HOY y caía en el mes equivocado).
+    date: fixedPaymentDate(fixed.month),
     paymentMethod: input.paymentMethod,
     debtTarget: input.debtTarget ?? null,
   });

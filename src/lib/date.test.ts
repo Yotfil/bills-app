@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { addMonths, recentMonthKeys } from './date';
+import { addMonths, currentMonthKey, fixedPaymentDate, monthKey, recentMonthKeys } from './date';
 
 describe('addMonths', () => {
   it('desplaza meses cruzando el cambio de año', () => {
@@ -20,5 +20,20 @@ describe('recentMonthKeys', () => {
 
   it('count=1 es solo el mes final', () => {
     expect(recentMonthKeys(1, '2026-06')).toEqual(['2026-06']);
+  });
+});
+
+describe('fixedPaymentDate', () => {
+  it('un fijo de OTRO mes se fecha dentro de ese mes (no hoy)', () => {
+    // Febrero 2020 nunca es el mes en curso: cae en la rama "otro mes".
+    const ts = fixedPaymentDate('2020-02');
+    expect(monthKey(ts)).toBe('2020-02');
+    // El día se acota al último del mes (feb 2020 tuvo 29 días).
+    expect(ts.toDate().getDate()).toBeLessThanOrEqual(29);
+  });
+
+  it('un fijo del mes en curso se fecha en el mes en curso', () => {
+    const ts = fixedPaymentDate(currentMonthKey());
+    expect(monthKey(ts)).toBe(currentMonthKey());
   });
 });

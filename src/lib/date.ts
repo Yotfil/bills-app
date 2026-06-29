@@ -27,6 +27,16 @@ export function dayKey(ts: Timestamp): string {
   return toDateInputValue(ts);
 }
 
+/** Hora local 'HH:MM' (24h), p.ej. a qué hora se registró un movimiento (§8.2). '' si no hay dato. */
+export function formatTime(ts: Timestamp | null): string {
+  if (!ts) return '';
+  return ts.toDate().toLocaleTimeString('es-CO', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
+}
+
 /** Etiqueta amigable del día: "Hoy", "Ayer" o "D de mes". */
 export function formatDayLabel(ts: Timestamp): string {
   const key = dayKey(ts);
@@ -45,6 +55,22 @@ export function monthKey(ts: Timestamp): string {
 /** Mes actual como 'YYYY-MM' (periodo por defecto del dashboard, §8.1). */
 export function currentMonthKey(): string {
   return monthKey(nowTimestamp());
+}
+
+/**
+ * Fecha del movimiento que genera pagar un fijo. Debe caer en el MES del fijo (§5.9, §5.10) para que
+ * consuma el presupuesto y aparezca en el mes correcto: si el fijo es del mes en curso, es AHORA
+ * (fecha y hora reales); si es de otro mes (p.ej. pagar Julio por adelantado), el mismo día —acotado
+ * al último día de ese mes— a mediodía. Sin esto, pagar un fijo de otro mes lo registraba HOY y
+ * consumía el presupuesto del mes en curso, no el del fijo.
+ */
+export function fixedPaymentDate(month: string): Timestamp {
+  const now = new Date();
+  if (month === currentMonthKey()) return Timestamp.fromDate(now);
+  const [year, m] = month.split('-').map(Number);
+  const lastDay = new Date(year ?? 1970, m ?? 1, 0).getDate(); // día 0 del mes siguiente = último del mes
+  const day = Math.min(now.getDate(), lastDay);
+  return Timestamp.fromDate(new Date(year ?? 1970, (m ?? 1) - 1, day, 12, 0, 0));
 }
 
 /** Fecha local de hoy como 'YYYY-MM-DD' (p.ej. para la caché diaria de la tasa, §5.11). */
