@@ -250,14 +250,24 @@ export function FijosScreen() {
 
   async function handleBulkDelete() {
     if (!uid || selectedFijos.length === 0) return;
+    // Al eliminar una bolsa (fijo respaldado) se eliminan también sus ítems ligados del mes (el
+    // checklist que cuelga de ella): no tiene sentido dejar ítems sin su bolsa. Se deduplica por id.
+    const withItems = new Map<string, FixedObligationMonthly>();
+    for (const f of selectedFijos) {
+      withItems.set(f.id, f);
+      if (f.budgetBacked) {
+        for (const item of linkedBudgetItems(f.categoryId, fijos)) withItems.set(item.id, item);
+      }
+    }
+    const targets = [...withItems.values()];
     if (
       !confirm(
-        `¿Eliminar ${selectedFijos.length} fijo(s) de este mes? Si alguno tenía movimiento, se revertirá (el dinero vuelve a su cuenta). No se puede deshacer.`,
+        `¿Eliminar ${targets.length} fijo(s) de este mes? Si alguno tenía movimiento, se revertirá (el dinero vuelve a su cuenta). No se puede deshacer.`,
       )
     ) {
       return;
     }
-    await Promise.all(selectedFijos.map((f) => deleteFixedMonthly(uid, f)));
+    await Promise.all(targets.map((f) => deleteFixedMonthly(uid, f)));
     clearSelection();
   }
 
@@ -459,6 +469,18 @@ export function FijosScreen() {
             ]}
           />
         </>
+      )}
+
+      {/* En Presupuestos solo "Eliminar" (no se pagan/destinan): borra las bolsas seleccionadas y sus
+          ítems ligados. Útil para limpiar un mes generado por error (§5.9 ext.). */}
+      {tab === 'presupuestos' && (
+        <BulkSelectBar
+          selectedCount={selectedFijos.length}
+          totalCount={sorted.length}
+          allSelected={allVisibleSelected}
+          onToggleAll={toggleAllVisible}
+          actions={[{ label: 'Eliminar', danger: true, onClick: () => void handleBulkDelete() }]}
+        />
       )}
 
       {loading && <p className="text-slate-400">Cargando…</p>}
