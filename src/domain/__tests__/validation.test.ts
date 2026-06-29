@@ -183,4 +183,39 @@ describe('Validación de transacciones (§11)', () => {
       ).toEqual([]);
     });
   });
+
+  describe('budgetBoosts (aumentos ligados, §5.9)', () => {
+    const income = (extra: Record<string, unknown>) =>
+      makeTxn({ type: 'income', source: null, destination: accountRef('a'), ...extra });
+
+    it('acepta un ingreso con boosts válidos', () => {
+      expect(
+        validateTransaction(
+          income({ budgetBoosts: [{ budgetId: 'b1', month: '2026-07', amount: 200_000 }] }),
+        ),
+      ).toEqual([]);
+    });
+
+    it('rechaza boosts en un tipo que no es ingreso', () => {
+      expect(
+        validateTransaction(
+          makeTxn({
+            type: 'expense',
+            source: accountRef('a'),
+            categoryId: 'c1',
+            budgetBoosts: [{ budgetId: 'b1', month: '2026-07', amount: 100 }],
+          }),
+        ),
+      ).toContain('budget_boosts_only_on_income');
+    });
+
+    it('rechaza un boost con monto inválido o sin presupuesto/mes', () => {
+      expect(
+        validateTransaction(income({ budgetBoosts: [{ budgetId: 'b1', month: '2026-07', amount: 0 }] })),
+      ).toContain('budget_boost_invalid');
+      expect(
+        validateTransaction(income({ budgetBoosts: [{ budgetId: '', month: '', amount: 100 }] })),
+      ).toContain('budget_boost_invalid');
+    });
+  });
 });

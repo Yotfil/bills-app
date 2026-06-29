@@ -9,12 +9,15 @@ import { subscribeAccounts } from '../../data/accountRepository';
 import { subscribeCards } from '../../data/cardRepository';
 import { subscribeCategories } from '../../data/categoryRepository';
 import { subscribeLoans } from '../../data/loanRepository';
+import { subscribeBudgets } from '../../data/budgetRepository';
 import { createTransaction, editTransaction } from '../../data/transactionService';
 import { buildManualTransactionDraft, type ManualEntryInput } from '../../domain/transactionDraft';
 import { validateTransaction } from '../../domain/validation';
 import { fromDateInputValue, nowTimestamp, toDateInputValue } from '../../lib/date';
+import { formatCop } from '../../lib/currency';
 import type {
   Account,
+  Budget,
   Category,
   CreditCard,
   EntityRef,
@@ -22,6 +25,13 @@ import type {
   Loan,
   TransactionDraft,
 } from '../../domain/types';
+
+// Fila editable de "aumentar un presupuesto" desde un ingreso (§5.9).
+interface BoostRow {
+  budgetId: string;
+  month: string; // 'YYYY-MM'
+  amount: string;
+}
 
 type EntryType = ManualEntryInput['type'];
 
@@ -45,6 +55,7 @@ export function TransactionForm({ existing, onDone }: TransactionFormProps) {
   const { items: cards } = useUserCollection<CreditCard>(subscribeCards);
   const { items: loans } = useUserCollection<Loan>(subscribeLoans);
   const { items: categories } = useUserCollection<Category>(subscribeCategories);
+  const { items: budgets } = useUserCollection<Budget>(subscribeBudgets);
   const rememberPrefs = useEntryPrefsStore((s) => s.remember);
   const lastSource = useEntryPrefsStore((s) => s.lastSource);
   const lastType = useEntryPrefsStore((s) => s.lastType);
@@ -71,8 +82,30 @@ export function TransactionForm({ existing, onDone }: TransactionFormProps) {
   const [dateValue, setDateValue] = useState(toDateInputValue(existing?.date ?? nowTimestamp()));
   const [hormiga, setHormiga] = useState(existing?.tags.includes('hormiga') ?? false);
   const [note, setNote] = useState(existing?.note ?? '');
+  // Aumentos de presupuesto desde un ingreso (§5.9). Prellena desde el ingreso al editar.
+  const [boosts, setBoosts] = useState<BoostRow[]>(
+    existing?.budgetBoosts?.map((b) => ({
+      budgetId: b.budgetId,
+      month: b.month,
+      amount: String(b.amount),
+    })) ?? [],
+  );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const activeBudgets = budgets.filter((b) => !b.archived && b.active);
+  const categoryName = (id: string) => categories.find((c) => c.id === id)?.name ?? 'Categoría';
+
+  // El total asignado a presupuestos no puede exceder el monto del ingreso (§5.9).
+  const boostsTotal = boosts.reduce((sum, r) => sum + (Math.round(Number(r.amount)) || 0), 0);
+  const incomeAmount = Math.round(Number(amount)) || 0;
+  const boostsExceedIncome = type === 'income' && boostsTotal > incomeAmount;
+
+  const addBoost = () =>
+    setBoosts((prev) => [...prev, { budgetId: '', month: dateValue.slice(0, 7), amount: '' }]);
+  const updateBoost = (i: number, patch: Partial<BoostRow>) =>
+    setBoosts((prev) => prev.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
+  const removeBoost = (i: number) => setBoosts((prev) => prev.filter((_, idx) => idx !== i));
 
   // Opciones de medio de pago según el tipo (§11).
   const sourceOptions = useMemo(() => {
@@ -102,6 +135,7 @@ export function TransactionForm({ existing, onDone }: TransactionFormProps) {
     event.preventDefault();
     if (!uid) return;
     setError(null);
+    if (boostsExceedIncome) return; // los aumentos no pueden exceder el ingreso (mensaje inline)
 
     // El ajuste conserva su tipo, su categoría de sistema y su dirección; solo cambian monto, cuenta,
     // nota y fecha. No pasa por el builder manual (no contempla 'adjustment').
@@ -141,6 +175,14 @@ export function TransactionForm({ existing, onDone }: TransactionFormProps) {
     const draft: TransactionDraft = existing
       ? { ...built, periodMonth: existing.periodMonth ?? null }
       : built;
+
+    // Aumentos de presupuesto: solo en ingresos. Se incluye el array (puede ser []) para que editar a
+    // 0 lo limpie; en otros tipos NO se incluye la clave (Firestore rechaza undefined).
+    if (type === 'income' && !isAdjustment) {
+      draft.budgetBoosts = boosts
+        .filter((r) => r.budgetId && r.month && Number(r.amount) > 0)
+        .map((r) => ({ budgetId: r.budgetId, month: r.month, amount: Math.round(Number(r.amount)) }));
+    }
 
     const errors = validateTransaction(draft);
     if (errors.length > 0) {
@@ -252,6 +294,67 @@ export function TransactionForm({ existing, onDone }: TransactionFormProps) {
           placeholder="Selecciona cuenta…"
         />
       )}
+      {/* Aumentar presupuestos con parte del ingreso (§5.9): ligado al ingreso (se revierte al
+          borrarlo). Cada fila sube el tope del presupuesto en el mes elegido. */}
+      {type === 'income' && activeBudgets.length > 0 && (
+        <div className="flex flex-col gap-2 rounded-xl bg-slate-50 p-3">
+          <span className="text-xs font-medium text-slate-600">Aumentar presupuestos (opcional)</span>
+          {boosts.map((row, i) => (
+            <div key={i} className="flex flex-col gap-2 rounded-lg border border-slate-200 bg-white p-2">
+              <select
+                value={row.budgetId}
+                onChange={(e) => updateBoost(i, { budgetId: e.target.value })}
+                aria-label="Presupuesto a aumentar"
+                className="rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-700 outline-none focus:border-slate-500"
+              >
+                <option value="">Presupuesto…</option>
+                {activeBudgets.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {categoryName(b.categoryId)}
+                  </option>
+                ))}
+              </select>
+              <div className="flex items-center gap-2">
+                <MoneyInput
+                  placeholder="Monto"
+                  value={row.amount}
+                  onChange={(v) => updateBoost(i, { amount: v })}
+                  className="min-w-0 flex-1 rounded-lg border border-slate-300 px-2 py-1.5 text-sm outline-none focus:border-slate-500"
+                />
+                <input
+                  type="month"
+                  value={row.month}
+                  onChange={(e) => updateBoost(i, { month: e.target.value })}
+                  aria-label="Mes del presupuesto"
+                  className="rounded-lg border border-slate-300 px-2 py-1.5 text-sm text-slate-700 outline-none focus:border-slate-500"
+                />
+                <button
+                  type="button"
+                  onClick={() => removeBoost(i)}
+                  aria-label="Quitar"
+                  className="shrink-0 px-1 text-slate-400"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+          ))}
+          <button
+            type="button"
+            onClick={addBoost}
+            className="self-start text-xs font-medium text-slate-600 underline"
+          >
+            + Agregar presupuesto
+          </button>
+          {boostsExceedIncome && (
+            <p className="text-xs font-medium text-red-600">
+              Los aumentos suman {formatCop(boostsTotal)} y superan el ingreso (
+              {formatCop(incomeAmount)}). Reduce los montos.
+            </p>
+          )}
+        </div>
+      )}
+
       {type === 'transfer' && (
         <SelectField
           label="Hacia"
@@ -317,7 +420,7 @@ export function TransactionForm({ existing, onDone }: TransactionFormProps) {
 
       <button
         type="submit"
-        disabled={busy}
+        disabled={busy || boostsExceedIncome}
         className="rounded-xl bg-slate-800 py-3 font-medium text-white disabled:opacity-50"
       >
         {isEdit ? 'Guardar cambios' : 'Guardar'}

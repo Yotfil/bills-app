@@ -46,6 +46,21 @@ export function budgetCapForMonth(
 }
 
 /**
+ * Nuevo valor del override del mes al aplicar (sign +1) o revertir (sign -1) un aumento ligado a un
+ * ingreso (§5.9): suma/resta `amount` al tope efectivo actual. Si el resultado vuelve a la base,
+ * devuelve `null` para LIMPIAR el override (mantenerlo limpio). `currentCap` = `budgetCapForMonth`.
+ */
+export function boostedOverride(
+  currentCap: number,
+  base: number,
+  amount: number,
+  sign: 1 | -1,
+): number | null {
+  const next = currentCap + sign * amount;
+  return next === base ? null : next;
+}
+
+/**
  * El fijo respaldado de una categoría en el mes dado, o null. Indica que la categoría TIENE un
  * presupuesto respaldado este mes (la "bolsa"); el tope en sí vive en el `Budget` de la categoría
  * (`budgetCapForMonth`), no en el fijo. `monthlies` = fijos de un solo mes.

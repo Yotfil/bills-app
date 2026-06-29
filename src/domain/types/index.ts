@@ -10,6 +10,7 @@ export * from './Category';
 export * from './FixedObligationTemplate';
 export * from './FixedObligationMonthly';
 export * from './Budget';
+export * from './BudgetBoost';
 export * from './Transaction';
 export * from './UserSettings';
 export * from './hormigaTag';

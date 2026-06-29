@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  boostedOverride,
   budgetBackedFilled,
   budgetBackedTotalAmount,
   budgetCapForMonth,
@@ -103,6 +104,13 @@ describe('budgetBackedFixed', () => {
     expect(exceeded).toHaveLength(1);
     expect(exceeded[0]?.budget.id).toBe('over');
     expect(exceeded[0]?.overspend).toBe(50);
+  });
+
+  it('boostedOverride: suma/resta el aumento al tope; limpia (null) si vuelve a la base', () => {
+    expect(boostedOverride(650, 650, 200, 1)).toBe(850); // aplicar sobre la base
+    expect(boostedOverride(850, 650, 100, 1)).toBe(950); // aplicar sobre un override existente
+    expect(boostedOverride(950, 650, 100, -1)).toBe(850); // revertir parcial
+    expect(boostedOverride(850, 650, 200, -1)).toBeNull(); // revertir hasta la base → limpia
   });
 
   it('budgetCapForMonth: usa el override del mes (presupuesto normal); si no, la base; meses independientes', () => {
