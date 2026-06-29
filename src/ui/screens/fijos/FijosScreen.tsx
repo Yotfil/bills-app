@@ -24,6 +24,7 @@ import {
   budgetBackedAmount,
   budgetBackedFilled,
   effectiveFixedStatus,
+  fixedCap,
   isBudgetItem,
   linkedBudgetItems,
 } from '../../../domain/budgetBackedFixed';
@@ -43,7 +44,7 @@ import { subscribeCards } from '../../../data/cardRepository';
 import { subscribeLoans } from '../../../data/loanRepository';
 import { subscribeCategories } from '../../../data/categoryRepository';
 import { subscribeTransactions } from '../../../data/transactionRepository';
-import { alignBudgetToTemplate, syncBudgetFromMonthly } from '../../../data/budgetFixedService';
+import { alignBudgetToTemplate } from '../../../data/budgetFixedService';
 import { subscribeFixedTemplates } from '../../../data/fixedTemplateRepository';
 import {
   addFixedMonthlyFromTemplates,
@@ -54,8 +55,8 @@ import {
   markFixedPending,
   payFixed,
   revertFixedPayment,
+  setFixedCapOverride,
   setMonthlyBudgetBacked,
-  syncMonthlyAmount,
   updateMonthlyFromTemplate,
 } from '../../../data/fixedMonthlyRepository';
 import type { PayFixedInput } from '../../../data/PayFixedInput';
@@ -127,7 +128,7 @@ export function FijosScreen() {
   // Estado efectivo: un respaldado deriva pending/paid del consumo (su tope POR MES es su propio
   // monto, §5.9); el resto conserva su estado guardado.
   const effectiveStatusOf = (f: FixedObligationMonthly): FixedStatus =>
-    effectiveFixedStatus(f, (cat) => budgetBackedFilled(consumedForCategory(cat), f.budgetedAmount));
+    effectiveFixedStatus(f, (cat) => budgetBackedFilled(consumedForCategory(cat), fixedCap(f)));
   // Monto que cada fijo aporta a los totales: un respaldado lleno/excedido aporta su gasto REAL
   // (Pagado incluye el sobrepaso, §5.9); en curso aporta su tope; el resto, su pagado/presupuestado.
   const amountOf = (f: FixedObligationMonthly): number =>
@@ -314,12 +315,12 @@ export function FijosScreen() {
     await markFixedAllocated(uid, allocating.id, account);
   }
 
-  // Editar el tope de un fijo respaldado desde Fijos (§5.9): actualiza el monto del fijo del mes (M)
-  // y, en espejo, el tope del presupuesto de su categoría (B). La plantilla no cambia.
+  // Editar el tope de un fijo respaldado desde Fijos (§5.9): es un override de SOLO este mes
+  // (`capOverride`). No toca la base (plantilla/presupuesto) ni los demás meses; el próximo mes vuelve
+  // a la base. La base recurrente se cambia desde Presupuestos.
   async function handleEditCap(amount: number) {
     if (!uid || !editingCap) return;
-    await syncMonthlyAmount(uid, editingCap.templateId, month, amount);
-    await syncBudgetFromMonthly(uid, editingCap, amount);
+    await setFixedCapOverride(uid, editingCap.id, amount);
   }
 
   // Aplica solo lo que el usuario marcó en el modal de sincronización (§5.10): agrega plantillas

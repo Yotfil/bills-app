@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { Modal } from '../../components/Modal';
 import { MoneyInput } from '../../components/MoneyInput';
+import { fixedCap } from '../../../domain/budgetBackedFixed';
 import type { EditCapModalProps } from './EditCapModalProps';
 
-// Editar el tope de un fijo respaldado por presupuesto desde la pantalla de Fijos (§5.9). El nuevo
-// valor va en espejo con el presupuesto de la categoría (mes en curso); la plantilla no cambia.
+// Editar el tope de un fijo respaldado desde la pantalla de Fijos (§5.9): es un override de SOLO este
+// mes (`capOverride`). No cambia la base; el próximo mes vuelve al valor base.
 export function EditCapModal({ open, fixed, onConfirm, onClose }: EditCapModalProps) {
   const [amount, setAmount] = useState('');
   const [busy, setBusy] = useState(false);
@@ -13,7 +14,7 @@ export function EditCapModal({ open, fixed, onConfirm, onClose }: EditCapModalPr
   const [wasOpen, setWasOpen] = useState(false);
   if (open && !wasOpen) {
     setWasOpen(true);
-    setAmount(String(fixed?.budgetedAmount ?? ''));
+    setAmount(fixed ? String(fixedCap(fixed)) : '');
   } else if (!open && wasOpen) {
     setWasOpen(false);
   }
@@ -33,8 +34,8 @@ export function EditCapModal({ open, fixed, onConfirm, onClose }: EditCapModalPr
   return (
     <Modal open={open} title={`Editar tope: ${fixed?.name ?? ''}`} onClose={onClose}>
       <p className="mb-3 text-sm text-slate-500">
-        Cambia el tope de este mes. Se actualiza también el presupuesto de la categoría; la plantilla
-        no cambia.
+        Cambia el tope SOLO de este mes; el próximo mes vuelve a la base. La base recurrente se cambia
+        en Presupuestos.
       </p>
       <MoneyInput
         autoFocus

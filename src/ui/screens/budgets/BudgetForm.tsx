@@ -3,9 +3,10 @@ import { Modal } from '../../components/Modal';
 import { MoneyInput } from '../../components/MoneyInput';
 import { SelectField } from '../../components/SelectField';
 import { useSessionStore } from '../../../store/sessionStore';
-import { createBudget, updateBudget } from '../../../data/budgetRepository';
-import { syncMonthlyFromBudget } from '../../../data/budgetFixedService';
-import { currentMonthKey } from '../../../lib/date';
+import { createBudget } from '../../../data/budgetRepository';
+import { setBudgetBackedBase } from '../../../data/budgetFixedService';
+import { fixedCap } from '../../../domain/budgetBackedFixed';
+import { formatCop } from '../../../lib/currency';
 import type { BudgetFormProps } from './BudgetFormProps';
 
 // Crear/editar un presupuesto por categoría (CLAUDE.md §5.9). Al crear, solo se ofrecen
@@ -15,6 +16,7 @@ export function BudgetForm({
   budget,
   categories,
   usedCategoryIds,
+  linkedFixed,
   onClose,
 }: BudgetFormProps) {
   const uid = useSessionStore((s) => s.user?.uid);
@@ -36,10 +38,10 @@ export function BudgetForm({
     setBusy(true);
     try {
       if (isEdit && budget) {
-        await updateBudget(uid, budget.id, { monthlyLimit });
-        // Espejo presupuesto→fijo (§5.9): si hay fijos respaldados de esta categoría en el mes en
-        // curso, su monto se actualiza al nuevo tope. No toca la plantilla.
-        await syncMonthlyFromBudget(uid, { ...budget, monthlyLimit }, monthlyLimit, currentMonthKey());
+        // Presupuestos edita la BASE recurrente (§5.9): actualiza el tope, y si la categoría tiene un
+        // fijo respaldado, también la plantilla y la base del mes en curso/futuros. Los meses con un
+        // override puntual (`capOverride`) se conservan; se cambian desde Fijos ("Editar tope").
+        await setBudgetBackedBase(uid, budget.categoryId, monthlyLimit);
       } else {
         await createBudget(uid, { categoryId, monthlyLimit });
       }
@@ -71,11 +73,18 @@ export function BudgetForm({
         )}
         <MoneyInput
           autoFocus
-          placeholder="Tope mensual (COP)"
+          placeholder={linkedFixed ? 'Tope base, cada mes inicia aquí (COP)' : 'Tope mensual (COP)'}
           value={limit}
           onChange={setLimit}
           className="rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-500"
         />
+        {linkedFixed?.capOverride != null && (
+          // Este mes tiene un ajuste puntual (override): cambiar la base no lo pisa (§5.9).
+          <p className="text-xs text-amber-700">
+            Este mes está ajustado a {formatCop(fixedCap(linkedFixed))} (cámbialo en Fijos → “Editar
+            tope”). Aquí editas la base de cada mes.
+          </p>
+        )}
         <button
           type="submit"
           disabled={busy}

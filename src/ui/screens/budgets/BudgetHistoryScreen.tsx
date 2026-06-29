@@ -5,7 +5,7 @@ import { BackButton } from '../../components/BackButton';
 import { MonthSelector } from '../../components/MonthSelector';
 import { BudgetHistoryRow } from './BudgetHistoryRow';
 import { budgetStatus } from '../../../domain/reports';
-import { linkedBudgetBackedFixed } from '../../../domain/budgetBackedFixed';
+import { fixedCap, linkedBudgetBackedFixed } from '../../../domain/budgetBackedFixed';
 import { formatCop } from '../../../lib/currency';
 import { addMonths, currentMonthKey, transactionPeriodMonth } from '../../../lib/date';
 import { subscribeBudgets } from '../../../data/budgetRepository';
@@ -35,7 +35,8 @@ export function BudgetHistoryScreen() {
 
   const rows = active.map((budget) => {
     const linkedFixed = linkedBudgetBackedFixed(budget.categoryId, monthlyFixeds);
-    const limit = linkedFixed?.budgetedAmount ?? budget.monthlyLimit;
+    // Tope efectivo de ESE mes: el override del mes si lo hubo, o la base (§5.9).
+    const limit = linkedFixed ? fixedCap(linkedFixed) : budget.monthlyLimit;
     return {
       id: budget.id,
       categoryName: categoryName(budget.categoryId),

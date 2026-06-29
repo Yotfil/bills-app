@@ -8,7 +8,7 @@ import { HormigaBudgetCard } from './HormigaBudgetCard';
 import { BackButton } from '../../components/BackButton';
 import { ConfirmDeleteModal } from '../../components/ConfirmDeleteModal';
 import { budgetStatus } from '../../../domain/reports';
-import { linkedBudgetBackedFixed } from '../../../domain/budgetBackedFixed';
+import { fixedCap, linkedBudgetBackedFixed } from '../../../domain/budgetBackedFixed';
 import { currentMonthKey, transactionPeriodMonth } from '../../../lib/date';
 import { archiveBudget, deleteBudget, subscribeBudgets } from '../../../data/budgetRepository';
 import { subscribeCategories } from '../../../data/categoryRepository';
@@ -75,7 +75,8 @@ export function BudgetsScreen() {
         <HormigaBudgetCard />
         {active.map((budget) => {
           const linkedFixed = linkedFixedFor(budget.categoryId);
-          const limit = linkedFixed?.budgetedAmount ?? budget.monthlyLimit;
+          // Tope EFECTIVO del mes en curso: el override del mes si existe, o la base (§5.9).
+          const limit = linkedFixed ? fixedCap(linkedFixed) : budget.monthlyLimit;
           return (
             <BudgetCard
               key={budget.id}
@@ -109,6 +110,7 @@ export function BudgetsScreen() {
         budget={editing}
         categories={categories}
         usedCategoryIds={active.map((b) => b.categoryId)}
+        linkedFixed={editing ? linkedFixedFor(editing.categoryId) : null}
         onClose={() => setEditing(null)}
       />
       <ConfirmDeleteModal
