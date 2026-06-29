@@ -37,6 +37,8 @@ export function FixedTemplateForm({
   // "Consume de un presupuesto" (§5.9 ext.): el fijo es un ítem del checklist de una bolsa; descuenta
   // ese presupuesto al pagarse y no suma aparte al total.
   const [consumesBudget, setConsumesBudget] = useState(template?.consumesBudget ?? false);
+  // Día de cobro automático (§5.3): vacío = sin auto. Se registra solo al abrir la app ese día o después.
+  const [autoPayDay, setAutoPayDay] = useState(String(template?.autoPayDay ?? ''));
   const [busy, setBusy] = useState(false);
   const formKey = template?.id ?? 'new';
 
@@ -67,6 +69,9 @@ export function FixedTemplateForm({
     if (!uid || !name.trim() || !method) return;
     if (payKind === 'expense' && !categoryId) return;
     if (payKind === 'debt_payment' && !debtTargetId) return;
+    // Día de cobro automático: entero válido 1–31, o null si vacío/fuera de rango (§5.3).
+    const parsedDay = Math.round(Number(autoPayDay));
+    const autoDay = parsedDay >= 1 && parsedDay <= 31 ? parsedDay : null;
     const data = {
       name: name.trim(),
       budgetedAmount: Math.round(Number(amount) || 0),
@@ -76,6 +81,7 @@ export function FixedTemplateForm({
       debtTargetId: payKind === 'debt_payment' ? debtTargetId : null,
       budgetBacked: false,
       consumesBudget: isConsumesBudget,
+      autoPayDay: autoDay,
     };
 
     setBusy(true);
@@ -91,6 +97,7 @@ export function FixedTemplateForm({
           debtTargetId: data.debtTargetId,
           budgetBacked: data.budgetBacked,
           consumesBudget: data.consumesBudget,
+          autoPayDay: data.autoPayDay,
           paymentMethod: method,
         });
         // Sync bidireccional crédito↔cuota (§5.6): si cambió el monto y el destino es un crédito,
@@ -194,6 +201,22 @@ export function FixedTemplateForm({
             placeholder="Selecciona tarjeta o crédito…"
           />
         )}
+
+        {/* Día de cobro automático (§5.3): al abrir la app ese día (o después, dentro del mes) se
+            registra el pago solo, con este monto y medio. Vacío = sin auto. */}
+        <label className="flex flex-col gap-1">
+          <span className="text-xs text-slate-400">Día de cobro automático (opcional)</span>
+          <input
+            type="number"
+            min={1}
+            max={31}
+            inputMode="numeric"
+            placeholder="Ej. 29 (vacío = sin auto)"
+            value={autoPayDay}
+            onChange={(e) => setAutoPayDay(e.target.value)}
+            className="rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-500"
+          />
+        </label>
 
         <button
           type="submit"

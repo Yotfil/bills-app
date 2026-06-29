@@ -204,6 +204,7 @@ export function FixedTemplatesTab() {
                   ? 'Abono a deuda'
                   : (categoryName(template.categoryId) ?? 'Gasto')}
                 {template.consumesBudget ? ' · en presupuesto' : ''}
+                {template.autoPayDay ? ` · auto día ${template.autoPayDay}` : ''}
               </p>
             </div>
             <ActionMenu
