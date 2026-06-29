@@ -10,6 +10,15 @@ export function isBudgetBacked(item: { budgetBacked: boolean }): boolean {
 }
 
 /**
+ * Tope EFECTIVO de un fijo respaldado para ESTE mes (§5.9): el override del mes (`capOverride`) si lo
+ * tiene, o la base (`budgetedAmount`). Único punto que decide el tope del mes; usarlo en vez de leer
+ * `budgetedAmount` directo para respaldados, así un override de un mes no afecta a los demás.
+ */
+export function fixedCap(fixed: { capOverride?: number | null; budgetedAmount: number }): number {
+  return fixed.capOverride ?? fixed.budgetedAmount;
+}
+
+/**
  * `true` si el fijo CONSUME de un presupuesto (es un ítem del checklist de una bolsa, §5.9 ext.):
  * descuenta la bolsa de su categoría al pagarse y NO suma aparte a los totales de fijos.
  */
@@ -77,8 +86,9 @@ export function exceededBudgetBacked(
   for (const fixed of monthlies) {
     if (!fixed.budgetBacked) continue;
     const consumed = consumedOf(fixed.categoryId);
-    if (consumed > fixed.budgetedAmount) {
-      result.push({ fixed, consumed, overspend: consumed - fixed.budgetedAmount });
+    const cap = fixedCap(fixed);
+    if (consumed > cap) {
+      result.push({ fixed, consumed, overspend: consumed - cap });
     }
   }
   return result;
@@ -104,7 +114,7 @@ export function nearLimitBudgetBacked(
   const result: NearLimitBudgetBacked[] = [];
   for (const fixed of monthlies) {
     if (!fixed.budgetBacked) continue;
-    const cap = fixed.budgetedAmount;
+    const cap = fixedCap(fixed);
     if (cap <= 0) continue;
     const consumed = consumedOf(fixed.categoryId);
     if (consumed > ratio * cap && consumed <= cap) {
@@ -138,6 +148,6 @@ export function effectiveFixedStatus(
  * usa la regla normal por consumo (§5.9).
  */
 export function budgetBackedAmount(fixed: FixedObligationMonthly, consumed: number): number {
-  if (fixed.status === 'paid') return fixed.budgetedAmount;
-  return budgetBackedTotalAmount(consumed, fixed.budgetedAmount);
+  if (fixed.status === 'paid') return fixedCap(fixed);
+  return budgetBackedTotalAmount(consumed, fixedCap(fixed));
 }
