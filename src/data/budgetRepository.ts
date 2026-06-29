@@ -64,6 +64,20 @@ export const setBudgetMonthOverride = (
     updatedAt: serverTimestamp(),
   });
 
+/** Marca/desmarca un presupuesto como "de checklist" (aparece en Fijos y cuenta en los totales, §5.9). */
+export const setBudgetInChecklist = (uid: string, id: string, value: boolean) =>
+  update(budgetsCol(uid), id, { inChecklist: value });
+
+/**
+ * Marca/limpia "ya estaba pagado (sin movimiento)" de un presupuesto de checklist para UN mes. Solo
+ * toca esa entrada del mapa `manualPaidMonths`; los demás meses no se afectan (§5.9).
+ */
+export const setBudgetManualPaid = (uid: string, id: string, month: string, value: boolean) =>
+  updateDoc(rawBudgetDoc(uid, id), {
+    [`manualPaidMonths.${month}`]: value ? true : deleteField(),
+    updatedAt: serverTimestamp(),
+  });
+
 export const archiveBudget = (uid: string, id: string) => archive(budgetsCol(uid), id);
 
 export const unarchiveBudget = (uid: string, id: string) => unarchive(budgetsCol(uid), id);

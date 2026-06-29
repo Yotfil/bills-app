@@ -273,6 +273,18 @@ export async function deleteFixedMonthly(
 }
 
 /**
+ * Vacía un mes: elimina TODAS las instancias de fijos de ese mes (gastos, ítems de bolsa y los
+ * respaldados dormidos), revirtiendo los movimientos de los pagados (§9.3). Deja el mes "como nuevo"
+ * (sin plantilla cargada): vuelve a ofrecer "Generar". No toca la plantilla ni los presupuestos.
+ * Devuelve cuántos eliminó.
+ */
+export async function clearFixedMonthly(uid: string, month: string): Promise<number> {
+  const fijos = await listFixedMonthlyForMonth(uid, month);
+  await Promise.all(fijos.map((f) => deleteFixedMonthly(uid, f)));
+  return fijos.length;
+}
+
+/**
  * Deshace el pago de un fijo (Pagado → Pendiente). Si el pago creó un movimiento, lo elimina:
  * eso DEVUELVE el dinero a la cuenta de origen (revierte el efecto en los saldos, §9.3). Si se
  * marcó con "Ya estaba pagado" (sin movimiento), no hay nada que devolver.
