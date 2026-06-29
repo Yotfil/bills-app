@@ -15,8 +15,7 @@ import { AddTransactionScreen } from './ui/screens/AddTransactionScreen';
 import { RegistroScreen } from './ui/screens/RegistroScreen';
 import { DashboardScreen } from './ui/screens/dashboard/DashboardScreen';
 import { FijosScreen } from './ui/screens/fijos/FijosScreen';
-import { FixedTemplatesScreen } from './ui/screens/fijos/FixedTemplatesScreen';
-import { BudgetsScreen } from './ui/screens/budgets/BudgetsScreen';
+import { PlantillaScreen } from './ui/screens/plantilla/PlantillaScreen';
 import { BudgetHistoryScreen } from './ui/screens/budgets/BudgetHistoryScreen';
 import { LoansScreen } from './ui/screens/loans/LoansScreen';
 import { CategoriesScreen } from './ui/screens/categories/CategoriesScreen';
@@ -74,8 +73,12 @@ function App() {
             <Route path="/mas/cuentas" element={<AccountsScreen />} />
             <Route path="/mas/ahorros" element={<AccountsScreen savingsBucket />} />
             <Route path="/mas/tarjetas" element={<CardsScreen />} />
-            <Route path="/mas/fijos" element={<FixedTemplatesScreen />} />
-            <Route path="/mas/presupuestos" element={<BudgetsScreen />} />
+            <Route path="/mas/fijos" element={<PlantillaScreen />} />
+            {/* Ruta vieja: la plantilla de presupuestos ahora es un tab de Plantilla. */}
+            <Route
+              path="/mas/presupuestos"
+              element={<Navigate to="/mas/fijos?tab=presupuestos" replace />}
+            />
             <Route path="/mas/presupuestos/historico" element={<BudgetHistoryScreen />} />
             <Route path="/mas/creditos" element={<LoansScreen />} />
             <Route path="/mas/categorias" element={<CategoriesScreen />} />
