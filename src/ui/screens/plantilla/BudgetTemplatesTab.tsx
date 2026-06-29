@@ -4,10 +4,14 @@ import { useSessionStore } from '../../../store/sessionStore';
 import { BudgetTemplateCard } from '../budgets/BudgetTemplateCard';
 import { BudgetForm } from '../budgets/BudgetForm';
 import { ConfirmDeleteModal } from '../../components/ConfirmDeleteModal';
-import { archiveBudget, deleteBudget, subscribeBudgets } from '../../../data/budgetRepository';
+import {
+  archiveBudget,
+  deleteBudget,
+  setBudgetInChecklist,
+  subscribeBudgets,
+} from '../../../data/budgetRepository';
 import { subscribeCategories } from '../../../data/categoryRepository';
-import { subscribeFixedTemplates } from '../../../data/fixedTemplateRepository';
-import type { Budget, Category, FixedObligationTemplate } from '../../../domain/types';
+import type { Budget, Category } from '../../../domain/types';
 
 // Tab "Presupuestos" de la Plantilla (CLAUDE.md §5.9, §8.4): CRUD de los topes BASE por categoría,
 // SIN barra de consumo (eso se ve por mes en /fijos). La base es con lo que arranca cada mes.
@@ -15,16 +19,12 @@ export function BudgetTemplatesTab() {
   const uid = useSessionStore((s) => s.user?.uid);
   const { items: budgets, loading } = useUserCollection<Budget>(subscribeBudgets);
   const { items: categories } = useUserCollection<Category>(subscribeCategories);
-  const { items: templates } = useUserCollection<FixedObligationTemplate>(subscribeFixedTemplates);
   const [editing, setEditing] = useState<Budget | null>(null);
   const [deleting, setDeleting] = useState<Budget | null>(null);
   const [creating, setCreating] = useState(false);
 
   const active = budgets.filter((b) => !b.archived && b.active);
   const categoryName = (id: string) => categories.find((c) => c.id === id)?.name ?? 'Categoría';
-  // "Fijo ligado": la categoría tiene una plantilla de fijo respaldado (su tope lo llena ese gasto).
-  const isLinked = (categoryId: string) =>
-    templates.some((t) => !t.archived && (t.budgetBacked ?? false) && t.categoryId === categoryId);
 
   async function handleArchive(budget: Budget) {
     if (!uid) return;
@@ -59,7 +59,8 @@ export function BudgetTemplatesTab() {
             key={budget.id}
             categoryName={categoryName(budget.categoryId)}
             base={budget.monthlyLimit}
-            linkedToFixed={isLinked(budget.categoryId)}
+            inChecklist={budget.inChecklist ?? false}
+            onToggleChecklist={(value) => uid && void setBudgetInChecklist(uid, budget.id, value)}
             onEdit={() => setEditing(budget)}
             onArchive={() => handleArchive(budget)}
             onDelete={() => setDeleting(budget)}

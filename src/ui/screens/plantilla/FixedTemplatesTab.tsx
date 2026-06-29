@@ -53,7 +53,11 @@ export function FixedTemplatesTab() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
 
-  const allActive = templates.filter((t) => !t.archived).sort((a, b) => a.sortOrder - b.sortOrder);
+  // Las plantillas respaldadas (Opción C) ya no son gastos fijos: viven como presupuesto de checklist
+  // en el tab Presupuestos. Se ocultan aquí (quedan dormidas hasta el PR de limpieza).
+  const allActive = templates
+    .filter((t) => !t.archived && !(t.budgetBacked ?? false))
+    .sort((a, b) => a.sortOrder - b.sortOrder);
   const active = allActive.filter((t) => matchesQuery(search, t.name));
   const categoryName = (id: string) => categories.find((c) => c.id === id)?.name;
   // Etiqueta usada para agrupar/ordenar por categoría: los abonos a deuda no tienen categoría,
@@ -227,7 +231,6 @@ export function FixedTemplatesTab() {
         loans={loans}
         categories={categories}
         budgets={budgets}
-        templates={templates}
         onClose={() => setCreating(false)}
       />
       <FixedTemplateForm
@@ -239,7 +242,6 @@ export function FixedTemplatesTab() {
         loans={loans}
         categories={categories}
         budgets={budgets}
-        templates={templates}
         onClose={() => setEditing(null)}
       />
       <ConfirmDeleteModal
