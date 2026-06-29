@@ -16,8 +16,7 @@ const ITEMS: MenuItem[] = [
     ready: true,
   },
   { to: '/mas/categorias', label: 'Categorías', hint: 'Administrar categorías', ready: true },
-  { to: '/mas/fijos', label: 'Obligaciones fijas', hint: 'Plantilla mensual', ready: true },
-  { to: '/mas/presupuestos', label: 'Presupuestos', hint: 'Topes por categoría', ready: true },
+  { to: '/mas/fijos', label: 'Plantilla', hint: 'Gastos fijos y presupuestos base', ready: true },
   {
     to: '/mas/presupuestos/historico',
     label: 'Histórico de presupuestos',

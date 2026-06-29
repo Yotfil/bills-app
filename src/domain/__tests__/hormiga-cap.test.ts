@@ -28,11 +28,12 @@ describe('suggestHormigaCap', () => {
 });
 
 describe('resolveHormigaCap', () => {
-  it('usa el override solo si es del mes en curso; si no, el automático', () => {
-    const override = { month: '2026-06', value: 50_000 };
-    expect(resolveHormigaCap(override, '2026-06', 30_000)).toBe(50_000); // override del mes
-    expect(resolveHormigaCap(override, '2026-07', 30_000)).toBe(30_000); // override viejo → auto
-    expect(resolveHormigaCap(null, '2026-07', 30_000)).toBe(30_000); // sin override → auto
-    expect(resolveHormigaCap(null, '2026-07', null)).toBeNull(); // sin override ni base
+  it('usa el override del mes si existe; si no, el automático; cada mes es independiente', () => {
+    const overrides = { '2026-06': 50_000, '2026-08': 70_000 };
+    expect(resolveHormigaCap(overrides, '2026-06', 30_000)).toBe(50_000); // override del mes
+    expect(resolveHormigaCap(overrides, '2026-08', 30_000)).toBe(70_000); // otro mes con su override
+    expect(resolveHormigaCap(overrides, '2026-07', 30_000)).toBe(30_000); // mes sin override → auto
+    expect(resolveHormigaCap(undefined, '2026-07', 30_000)).toBe(30_000); // sin overrides → auto
+    expect(resolveHormigaCap(undefined, '2026-07', null)).toBeNull(); // sin override ni base
   });
 });

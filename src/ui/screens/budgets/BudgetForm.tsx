@@ -5,18 +5,16 @@ import { SelectField } from '../../components/SelectField';
 import { useSessionStore } from '../../../store/sessionStore';
 import { createBudget } from '../../../data/budgetRepository';
 import { setBudgetBackedBase } from '../../../data/budgetFixedService';
-import { fixedCap } from '../../../domain/budgetBackedFixed';
-import { formatCop } from '../../../lib/currency';
 import type { BudgetFormProps } from './BudgetFormProps';
 
-// Crear/editar un presupuesto por categoría (CLAUDE.md §5.9). Al crear, solo se ofrecen
-// categorías que aún no tienen presupuesto (uno por categoría).
+// Crear/editar un presupuesto por categoría (CLAUDE.md §5.9). Edita el tope BASE (con lo que arranca
+// cada mes); el ajuste por mes se hace en /fijos. Al crear, solo se ofrecen categorías que aún no
+// tienen presupuesto (uno por categoría).
 export function BudgetForm({
   open,
   budget,
   categories,
   usedCategoryIds,
-  linkedFixed,
   onClose,
 }: BudgetFormProps) {
   const uid = useSessionStore((s) => s.user?.uid);
@@ -73,18 +71,11 @@ export function BudgetForm({
         )}
         <MoneyInput
           autoFocus
-          placeholder={linkedFixed ? 'Tope base, cada mes inicia aquí (COP)' : 'Tope mensual (COP)'}
+          placeholder="Tope base, cada mes inicia aquí (COP)"
           value={limit}
           onChange={setLimit}
           className="rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-500"
         />
-        {linkedFixed?.capOverride != null && (
-          // Este mes tiene un ajuste puntual (override): cambiar la base no lo pisa (§5.9).
-          <p className="text-xs text-amber-700">
-            Este mes está ajustado a {formatCop(fixedCap(linkedFixed))} (cámbialo en Fijos → “Editar
-            tope”). Aquí editas la base de cada mes.
-          </p>
-        )}
         <button
           type="submit"
           disabled={busy}

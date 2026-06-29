@@ -3,6 +3,7 @@ import {
   budgetBackedAmount,
   budgetBackedFilled,
   budgetBackedTotalAmount,
+  budgetCapForMonth,
   budgetForCategory,
   effectiveFixedStatus,
   exceededBudgetBacked,
@@ -101,6 +102,13 @@ describe('budgetBackedFixed', () => {
     expect(exceeded).toHaveLength(1);
     expect(exceeded[0]?.fixed.id).toBe('over');
     expect(exceeded[0]?.overspend).toBe(50);
+  });
+
+  it('budgetCapForMonth: usa el override del mes (presupuesto normal); si no, la base; meses independientes', () => {
+    const budget = makeBudget({ monthlyLimit: 650_000, monthlyOverrides: { '2026-06': 900_000 } });
+    expect(budgetCapForMonth(budget, '2026-06')).toBe(900_000); // override del mes
+    expect(budgetCapForMonth(budget, '2026-07')).toBe(650_000); // mes sin override → base
+    expect(budgetCapForMonth(makeBudget({ monthlyLimit: 400_000 }), '2026-06')).toBe(400_000);
   });
 
   it('fixedCap: usa el override del mes si lo hay; si no, la base (budgetedAmount)', () => {
