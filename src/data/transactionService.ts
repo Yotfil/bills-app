@@ -18,6 +18,7 @@ import { db } from './firebase';
 import {
   accountsCol,
   cardsCol,
+  fixedMonthlyCol,
   loansCol,
   transactionsCol,
   CURRENT_SCHEMA_VERSION,
@@ -118,16 +119,41 @@ export async function editTransaction(
   });
 }
 
-/** Elimina un movimiento y revierte su efecto en los saldos, atómico. */
+/**
+ * Elimina un movimiento y revierte su efecto en los saldos, atómico. Si el movimiento lo generó un
+ * fijo al pagarse (`fixedMonthlyId`), ese fijo vuelve a "Pendiente" en la MISMA transacción: así
+ * borrar el movimiento desde el Registro deja el fijo consistente (antes seguía marcado "Pagado" con
+ * un `transactionId` colgado). Solo se revierte si el fijo aún apunta a ESTE movimiento (no si ya se
+ * volvió a pagar con otro).
+ */
 export async function deleteTransaction(uid: string, id: string): Promise<void> {
   const ref = doc(transactionsCol(uid), id);
 
   await runTransaction(requireDb(), async (tx) => {
     const snap = await tx.get(ref);
     if (!snap.exists()) return; // ya no existe: nada que revertir
-    const delta = revertTransaction(snap.data());
+    const data = snap.data();
+
+    // Todas las LECTURAS antes de cualquier escritura (regla de runTransaction).
+    let fixedRef: DocumentReference | null = null;
+    if (data.fixedMonthlyId) {
+      const candidate = rawDoc(fixedMonthlyCol(uid), data.fixedMonthlyId);
+      const fixedSnap = await tx.get(candidate);
+      if (fixedSnap.exists() && fixedSnap.data().transactionId === id) fixedRef = candidate;
+    }
+
+    const delta = revertTransaction(data);
     tx.delete(rawDoc(transactionsCol(uid), id));
     applyDeltaToCaches(tx, uid, delta);
+    if (fixedRef) {
+      tx.update(fixedRef, {
+        status: 'pending',
+        transactionId: null,
+        paidAmount: null,
+        paidAt: null,
+        updatedAt: serverTimestamp(),
+      });
+    }
   });
 }
 
