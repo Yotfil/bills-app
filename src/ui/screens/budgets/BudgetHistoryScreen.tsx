@@ -5,7 +5,7 @@ import { BackButton } from '../../components/BackButton';
 import { MonthSelector } from '../../components/MonthSelector';
 import { BudgetHistoryRow } from './BudgetHistoryRow';
 import { budgetStatus } from '../../../domain/reports';
-import { budgetCapForMonth, fixedCap, linkedBudgetBackedFixed } from '../../../domain/budgetBackedFixed';
+import { budgetCapForMonth, linkedBudgetBackedFixed } from '../../../domain/budgetBackedFixed';
 import { formatCop } from '../../../lib/currency';
 import { addMonths, currentMonthKey, transactionPeriodMonth } from '../../../lib/date';
 import { subscribeBudgets } from '../../../data/budgetRepository';
@@ -34,9 +34,10 @@ export function BudgetHistoryScreen() {
   const categoryName = (id: string) => categories.find((c) => c.id === id)?.name ?? 'Categoría';
 
   const rows = active.map((budget) => {
+    // Tope efectivo de ESE mes: del `Budget` (override del mes o base, §5.9). `linkedFixed` solo
+    // indica si la categoría es respaldada (para el badge).
     const linkedFixed = linkedBudgetBackedFixed(budget.categoryId, monthlyFixeds);
-    // Tope efectivo de ESE mes: el override del mes si lo hubo, o la base (§5.9).
-    const limit = linkedFixed ? fixedCap(linkedFixed) : budgetCapForMonth(budget, month);
+    const limit = budgetCapForMonth(budget, month);
     return {
       id: budget.id,
       categoryName: categoryName(budget.categoryId),

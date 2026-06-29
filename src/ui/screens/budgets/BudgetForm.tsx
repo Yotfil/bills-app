@@ -3,8 +3,7 @@ import { Modal } from '../../components/Modal';
 import { MoneyInput } from '../../components/MoneyInput';
 import { SelectField } from '../../components/SelectField';
 import { useSessionStore } from '../../../store/sessionStore';
-import { createBudget } from '../../../data/budgetRepository';
-import { setBudgetBackedBase } from '../../../data/budgetFixedService';
+import { createBudget, updateBudget } from '../../../data/budgetRepository';
 import type { BudgetFormProps } from './BudgetFormProps';
 
 // Crear/editar un presupuesto por categoría (CLAUDE.md §5.9). Edita el tope BASE (con lo que arranca
@@ -36,10 +35,9 @@ export function BudgetForm({
     setBusy(true);
     try {
       if (isEdit && budget) {
-        // Presupuestos edita la BASE recurrente (§5.9): actualiza el tope, y si la categoría tiene un
-        // fijo respaldado, también la plantilla y la base del mes en curso/futuros. Los meses con un
-        // override puntual (`capOverride`) se conservan; se cambian desde Fijos ("Editar tope").
-        await setBudgetBackedBase(uid, budget.categoryId, monthlyLimit);
+        // Edita la BASE recurrente del tope (§5.9): el valor con el que arranca cada mes. Los meses con
+        // override puntual (`monthlyOverrides`) se conservan; el ajuste por mes se hace en /fijos.
+        await updateBudget(uid, budget.id, { monthlyLimit });
       } else {
         await createBudget(uid, { categoryId, monthlyLimit });
       }

@@ -17,18 +17,16 @@ import { PayFixedModal } from './PayFixedModal';
 import { AllocateFixedModal } from './AllocateFixedModal';
 import { FixedSyncBanner } from './FixedSyncBanner';
 import { FixedSyncModal } from './FixedSyncModal';
-import { EditCapModal } from './EditCapModal';
-import { BudgetMonthCard } from '../budgets/BudgetMonthCard';
+import { BudgetsMonthSection } from './BudgetsMonthSection';
 import { BudgetCapModal } from '../budgets/BudgetCapModal';
-import { HormigaBudgetCard } from '../budgets/HormigaBudgetCard';
 import { fixedTotals } from '../../../domain/fixed';
 import { budgetStatus } from '../../../domain/reports';
 import {
   budgetBackedAmount,
   budgetBackedFilled,
   budgetCapForMonth,
+  budgetForCategory,
   effectiveFixedStatus,
-  fixedCap,
   isBudgetItem,
   linkedBudgetItems,
 } from '../../../domain/budgetBackedFixed';
@@ -49,7 +47,6 @@ import { subscribeLoans } from '../../../data/loanRepository';
 import { subscribeCategories } from '../../../data/categoryRepository';
 import { subscribeTransactions } from '../../../data/transactionRepository';
 import { setBudgetMonthOverride, subscribeBudgets } from '../../../data/budgetRepository';
-import { alignBudgetToTemplate } from '../../../data/budgetFixedService';
 import { subscribeFixedTemplates } from '../../../data/fixedTemplateRepository';
 import {
   addFixedMonthlyFromTemplates,
@@ -60,7 +57,6 @@ import {
   markFixedPending,
   payFixed,
   revertFixedPayment,
-  setFixedCapOverride,
   setMonthlyBudgetBacked,
   updateMonthlyFromTemplate,
 } from '../../../data/fixedMonthlyRepository';
@@ -104,8 +100,8 @@ export function FijosScreen() {
   const { items: budgets } = useUserCollection<Budget>(subscribeBudgets);
   const [paying, setPaying] = useState<FixedObligationMonthly | null>(null);
   const [allocating, setAllocating] = useState<FixedObligationMonthly | null>(null);
-  const [editingCap, setEditingCap] = useState<FixedObligationMonthly | null>(null);
-  // Presupuesto NORMAL cuyo tope de ESTE mes se está editando (override por mes).
+  // Presupuesto cuyo tope de ESTE mes se está editando (override por mes). Aplica a respaldados y
+  // normales por igual: el tope vive en el `Budget` (§5.9).
   const [editingBudgetCap, setEditingBudgetCap] = useState<Budget | null>(null);
   const [generating, setGenerating] = useState(false);
   // Tab inicial desde la URL (?tab=presupuestos) para poder enlazar directo (p.ej. avisos del
@@ -139,15 +135,21 @@ export function FijosScreen() {
   const monthTxns = transactions.filter((t) => transactionPeriodMonth(t) === month);
   const consumedForCategory = (categoryId: string) =>
     budgetStatus(monthTxns, categoryId, 0).consumed;
-  // Estado efectivo: un respaldado deriva pending/paid del consumo (su tope POR MES es su propio
-  // monto, §5.9); el resto conserva su estado guardado.
+  // Tope del mes de una categoría: vive en su `Budget` (§5.9, Opción B). Para un respaldado siempre
+  // hay budget; si faltara, 0 (defensivo).
+  const capOf = (categoryId: string): number => {
+    const b = budgetForCategory(categoryId, budgets);
+    return b ? budgetCapForMonth(b, month) : 0;
+  };
+  // Estado efectivo: un respaldado deriva pending/paid del consumo vs el tope de su presupuesto
+  // (§5.9); el resto conserva su estado guardado.
   const effectiveStatusOf = (f: FixedObligationMonthly): FixedStatus =>
-    effectiveFixedStatus(f, (cat) => budgetBackedFilled(consumedForCategory(cat), fixedCap(f)));
+    effectiveFixedStatus(f, (cat) => budgetBackedFilled(consumedForCategory(cat), capOf(cat)));
   // Monto que cada fijo aporta a los totales: un respaldado lleno/excedido aporta su gasto REAL
   // (Pagado incluye el sobrepaso, §5.9); en curso aporta su tope; el resto, su pagado/presupuestado.
   const amountOf = (f: FixedObligationMonthly): number =>
     f.budgetBacked
-      ? budgetBackedAmount(f, consumedForCategory(f.categoryId))
+      ? budgetBackedAmount(f, consumedForCategory(f.categoryId), capOf(f.categoryId))
       : (f.paidAmount ?? f.budgetedAmount);
 
   // Fijos que CONSUMEN de un presupuesto (§5.9 ext.): son ítems del checklist de una bolsa y se
@@ -163,7 +165,6 @@ export function FijosScreen() {
   const inActiveTab = (f: FixedObligationMonthly) =>
     tab === 'presupuestos' ? f.budgetBacked : !f.budgetBacked && !isNested(f);
   const gastosCount = fijos.filter((f) => !f.budgetBacked && !isNested(f)).length;
-  const presupuestosCount = fijos.filter((f) => f.budgetBacked).length;
   // Ítems del tab activo (antes del buscador): sirve para los estados vacíos por tab.
   const tabItems = fijos.filter(inActiveTab);
 
@@ -176,8 +177,13 @@ export function FijosScreen() {
   // Presupuestos NORMALES (no respaldados) para la pestaña Presupuestos del mes: su categoría no tiene
   // un fijo respaldado este mes (esos ya se ven como fijos). Se muestran con barra de consumo del mes y
   // se editan por mes (override), sin afectar la base ni los otros meses (§5.9).
-  const normalBudgets = budgets
-    .filter((b) => !b.archived && b.active && !envelopeCategoryIds.has(b.categoryId))
+  const monthNormalBudgets = budgets.filter(
+    (b) => !b.archived && b.active && !envelopeCategoryIds.has(b.categoryId),
+  );
+  const hasNormalBudgets = monthNormalBudgets.length > 0;
+  // El tab Presupuestos cuenta los respaldados del mes + los presupuestos normales.
+  const presupuestosCount = fijos.filter((f) => f.budgetBacked).length + monthNormalBudgets.length;
+  const normalBudgets = monthNormalBudgets
     .filter((b) => matchesQuery(search, categoryName(b.categoryId) ?? ''))
     .sort((a, b) =>
       (categoryName(a.categoryId) ?? '').localeCompare(categoryName(b.categoryId) ?? ''),
@@ -319,9 +325,8 @@ export function FijosScreen() {
     if (!uid) return;
     setGenerating(true);
     try {
+      // El tope de los respaldados vive en su `Budget` (§5.9), no en la plantilla: generar basta.
       await generateFixedMonthly(uid, month);
-      // Alinea el tope del presupuesto al monto de plantilla para los respaldados (B = T, §5.9).
-      await Promise.all(activeTemplates.map((t) => alignBudgetToTemplate(uid, t)));
     } finally {
       setGenerating(false);
     }
@@ -339,15 +344,14 @@ export function FijosScreen() {
     await markFixedAllocated(uid, allocating.id, account);
   }
 
-  // Editar el tope de un fijo respaldado desde Fijos (§5.9): es un override de SOLO este mes
-  // (`capOverride`). No toca la base (plantilla/presupuesto) ni los demás meses; el próximo mes vuelve
-  // a la base. La base recurrente se cambia desde Presupuestos.
-  async function handleEditCap(amount: number) {
-    if (!uid || !editingCap) return;
-    await setFixedCapOverride(uid, editingCap.id, amount);
+  // Abre la edición del tope de ESTE mes para una categoría (override). El tope vive en el `Budget`
+  // (§5.9), así que respaldados y normales usan el mismo flujo.
+  function openEditCapForCategory(categoryId: string) {
+    const b = budgetForCategory(categoryId, budgets);
+    if (b) setEditingBudgetCap(b);
   }
 
-  // Editar el tope de un presupuesto NORMAL para ESTE mes (override): no toca la base ni otros meses.
+  // Editar el tope de un presupuesto para ESTE mes (override): no toca la base ni otros meses.
   async function handleEditBudgetCap(amount: number) {
     if (!uid || !editingBudgetCap) return;
     await setBudgetMonthOverride(uid, editingBudgetCap.id, month, amount);
@@ -366,8 +370,6 @@ export function FijosScreen() {
     const addTemplates = syncDiff.toAdd.filter((t) => sel.add.has(t.id));
     await Promise.all([
       ...(addTemplates.length ? [addFixedMonthlyFromTemplates(uid, month, addTemplates)] : []),
-      // Alinear el presupuesto al monto de plantilla para los respaldados recién agregados (§5.9).
-      ...addTemplates.map((t) => alignBudgetToTemplate(uid, t)),
       ...syncDiff.toUpdate
         .filter((c) => sel.update.has(c.fixed.id))
         .map((c) => updateMonthlyFromTemplate(uid, c.fixed.id, c.template)),
@@ -393,8 +395,9 @@ export function FijosScreen() {
       key={fixed.id}
       fixed={fixed}
       nested={opts?.nested}
+      cap={fixed.budgetBacked ? capOf(fixed.categoryId) : undefined}
       budgetConsumed={fixed.budgetBacked ? consumedForCategory(fixed.categoryId) : undefined}
-      onEditCap={fixed.budgetBacked ? () => setEditingCap(fixed) : undefined}
+      onEditCap={fixed.budgetBacked ? () => openEditCapForCategory(fixed.categoryId) : undefined}
       selected={opts?.nested ? undefined : selected.has(fixed.id)}
       onToggleSelect={opts?.nested ? undefined : () => toggleOne(fixed.id)}
       onAllocate={() => setAllocating(fixed)}
@@ -446,7 +449,7 @@ export function FijosScreen() {
         />
       )}
 
-      {fijos.length > 0 && (
+      {(fijos.length > 0 || hasNormalBudgets) && (
         <SegmentedTabs<FixedTab>
           value={tab}
           onChange={(next) => {
@@ -529,7 +532,7 @@ export function FijosScreen() {
 
       {loading && <p className="text-slate-400">Cargando…</p>}
 
-      {!loading && fijos.length === 0 && (
+      {!loading && fijos.length === 0 && tab === 'gastos' && (
         <div className="rounded-2xl bg-white p-5 text-center shadow-sm">
           {activeTemplates.length > 0 ? (
             <>
@@ -577,19 +580,14 @@ export function FijosScreen() {
           mes y "Editar tope" para ajustar SOLO este mes. No son obligaciones: no entran en los totales
           ni en las acciones masivas de arriba. */}
       {tab === 'presupuestos' && (
-        <ul className="flex flex-col gap-2">
-          {normalBudgets.map((b) => (
-            <BudgetMonthCard
-              key={b.id}
-              categoryName={categoryName(b.categoryId) ?? 'Categoría'}
-              status={budgetStatus(monthTxns, b.categoryId, budgetCapForMonth(b, month))}
-              overridden={b.monthlyOverrides?.[month] != null}
-              onEditCap={() => setEditingBudgetCap(b)}
-              onResetCap={() => void handleResetBudgetCap(b)}
-            />
-          ))}
-          <HormigaBudgetCard month={month} />
-        </ul>
+        <BudgetsMonthSection
+          month={month}
+          budgets={normalBudgets}
+          monthTxns={monthTxns}
+          categoryNameOf={(id) => categoryName(id) ?? 'Categoría'}
+          onEditCap={(b) => setEditingBudgetCap(b)}
+          onResetCap={(b) => void handleResetBudgetCap(b)}
+        />
       )}
 
       <PayFixedModal
@@ -620,13 +618,6 @@ export function FijosScreen() {
         loans={loans}
         onApply={handleApplySync}
         onClose={() => setSyncOpen(false)}
-      />
-
-      <EditCapModal
-        open={!!editingCap}
-        fixed={editingCap}
-        onConfirm={handleEditCap}
-        onClose={() => setEditingCap(null)}
       />
 
       <BudgetCapModal
