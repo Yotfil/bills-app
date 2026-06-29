@@ -22,6 +22,7 @@ export function FixedRow({
   onEditCap,
   selected = false,
   onToggleSelect,
+  nested = false,
 }: FixedRowProps) {
   // Fijo respaldado por presupuesto (§5.9): no se paga; muestra el avance del gasto vs el tope y se
   // marca "Lleno" cuando el gasto de su categoría alcanza el tope.
@@ -77,7 +78,7 @@ export function FixedRow({
     <li
       className={`rounded-xl border bg-white p-4 ${
         selected ? 'border-slate-800 ring-1 ring-slate-800' : 'border-slate-200'
-      }`}
+      } ${nested ? 'ml-5 border-l-4 border-l-slate-200' : ''}`}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="flex min-w-0 items-start gap-3">
