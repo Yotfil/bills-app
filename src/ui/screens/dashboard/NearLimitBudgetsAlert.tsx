@@ -29,7 +29,7 @@ export function NearLimitBudgetsAlert({ items }: NearLimitBudgetsAlertProps) {
         ))}
       </ul>
       <Link
-        to="/mas/presupuestos"
+        to="/fijos?tab=presupuestos"
         className="mt-2 inline-block text-xs font-medium text-orange-700 underline"
       >
         Ver presupuestos

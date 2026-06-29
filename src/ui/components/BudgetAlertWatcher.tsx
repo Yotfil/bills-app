@@ -9,7 +9,7 @@ import { subscribeCategories } from '../../data/categoryRepository';
 import { subscribeTransactions } from '../../data/transactionRepository';
 import { budgetStatus } from '../../domain/reports';
 import { budgetAlertLevel, budgetAlertRank } from '../../domain/budgetAlert';
-import { fixedCap, linkedBudgetBackedFixed } from '../../domain/budgetBackedFixed';
+import { budgetCapForMonth, fixedCap, linkedBudgetBackedFixed } from '../../domain/budgetBackedFixed';
 import { formatCop } from '../../lib/currency';
 import { NEAR_LIMIT_RATIO } from '../../lib/progress';
 import { currentMonthKey, transactionPeriodMonth } from '../../lib/date';
@@ -49,7 +49,7 @@ export function BudgetAlertWatcher() {
       // El tope efectivo del mes es el del fijo respaldado si lo hay (override del mes o base); si no,
       // el del presupuesto.
       const linked = linkedBudgetBackedFixed(b.categoryId, monthlyFixeds);
-      const cap = linked ? fixedCap(linked) : b.monthlyLimit;
+      const cap = linked ? fixedCap(linked) : budgetCapForMonth(b, month);
       const consumed = budgetStatus(monthTxns, b.categoryId, 0).consumed;
       const level = budgetAlertLevel(consumed, cap, NEAR_LIMIT_RATIO);
       if (level === 'none') continue;

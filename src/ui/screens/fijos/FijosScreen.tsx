@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { RefreshCw } from 'lucide-react';
 import { useUserCollection } from '../../hooks/useUserCollection';
 import { useFixedMonthly } from '../../hooks/useFixedMonthly';
@@ -18,11 +18,15 @@ import { AllocateFixedModal } from './AllocateFixedModal';
 import { FixedSyncBanner } from './FixedSyncBanner';
 import { FixedSyncModal } from './FixedSyncModal';
 import { EditCapModal } from './EditCapModal';
+import { BudgetMonthCard } from '../budgets/BudgetMonthCard';
+import { BudgetCapModal } from '../budgets/BudgetCapModal';
+import { HormigaBudgetCard } from '../budgets/HormigaBudgetCard';
 import { fixedTotals } from '../../../domain/fixed';
 import { budgetStatus } from '../../../domain/reports';
 import {
   budgetBackedAmount,
   budgetBackedFilled,
+  budgetCapForMonth,
   effectiveFixedStatus,
   fixedCap,
   isBudgetItem,
@@ -44,6 +48,7 @@ import { subscribeCards } from '../../../data/cardRepository';
 import { subscribeLoans } from '../../../data/loanRepository';
 import { subscribeCategories } from '../../../data/categoryRepository';
 import { subscribeTransactions } from '../../../data/transactionRepository';
+import { setBudgetMonthOverride, subscribeBudgets } from '../../../data/budgetRepository';
 import { alignBudgetToTemplate } from '../../../data/budgetFixedService';
 import { subscribeFixedTemplates } from '../../../data/fixedTemplateRepository';
 import {
@@ -63,6 +68,7 @@ import type { PayFixedInput } from '../../../data/PayFixedInput';
 import type { FixedSyncSelection } from './FixedSyncModalProps';
 import type {
   Account,
+  Budget,
   Category,
   CreditCard,
   EntityRef,
@@ -95,11 +101,19 @@ export function FijosScreen() {
   const { items: categories } = useUserCollection<Category>(subscribeCategories);
   const { items: templates } = useUserCollection<FixedObligationTemplate>(subscribeFixedTemplates);
   const { items: transactions } = useUserCollection<Transaction>(subscribeTransactions);
+  const { items: budgets } = useUserCollection<Budget>(subscribeBudgets);
   const [paying, setPaying] = useState<FixedObligationMonthly | null>(null);
   const [allocating, setAllocating] = useState<FixedObligationMonthly | null>(null);
   const [editingCap, setEditingCap] = useState<FixedObligationMonthly | null>(null);
+  // Presupuesto NORMAL cuyo tope de ESTE mes se está editando (override por mes).
+  const [editingBudgetCap, setEditingBudgetCap] = useState<Budget | null>(null);
   const [generating, setGenerating] = useState(false);
-  const [tab, setTab] = useState<FixedTab>('gastos');
+  // Tab inicial desde la URL (?tab=presupuestos) para poder enlazar directo (p.ej. avisos del
+  // dashboard); luego se maneja como estado interno.
+  const [params] = useSearchParams();
+  const [tab, setTab] = useState<FixedTab>(
+    params.get('tab') === 'presupuestos' ? 'presupuestos' : 'gastos',
+  );
   // Buscador independiente por tab (§8.3): cada lista conserva su propio texto.
   const [searchByTab, setSearchByTab] = useState<Record<FixedTab, string>>({
     gastos: '',
@@ -158,6 +172,16 @@ export function FijosScreen() {
   const categoryName = (id: string) => categories.find((c) => c.id === id)?.name;
   const groupLabel = (f: FixedObligationMonthly) =>
     f.payKind === 'debt_payment' ? 'Abono a deuda' : (categoryName(f.categoryId) ?? 'Sin categoría');
+
+  // Presupuestos NORMALES (no respaldados) para la pestaña Presupuestos del mes: su categoría no tiene
+  // un fijo respaldado este mes (esos ya se ven como fijos). Se muestran con barra de consumo del mes y
+  // se editan por mes (override), sin afectar la base ni los otros meses (§5.9).
+  const normalBudgets = budgets
+    .filter((b) => !b.archived && b.active && !envelopeCategoryIds.has(b.categoryId))
+    .filter((b) => matchesQuery(search, categoryName(b.categoryId) ?? ''))
+    .sort((a, b) =>
+      (categoryName(a.categoryId) ?? '').localeCompare(categoryName(b.categoryId) ?? ''),
+    );
 
   const compareFixed = (a: FixedObligationMonthly, b: FixedObligationMonthly): number => {
     if (sort === 'name-asc') return a.name.localeCompare(b.name);
@@ -321,6 +345,18 @@ export function FijosScreen() {
   async function handleEditCap(amount: number) {
     if (!uid || !editingCap) return;
     await setFixedCapOverride(uid, editingCap.id, amount);
+  }
+
+  // Editar el tope de un presupuesto NORMAL para ESTE mes (override): no toca la base ni otros meses.
+  async function handleEditBudgetCap(amount: number) {
+    if (!uid || !editingBudgetCap) return;
+    await setBudgetMonthOverride(uid, editingBudgetCap.id, month, amount);
+  }
+
+  // Quitar el override del mes: ese mes vuelve a la base.
+  async function handleResetBudgetCap(budget: Budget) {
+    if (!uid) return;
+    await setBudgetMonthOverride(uid, budget.id, month, null);
   }
 
   // Aplica solo lo que el usuario marcó en el modal de sincronización (§5.10): agrega plantillas
@@ -519,12 +555,8 @@ export function FijosScreen() {
         </div>
       )}
 
-      {fijos.length > 0 && tabItems.length === 0 && (
-        <p className="text-slate-500">
-          {tab === 'presupuestos'
-            ? 'No tienes presupuestos fijos este mes.'
-            : 'No tienes gastos fijos este mes.'}
-        </p>
+      {fijos.length > 0 && tabItems.length === 0 && tab === 'gastos' && (
+        <p className="text-slate-500">No tienes gastos fijos este mes.</p>
       )}
 
       {tabItems.length > 0 && sorted.length === 0 && (
@@ -540,6 +572,25 @@ export function FijosScreen() {
           return [renderRow(fixed), ...items.map((it) => renderRow(it, { nested: true }))];
         })}
       </ul>
+
+      {/* Vista MENSUAL de los presupuestos NORMALES + gasto hormiga (§5.9, §5.8): barra de consumo del
+          mes y "Editar tope" para ajustar SOLO este mes. No son obligaciones: no entran en los totales
+          ni en las acciones masivas de arriba. */}
+      {tab === 'presupuestos' && (
+        <ul className="flex flex-col gap-2">
+          {normalBudgets.map((b) => (
+            <BudgetMonthCard
+              key={b.id}
+              categoryName={categoryName(b.categoryId) ?? 'Categoría'}
+              status={budgetStatus(monthTxns, b.categoryId, budgetCapForMonth(b, month))}
+              overridden={b.monthlyOverrides?.[month] != null}
+              onEditCap={() => setEditingBudgetCap(b)}
+              onResetCap={() => void handleResetBudgetCap(b)}
+            />
+          ))}
+          <HormigaBudgetCard month={month} />
+        </ul>
+      )}
 
       <PayFixedModal
         open={!!paying}
@@ -576,6 +627,14 @@ export function FijosScreen() {
         fixed={editingCap}
         onConfirm={handleEditCap}
         onClose={() => setEditingCap(null)}
+      />
+
+      <BudgetCapModal
+        open={!!editingBudgetCap}
+        categoryName={editingBudgetCap ? (categoryName(editingBudgetCap.categoryId) ?? 'Categoría') : ''}
+        currentValue={editingBudgetCap ? budgetCapForMonth(editingBudgetCap, month) : 0}
+        onConfirm={handleEditBudgetCap}
+        onClose={() => setEditingBudgetCap(null)}
       />
     </div>
   );
