@@ -36,6 +36,7 @@ export function generateMonthlyFixeds(
       // Firestore rechaza undefined al escribir, así que se normaliza a false.
       budgetBacked: t.budgetBacked ?? false,
       consumesBudget: t.consumesBudget ?? false,
+      autoPayDay: t.autoPayDay ?? null, // día de auto-registro (§5.3); nace sin `autoPaidAt`
       paymentMethod: t.defaultPaymentMethod,
       // Estado inicial:
       status: 'pending',

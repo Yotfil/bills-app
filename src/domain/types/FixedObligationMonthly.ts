@@ -27,4 +27,10 @@ export interface FixedObligationMonthly extends BaseDoc {
   transactionId: string | null; // se llena al marcar 'paid'
   allocatedAt: Timestamp | null;
   paidAt: Timestamp | null;
+  // Día de cobro automático (snapshot de la plantilla, §5.3). null/ausente = sin auto.
+  autoPayDay?: number | null;
+  // Marca de que YA se auto-registró este mes. Persiste aunque se "Deshaga el pago", para que el
+  // auto-registro NO vuelva a dispararse (el usuario re-registra a mano si el valor cambió). El próximo
+  // mes nace sin esta marca.
+  autoPaidAt?: Timestamp | null;
 }

@@ -5,6 +5,7 @@ import { BudgetAlertWatcher } from './components/BudgetAlertWatcher';
 import { BudgetCapMigrationWatcher } from './components/BudgetCapMigrationWatcher';
 import { BackedToBudgetMigrationWatcher } from './components/BackedToBudgetMigrationWatcher';
 import { MonthlyRolloverWatcher } from './components/MonthlyRolloverWatcher';
+import { AutoPayWatcher } from './components/AutoPayWatcher';
 
 // Esqueleto de la app autenticada: contenido + barra inferior con 5 destinos (CLAUDE.md §8).
 // Las pantallas de cada destino se van completando en sus pasos del plan. El botón central
@@ -33,6 +34,8 @@ export function AppLayout() {
 
       {/* Carga automática de los fijos del mes si faltan (§5.10) + aviso de topes (§5.9). */}
       <MonthlyRolloverWatcher />
+      {/* Auto-registro de gastos fijos en su día de cobro (§5.3): corre tras generarse el mes. */}
+      <AutoPayWatcher />
       <BudgetAlertWatcher />
       {/* Migración única: topes respaldados → su Budget (§5.9, Opción B). */}
       <BudgetCapMigrationWatcher />
