@@ -3,7 +3,7 @@
 // siga teniendo una sola fuente (`budgetCapForMonth`). Lo usa `transactionService` al crear/editar/
 // borrar un ingreso, así el aumento queda LIGADO: borrar el ingreso lo revierte.
 import { getBudget, setBudgetMonthOverride } from './budgetRepository';
-import { boostedOverride, budgetCapForMonth } from '../domain/budgetBackedFixed';
+import { boostedOverride, budgetCapForMonth } from '../domain/checklistBudgets';
 import type { BudgetBoost } from '../domain/types';
 
 /** sign = +1 aplica el aumento; sign = -1 lo revierte. Lee cada presupuesto y ajusta el override del

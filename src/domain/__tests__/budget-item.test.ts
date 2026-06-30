@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { isBudgetItem, linkedBudgetItems } from '../budgetBackedFixed';
+import { isBudgetItem, linkedBudgetItems } from '../checklistBudgets';
 import { fixedTotals, buildTransactionFromFixed } from '../fixed';
 import { accountRef, makeFixed, STUB_TS } from './fixtures';
 import type { FixedObligationMonthly } from '../types';
