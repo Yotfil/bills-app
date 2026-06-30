@@ -19,6 +19,9 @@ export default defineConfig({
   // Damos margen extra: la primera vez el emulador descarga su binario y arrancar Auth +
   // Firestore + Vite toma unos segundos.
   timeout: 30_000,
+  // El default de `expect` (5s) se queda corto para la cadena post-login (auth → allowlist → settings →
+  // onboarding) sobre el emulador compartido bajo carga: causaba flaky en auth.spec. 10s lo absorbe.
+  expect: { timeout: 10_000 },
   reporter: 'html',
   use: {
     // Puerto dedicado (5174) para que el dev server de e2e (modo emulador) jamás se confunda

@@ -9,7 +9,7 @@ const ENDPOINTS = [
   'http://127.0.0.1:9099/', // Auth emulator (raíz responde JSON con authEmulator.ready)
 ];
 
-async function waitForEmulator(url: string, timeoutMs = 60_000): Promise<void> {
+async function waitForEmulator(url: string, timeoutMs = 120_000): Promise<void> {
   const start = Date.now();
   let delay = 200;
   for (;;) {
