@@ -29,6 +29,34 @@ export default defineConfig({
     __APP_COMMIT__: JSON.stringify(resolveCommit()),
     __APP_BUILD_TIME__: JSON.stringify(new Date().toISOString()),
   },
+  build: {
+    // Firebase (auth+firestore) es ~650 kB y se carga una vez al entrar (login/datos) y cachea; es el
+    // único chunk grande inevitable. Subimos el umbral del aviso para no ensuciar el build con un warning
+    // esperado (el resto ya quedó separado/lazy y el chunk inicial es ~115 kB).
+    chunkSizeWarningLimit: 700,
+    // Code-splitting de vendors: separa las libs grandes en chunks propios para mejor caché
+    // (cambian poco) y para romper el monolito. Firebase es la más pesada; recharts (+ sus deps
+    // d3) y el vendor de React/Router también van aparte. Las pantallas secundarias se cargan
+    // lazy desde App.tsx, así que el chunk inicial queda chico.
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return undefined;
+          if (id.includes('@firebase') || id.includes('/firebase/')) return 'firebase';
+          if (id.includes('/recharts/') || id.includes('/d3-') || id.includes('/victory'))
+            return 'recharts';
+          if (
+            id.includes('/react-router') ||
+            id.includes('/react-dom/') ||
+            id.includes('/react/') ||
+            id.includes('/scheduler/')
+          )
+            return 'vendor-react';
+          return undefined;
+        },
+      },
+    },
+  },
   plugins: [
     react(),
     tailwindcss(),

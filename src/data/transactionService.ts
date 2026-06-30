@@ -1,18 +1,23 @@
 // Servicio de transacciones: el ÚNICO camino para escribir movimientos (CLAUDE.md §5.4, §9.3).
 //
-// Por qué aquí y no en el CRUD genérico: cada movimiento mueve saldos. La fuente de verdad
-// son los movimientos; `cachedBalance`/`cachedDebt` son cachés. Para que no se desincronicen
-// ante escrituras concurrentes, el documento del movimiento y la actualización de las cachés
-// se escriben en UNA transacción atómica (`runTransaction`). Usamos `increment()` para que el
-// ajuste de la caché sea seguro frente a carreras.
+// Por qué aquí y no en el CRUD genérico: cada movimiento mueve saldos. La fuente de verdad son los
+// movimientos; `cachedBalance`/`cachedDebt` son cachés. El documento del movimiento y el ajuste de las
+// cachés se escriben en UN `writeBatch` ATÓMICO, usando `increment()` (conmutativo y seguro frente a
+// carreras: no necesita leer el valor del servidor). **Offline-first (§3):** a diferencia de
+// `runTransaction` —que EXIGE conexión para leer el valor del servidor—, `writeBatch` se ENCOLA sin red
+// y sincroniza al reconectar, así registrar un gasto funciona offline. La lectura del movimiento viejo
+// (editar/borrar) usa `getDoc`, que offline cae a la caché local. La red de seguridad ante cualquier
+// desfase de cachés sigue siendo `recalculateBalances` ("Recalcular saldos").
 import {
   collection,
   doc,
+  getDoc,
   increment,
   runTransaction,
   serverTimestamp,
+  writeBatch,
   type DocumentReference,
-  type Transaction as FsTransaction,
+  type WriteBatch,
 } from 'firebase/firestore';
 import { db } from './firebase';
 import {
@@ -34,7 +39,7 @@ import {
 } from '../domain/ledger';
 import { listAll } from './crud';
 import { applyBudgetBoosts } from './budgetBoostService';
-import type { BudgetBoost, TransactionDraft } from '../domain/types';
+import type { TransactionDraft } from '../domain/types';
 import type { RecalculationCorrections } from './RecalculationCorrections';
 
 export type { RecalculationCorrections } from './RecalculationCorrections';
@@ -55,52 +60,56 @@ function newRawDoc(col: { path: string }): DocumentReference {
 }
 
 /**
- * Aplica un delta de saldos a las cachés de las entidades afectadas, dentro de una
- * transacción de Firestore. Cada mapa del delta dice cuánto cambia esa caché:
+ * Aplica un delta de saldos a las cachés de las entidades afectadas, dentro de un `writeBatch`. Cada
+ * mapa del delta dice cuánto cambia esa caché (con `increment()`, conmutativo):
  *   cuentas → cachedBalance | tarjetas → cachedDebt | créditos → cachedBalance
  */
-function applyDeltaToCaches(tx: FsTransaction, uid: string, delta: LedgerDelta): void {
+function applyDeltaToBatch(batch: WriteBatch, uid: string, delta: LedgerDelta): void {
   const stamp = serverTimestamp();
   for (const [id, amount] of Object.entries(delta.accounts)) {
     if (amount === 0) continue;
-    tx.update(rawDoc(accountsCol(uid), id), { cachedBalance: increment(amount), updatedAt: stamp });
+    batch.update(rawDoc(accountsCol(uid), id), {
+      cachedBalance: increment(amount),
+      updatedAt: stamp,
+    });
   }
   for (const [id, amount] of Object.entries(delta.cards)) {
     if (amount === 0) continue;
-    tx.update(rawDoc(cardsCol(uid), id), { cachedDebt: increment(amount), updatedAt: stamp });
+    batch.update(rawDoc(cardsCol(uid), id), { cachedDebt: increment(amount), updatedAt: stamp });
   }
   for (const [id, amount] of Object.entries(delta.loans)) {
     if (amount === 0) continue;
-    tx.update(rawDoc(loansCol(uid), id), { cachedBalance: increment(amount), updatedAt: stamp });
+    batch.update(rawDoc(loansCol(uid), id), { cachedBalance: increment(amount), updatedAt: stamp });
   }
 }
 
-/** Crea un movimiento y aplica su efecto en los saldos, todo atómico. Devuelve el id. */
+/** Crea un movimiento y aplica su efecto en los saldos, en un batch atómico. Devuelve el id.
+ * No requiere lectura → se ENCOLA offline. */
 export async function createTransaction(uid: string, draft: TransactionDraft): Promise<string> {
   assertValidTransaction(draft); // una transacción inválida no se guarda (§11)
   const delta = transactionDelta(draft);
-  const newRef = newRawDoc(transactionsCol(uid)); // id generado antes de la transacción
+  const newRef = newRawDoc(transactionsCol(uid)); // id generado antes del commit
 
-  await runTransaction(requireDb(), async (tx) => {
-    tx.set(newRef, {
-      ...draft,
-      schemaVersion: CURRENT_SCHEMA_VERSION,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    });
-    applyDeltaToCaches(tx, uid, delta);
+  const batch = writeBatch(requireDb());
+  batch.set(newRef, {
+    ...draft,
+    schemaVersion: CURRENT_SCHEMA_VERSION,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
   });
+  applyDeltaToBatch(batch, uid, delta);
+  await batch.commit(); // offline: encola y resuelve; online: escribe ya
 
   // Aumentos de presupuesto ligados al ingreso (§5.9): suben el tope del mes elegido. Paso aparte
-  // del runTransaction (no afectan saldos); si fallara, el ingreso queda sin aumento y se reaplica.
+  // del batch (no afectan saldos); si fallara, el ingreso queda sin aumento y se reaplica.
   await applyBudgetBoosts(uid, draft.budgetBoosts, 1);
 
   return newRef.id;
 }
 
 /**
- * Edita un movimiento: revierte su efecto anterior y aplica el nuevo (§9.3), recalculando
- * los saldos afectados. Lee el movimiento viejo dentro de la transacción.
+ * Edita un movimiento: revierte su efecto anterior y aplica el nuevo (§9.3), recalculando los saldos
+ * afectados. Lee el movimiento viejo con `getDoc` (offline cae a la caché local) y escribe en batch.
  */
 export async function editTransaction(
   uid: string,
@@ -110,23 +119,22 @@ export async function editTransaction(
   assertValidTransaction(newDraft);
   const ref = doc(transactionsCol(uid), id);
 
-  let oldBoosts: BudgetBoost[] | undefined;
-  await runTransaction(requireDb(), async (tx) => {
-    const snap = await tx.get(ref); // lectura ANTES de cualquier escritura
-    if (!snap.exists()) throw new Error('La transacción a editar no existe.');
-    const oldTxn = snap.data();
-    oldBoosts = oldTxn.budgetBoosts;
+  const snap = await getDoc(ref); // online: servidor; offline: caché local
+  if (!snap.exists()) throw new Error('La transacción a editar no existe.');
+  const oldTxn = snap.data();
+  const oldBoosts = oldTxn.budgetBoosts;
 
-    const delta = editTransactionDelta(oldTxn, newDraft);
-    tx.update(rawDoc(transactionsCol(uid), id), {
-      ...newDraft,
-      // Siempre refleja los boosts del nuevo draft (vacío si el tipo dejó de ser ingreso): así no
-      // queda un `budgetBoosts` viejo que se revertiría doble al borrar luego el movimiento.
-      budgetBoosts: newDraft.budgetBoosts ?? [],
-      updatedAt: serverTimestamp(),
-    });
-    applyDeltaToCaches(tx, uid, delta);
+  const delta = editTransactionDelta(oldTxn, newDraft);
+  const batch = writeBatch(requireDb());
+  batch.update(rawDoc(transactionsCol(uid), id), {
+    ...newDraft,
+    // Siempre refleja los boosts del nuevo draft (vacío si el tipo dejó de ser ingreso): así no
+    // queda un `budgetBoosts` viejo que se revertiría doble al borrar luego el movimiento.
+    budgetBoosts: newDraft.budgetBoosts ?? [],
+    updatedAt: serverTimestamp(),
   });
+  applyDeltaToBatch(batch, uid, delta);
+  await batch.commit();
 
   // Aumentos de presupuesto ligados (§5.9): revierte los viejos y aplica los nuevos.
   await applyBudgetBoosts(uid, oldBoosts, -1);
@@ -134,46 +142,42 @@ export async function editTransaction(
 }
 
 /**
- * Elimina un movimiento y revierte su efecto en los saldos, atómico. Si el movimiento lo generó un
- * fijo al pagarse (`fixedMonthlyId`), ese fijo vuelve a "Pendiente" en la MISMA transacción: así
- * borrar el movimiento desde el Registro deja el fijo consistente (antes seguía marcado "Pagado" con
- * un `transactionId` colgado). Solo se revierte si el fijo aún apunta a ESTE movimiento (no si ya se
- * volvió a pagar con otro).
+ * Elimina un movimiento y revierte su efecto en los saldos, en un batch atómico. Si el movimiento lo
+ * generó un fijo al pagarse (`fixedMonthlyId`), ese fijo vuelve a "Pendiente" en el MISMO batch: así
+ * borrar el movimiento desde el Registro deja el fijo consistente. Solo se revierte si el fijo aún
+ * apunta a ESTE movimiento (no si ya se volvió a pagar con otro). Lecturas con `getDoc` (offline → caché).
  */
 export async function deleteTransaction(uid: string, id: string): Promise<void> {
-  const ref = doc(transactionsCol(uid), id);
+  const snap = await getDoc(doc(transactionsCol(uid), id));
+  if (!snap.exists()) return; // ya no existe: nada que revertir
+  const data = snap.data();
 
-  let oldBoosts: BudgetBoost[] | undefined;
-  await runTransaction(requireDb(), async (tx) => {
-    const snap = await tx.get(ref);
-    if (!snap.exists()) return; // ya no existe: nada que revertir
-    const data = snap.data();
-    oldBoosts = data.budgetBoosts;
-
-    // Todas las LECTURAS antes de cualquier escritura (regla de runTransaction).
-    let fixedRef: DocumentReference | null = null;
-    if (data.fixedMonthlyId) {
-      const candidate = rawDoc(fixedMonthlyCol(uid), data.fixedMonthlyId);
-      const fixedSnap = await tx.get(candidate);
-      if (fixedSnap.exists() && fixedSnap.data().transactionId === id) fixedRef = candidate;
+  // Si el movimiento lo creó un fijo, ese fijo vuelve a pendiente — solo si aún apunta a ESTE.
+  let fixedRef: DocumentReference | null = null;
+  if (data.fixedMonthlyId) {
+    const fixedSnap = await getDoc(doc(fixedMonthlyCol(uid), data.fixedMonthlyId));
+    if (fixedSnap.exists() && fixedSnap.data().transactionId === id) {
+      fixedRef = rawDoc(fixedMonthlyCol(uid), data.fixedMonthlyId);
     }
+  }
 
-    const delta = revertTransaction(data);
-    tx.delete(rawDoc(transactionsCol(uid), id));
-    applyDeltaToCaches(tx, uid, delta);
-    if (fixedRef) {
-      tx.update(fixedRef, {
-        status: 'pending',
-        transactionId: null,
-        paidAmount: null,
-        paidAt: null,
-        updatedAt: serverTimestamp(),
-      });
-    }
-  });
+  const delta = revertTransaction(data);
+  const batch = writeBatch(requireDb());
+  batch.delete(rawDoc(transactionsCol(uid), id));
+  applyDeltaToBatch(batch, uid, delta);
+  if (fixedRef) {
+    batch.update(fixedRef, {
+      status: 'pending',
+      transactionId: null,
+      paidAmount: null,
+      paidAt: null,
+      updatedAt: serverTimestamp(),
+    });
+  }
+  await batch.commit();
 
   // Revierte los aumentos de presupuesto que este ingreso había aplicado (§5.9).
-  await applyBudgetBoosts(uid, oldBoosts, -1);
+  await applyBudgetBoosts(uid, data.budgetBoosts, -1);
 }
 
 /**
