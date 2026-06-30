@@ -12,7 +12,10 @@ export default defineConfig({
   // pantalla a media interacción. Limitamos workers y damos un reintento para absorber ese
   // ruido sin sacrificar la rapidez (la suite corre en ~20s).
   workers: 2,
-  retries: process.env.CI ? 2 : 1,
+  retries: 2,
+  // Espera a que AMBOS emuladores (Firestore 8080 + Auth 9099) estén listos antes de los tests:
+  // evita el flaky de arranque en frío de auth.spec (el webServer solo espera a Firestore).
+  globalSetup: './e2e/global-setup.ts',
   // Damos margen extra: la primera vez el emulador descarga su binario y arrancar Auth +
   // Firestore + Vite toma unos segundos.
   timeout: 30_000,
