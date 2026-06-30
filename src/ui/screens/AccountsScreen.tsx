@@ -199,9 +199,7 @@ export function AccountsScreen({ savingsBucket = false }: AccountsScreenProps) {
           reservedFor
             ? allocatedFixeds.filter(
                 (f) =>
-                  !f.budgetBacked &&
-                  f.paymentMethod.kind === 'account' &&
-                  f.paymentMethod.id === reservedFor.id,
+                  f.paymentMethod.kind === 'account' && f.paymentMethod.id === reservedFor.id,
               )
             : []
         }

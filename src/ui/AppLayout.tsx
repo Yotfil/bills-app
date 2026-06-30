@@ -2,8 +2,6 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { Home, Receipt, Pin, MoreHorizontal, Plus } from 'lucide-react';
 import { Brand } from './components/Brand';
 import { BudgetAlertWatcher } from './components/BudgetAlertWatcher';
-import { BudgetCapMigrationWatcher } from './components/BudgetCapMigrationWatcher';
-import { BackedToBudgetMigrationWatcher } from './components/BackedToBudgetMigrationWatcher';
 import { MonthlyRolloverWatcher } from './components/MonthlyRolloverWatcher';
 import { AutoPayWatcher } from './components/AutoPayWatcher';
 
@@ -37,10 +35,6 @@ export function AppLayout() {
       {/* Auto-registro de gastos fijos en su día de cobro (§5.3): corre tras generarse el mes. */}
       <AutoPayWatcher />
       <BudgetAlertWatcher />
-      {/* Migración única: topes respaldados → su Budget (§5.9, Opción B). */}
-      <BudgetCapMigrationWatcher />
-      {/* Migración única: fijos respaldados → Budget de checklist (§5.9, Opción C, no destructiva). */}
-      <BackedToBudgetMigrationWatcher />
 
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white">
         <div className="mx-auto flex max-w-md items-center">

@@ -8,7 +8,6 @@ export type FixedChangedField =
   | 'categoryId'
   | 'payKind'
   | 'debtTargetId'
-  | 'budgetBacked'
   | 'consumesBudget'
   | 'paymentMethod';
 

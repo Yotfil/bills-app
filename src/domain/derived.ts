@@ -14,9 +14,6 @@ export function accountReserved(
     .filter(
       (f) =>
         f.status === 'allocated' &&
-        // Un presupuesto respaldado NO se destina (no tiene flujo de "destinar"): si quedó con un
-        // estado 'allocated' colgado de antes de convertirse en bolsa, no debe reservar (§5.9).
-        !f.budgetBacked &&
         f.paymentMethod.kind === 'account' &&
         f.paymentMethod.id === accountId,
     )

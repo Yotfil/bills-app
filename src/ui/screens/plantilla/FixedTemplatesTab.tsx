@@ -53,10 +53,8 @@ export function FixedTemplatesTab() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
 
-  // Las plantillas respaldadas (Opción C) ya no son gastos fijos: viven como presupuesto de checklist
-  // en el tab Presupuestos. Se ocultan aquí (quedan dormidas hasta el PR de limpieza).
   const allActive = templates
-    .filter((t) => !t.archived && !(t.budgetBacked ?? false))
+    .filter((t) => !t.archived)
     .sort((a, b) => a.sortOrder - b.sortOrder);
   const active = allActive.filter((t) => matchesQuery(search, t.name));
   const categoryName = (id: string) => categories.find((c) => c.id === id)?.name;

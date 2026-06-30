@@ -1,13 +1,8 @@
-// Fijos respaldados por presupuesto (CLAUDE.md §5.9). Lógica PURA. Un fijo "budget-backed" no se
-// paga con un movimiento: su gasto real son los movimientos de su categoría (que consumen el
-// presupuesto). Se marca "lleno" cuando el consumo alcanza el tope. Su valor va en espejo con el
-// tope del presupuesto de su categoría (la liga es por `categoryId`).
+// Presupuestos en el checklist de Fijos (CLAUDE.md §5.9, Opción C). Lógica PURA. Un presupuesto con
+// `inChecklist` aparece como ítem del checklist mensual: no se paga con un movimiento; su gasto real
+// son los movimientos de su categoría y su tope (por mes) vive en el `Budget`. Aquí viven los helpers
+// de tope por mes, estado/totales del checklist y los aumentos ligados a ingresos.
 import type { Budget, FixedObligationMonthly, FixedStatus } from './types';
-
-/** `true` si el item (plantilla o fijo del mes) está marcado como respaldado por presupuesto. */
-export function isBudgetBacked(item: { budgetBacked: boolean }): boolean {
-  return item.budgetBacked;
-}
 
 /**
  * `true` si el fijo CONSUME de un presupuesto (es un ítem del checklist de una bolsa, §5.9 ext.):
@@ -19,13 +14,13 @@ export function isBudgetItem(item: { consumesBudget?: boolean }): boolean {
 
 /**
  * Los ítems del checklist que cuelgan del presupuesto de una categoría en el mes: los fijos que
- * CONSUMEN de esa bolsa (no el respaldado, que ES la bolsa). `monthlies` = fijos de un solo mes.
+ * CONSUMEN de esa bolsa. `monthlies` = fijos de un solo mes.
  */
 export function linkedBudgetItems(
   categoryId: string,
   monthlies: FixedObligationMonthly[],
 ): FixedObligationMonthly[] {
-  return monthlies.filter((m) => isBudgetItem(m) && !m.budgetBacked && m.categoryId === categoryId);
+  return monthlies.filter((m) => isBudgetItem(m) && m.categoryId === categoryId);
 }
 
 /** El presupuesto ACTIVO de una categoría, o null si no hay (la liga es 1:1 por categoría). */
@@ -60,29 +55,9 @@ export function boostedOverride(
   return next === base ? null : next;
 }
 
-/**
- * El fijo respaldado de una categoría en el mes dado, o null. Indica que la categoría TIENE un
- * presupuesto respaldado este mes (la "bolsa"); el tope en sí vive en el `Budget` de la categoría
- * (`budgetCapForMonth`), no en el fijo. `monthlies` = fijos de un solo mes.
- */
-export function linkedBudgetBackedFixed(
-  categoryId: string,
-  monthlies: FixedObligationMonthly[],
-): FixedObligationMonthly | null {
-  return monthlies.find((m) => m.budgetBacked && m.categoryId === categoryId) ?? null;
-}
-
-/** `true` si el presupuesto está lleno: lo consumido alcanzó (o superó) el tope. */
-export function budgetBackedFilled(consumed: number, cap: number): boolean {
+/** `true` si el presupuesto de checklist está lleno: lo consumido alcanzó (o superó) el tope. */
+export function budgetFilled(consumed: number, cap: number): boolean {
   return cap > 0 && consumed >= cap;
-}
-
-/**
- * Monto que un fijo respaldado aporta a los totales (§5.9): el gasto real (`consumed`) si está
- * lleno/excedido (así Pagado incluye el sobrepaso), o el tope (`cap`) si en curso (Por destinar).
- */
-export function budgetBackedTotalAmount(consumed: number, cap: number): number {
-  return budgetBackedFilled(consumed, cap) ? consumed : cap;
 }
 
 /** Un tope excedido: el presupuesto de checklist, su gasto y por cuánto se pasó del tope. */
@@ -141,38 +116,6 @@ export function nearLimitChecklistBudgets(
   return result;
 }
 
-/**
- * Estado EFECTIVO de un fijo para los totales (§8.3). Un fijo respaldado no usa la máquina de
- * estados normal: deriva su estado del consumo del presupuesto ('paid' si está lleno, 'pending' si
- * no; nunca 'allocated', no se "destina" un tope). Un fijo normal conserva su `status` guardado.
- * `filledByCategory` indica, por categoryId, si el presupuesto de esa categoría está lleno.
- */
-export function effectiveFixedStatus(
-  fixed: FixedObligationMonthly,
-  filledByCategory: (categoryId: string) => boolean,
-): FixedStatus {
-  if (!fixed.budgetBacked) return fixed.status;
-  // "Ya estaba pagado (sin movimiento)": un respaldado puede marcarse pagado a mano (status guardado
-  // 'paid') aunque su gasto no alcance el tope — útil para meses que ya estaban saldados al empezar a
-  // usar la app. Ese override manda sobre el cálculo por consumo.
-  if (fixed.status === 'paid') return 'paid';
-  return filledByCategory(fixed.categoryId) ? 'paid' : 'pending';
-}
-
-/**
- * Monto que aporta un respaldado a los totales contemplando el "pagado manual": si se marcó pagado
- * sin movimiento (status 'paid') cuenta su TOPE como pagado (no su consumo, que puede ser 0). Si no,
- * usa la regla normal por consumo (§5.9). `cap` es el tope del mes (del `Budget` de la categoría).
- */
-export function budgetBackedAmount(
-  fixed: FixedObligationMonthly,
-  consumed: number,
-  cap: number,
-): number {
-  if (fixed.status === 'paid') return cap;
-  return budgetBackedTotalAmount(consumed, cap);
-}
-
 // ---------- Presupuesto de checklist (Opción C, §5.9) ----------
 // Un presupuesto con `inChecklist` aparece en el checklist de Fijos y su tope cuenta en los totales,
 // igual que el viejo "fijo respaldado" pero viviendo en el `Budget`. No se paga con un movimiento; su
@@ -188,15 +131,7 @@ export function budgetManuallyPaid(budget: Budget, month: string): boolean {
  * a mano; si no, 'pending' (nunca 'allocated': un tope no se "destina"). */
 export function budgetChecklistStatus(budget: Budget, month: string, consumed: number): FixedStatus {
   if (budgetManuallyPaid(budget, month)) return 'paid';
-  return budgetBackedFilled(consumed, budgetCapForMonth(budget, month)) ? 'paid' : 'pending';
-}
-
-/** Monto que aporta a los totales: el tope si en curso o pagado a mano; el gasto real (con sobrepaso)
- * si está lleno/excedido por consumo (§5.9). */
-export function budgetChecklistAmount(budget: Budget, month: string, consumed: number): number {
-  const cap = budgetCapForMonth(budget, month);
-  if (budgetManuallyPaid(budget, month)) return cap;
-  return budgetBackedTotalAmount(consumed, cap);
+  return budgetFilled(consumed, budgetCapForMonth(budget, month)) ? 'paid' : 'pending';
 }
 
 /** Aporte de los presupuestos de checklist a los totales del mes (§8.3): por destinar (en curso) y
@@ -233,7 +168,7 @@ export function budgetChecklistTotals(
     // tope como "Por destinar". Así "Por destinar" baja a medida que se gasta, sin esperar a "Lleno".
     totals.paidAmount += consumed; // gasto real (incluye sobrepaso si lo hay)
     totals.pendingAmount += Math.max(cap - consumed, 0);
-    if (budgetBackedFilled(consumed, cap)) totals.paidCount += 1;
+    if (budgetFilled(consumed, cap)) totals.paidCount += 1;
     else totals.pendingCount += 1;
   }
   return totals;

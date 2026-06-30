@@ -1,7 +1,5 @@
 import { Eye, EyeOff } from 'lucide-react';
 import { formatCop } from '../../../lib/currency';
-import { progressBarColor } from '../../../lib/progress';
-import { budgetBackedFilled } from '../../../domain/budgetBackedFixed';
 import type { FixedStatus } from '../../../domain/types';
 import type { FixedRowProps } from './FixedRowProps';
 
@@ -19,105 +17,12 @@ export function FixedRow({
   onPay,
   onMarkPaid,
   onRevert,
-  cap = 0,
-  budgetConsumed = 0,
-  onEditCap,
   selected = false,
   onToggleSelect,
   muted = false,
   onToggleMute,
   nested = false,
 }: FixedRowProps) {
-  // Fijo respaldado por presupuesto (§5.9): no se paga; muestra el avance del gasto vs el tope y se
-  // marca "Lleno" cuando el gasto de su categoría alcanza el tope.
-  if (fixed.budgetBacked) {
-    // El tope efectivo del mes lo da el `Budget` de la categoría (`cap`, §5.9, Opción B).
-    // "Ya estaba pagado (sin movimiento)": el respaldado se marcó pagado a mano (status 'paid'), sin
-    // gasto que alcance el tope. Cuenta como lleno y manda sobre el cálculo por consumo (§5.9 ext.).
-    const manuallyPaid = fixed.status === 'paid';
-    const filledByConsumption = budgetBackedFilled(budgetConsumed, cap);
-    const filled = manuallyPaid || filledByConsumption;
-    const exceeded = !manuallyPaid && budgetConsumed > cap; // gastó MÁS que el tope (§5.9)
-    const overspend = budgetConsumed - cap;
-    const ratio = cap > 0 ? budgetConsumed / cap : 0;
-    const pct = manuallyPaid ? 100 : Math.min(100, Math.round(ratio * 100));
-    const barColor = manuallyPaid ? 'bg-emerald-500' : progressBarColor(ratio);
-
-    const chip = exceeded
-      ? { label: 'Excedido', className: 'bg-red-100 text-red-700' }
-      : filled
-        ? { label: 'Lleno', className: 'bg-emerald-100 text-emerald-700' }
-        : { label: 'En curso', className: 'bg-slate-100 text-slate-500' };
-
-    return (
-      <li
-        className={`rounded-xl border bg-white p-4 ${
-          selected ? 'border-slate-800 ring-1 ring-slate-800' : 'border-slate-200'
-        }`}
-      >
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex min-w-0 items-start gap-3">
-            {onToggleSelect && (
-              <input
-                type="checkbox"
-                checked={selected}
-                onChange={onToggleSelect}
-                aria-label={`Seleccionar ${fixed.name}`}
-                className="mt-0.5 h-5 w-5 shrink-0 accent-slate-800"
-              />
-            )}
-            <div className="min-w-0">
-              <p className="truncate font-semibold text-slate-800">{fixed.name}</p>
-              <p className="text-sm text-slate-500">{formatCop(cap)}</p>
-            </div>
-          </div>
-          <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${chip.className}`}>
-            {chip.label}
-          </span>
-        </div>
-
-        <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100">
-          <div className={`h-full ${barColor}`} style={{ width: `${pct}%` }} />
-        </div>
-        <div className="mt-2 flex items-center justify-between text-xs">
-          <span className={exceeded ? 'font-medium text-red-600' : 'text-slate-500'}>
-            {manuallyPaid
-              ? 'Pagado (sin movimiento)'
-              : exceeded
-                ? `Te excediste ${formatCop(overspend)}`
-                : `${formatCop(budgetConsumed)} de ${formatCop(cap)}`}
-          </span>
-          {onEditCap && (
-            <button type="button" onClick={onEditCap} className="text-slate-400 underline">
-              Editar tope
-            </button>
-          )}
-        </div>
-
-        {/* "Ya estaba pagado (sin movimiento)" para el presupuesto: solo cuando NO está lleno por gasto
-            ni marcado a mano. Útil para meses ya saldados al empezar a usar la app. */}
-        {!manuallyPaid && !filledByConsumption && onMarkPaid && (
-          <button
-            type="button"
-            onClick={onMarkPaid}
-            className="mt-2 w-full text-center text-xs text-slate-400 underline"
-          >
-            Ya estaba pagado (sin movimiento)
-          </button>
-        )}
-        {manuallyPaid && onRevert && (
-          <button
-            type="button"
-            onClick={onRevert}
-            className="mt-2 w-full text-center text-xs text-slate-400 underline"
-          >
-            Deshacer
-          </button>
-        )}
-      </li>
-    );
-  }
-
   const badge = STATUS_BADGE[fixed.status];
 
   return (
