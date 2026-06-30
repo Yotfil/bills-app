@@ -1,4 +1,3 @@
-import { Fragment } from 'react';
 import { Link } from 'react-router-dom';
 import { RefreshCw } from 'lucide-react';
 import { MonthSelector } from '../../components/MonthSelector';
@@ -10,20 +9,15 @@ import { FixedFilters } from './FixedFilters';
 import { FixedMutedBar } from './FixedMutedBar';
 import { FixedTotalsBar } from './FixedTotalsBar';
 import { FixedRow } from './FixedRow';
+import { FixedBudgetsTab } from './FixedBudgetsTab';
 import { PayFixedModal } from './PayFixedModal';
 import { AllocateFixedModal } from './AllocateFixedModal';
 import { FixedSyncBanner } from './FixedSyncBanner';
 import { FixedSyncModal } from './FixedSyncModal';
-import { BudgetChecklistCard } from '../budgets/BudgetChecklistCard';
 import { BudgetCapModal } from '../budgets/BudgetCapModal';
-import { HormigaBudgetCard } from '../budgets/HormigaBudgetCard';
 import { useFijos, type FixedTab, type FixedSort } from './useFijos';
 import { EMPTY_FIXED_FILTER, isFixedFilterActive } from '../../../domain/fixedFilters';
-import {
-  budgetCapForMonth,
-  budgetManuallyPaid,
-  linkedBudgetItems,
-} from '../../../domain/budgetBackedFixed';
+import { budgetCapForMonth } from '../../../domain/budgetBackedFixed';
 import { addMonths, formatMonthLabel } from '../../../lib/date';
 import type { FixedObligationMonthly } from '../../../domain/types';
 
@@ -233,30 +227,19 @@ export function FijosScreen() {
         <ul className="flex flex-col gap-2">{f.sorted.map((fixed) => renderRow(fixed))}</ul>
       )}
 
-      {/* Tab Presupuestos: SOLO los presupuestos marcados "Mostrar en Fijos" (con su bolsa anidada) +
-          el gasto hormiga (§5.9, §5.8). Su tope cuenta en los totales de arriba. */}
       {f.tab === 'presupuestos' && (
-        <ul className="flex flex-col gap-2">
-          {f.checklistBudgetsShown.map((b) => {
-            const consumed = f.consumedForCategory(b.categoryId);
-            const items = linkedBudgetItems(b.categoryId, f.activeFijos).sort(f.compareFixed);
-            return (
-              <Fragment key={b.id}>
-                <BudgetChecklistCard
-                  categoryName={f.categoryName(b.categoryId) ?? 'Categoría'}
-                  cap={budgetCapForMonth(b, f.month)}
-                  consumed={consumed}
-                  manuallyPaid={budgetManuallyPaid(b, f.month)}
-                  onEditCap={() => f.setEditingBudgetCap(b)}
-                  onMarkPaid={() => void f.handleBudgetMarkPaid(b)}
-                  onUndoPaid={() => void f.handleBudgetUndoPaid(b)}
-                />
-                {items.map((it) => renderRow(it, { nested: true }))}
-              </Fragment>
-            );
-          })}
-          <HormigaBudgetCard month={f.month} />
-        </ul>
+        <FixedBudgetsTab
+          budgets={f.checklistBudgetsShown}
+          month={f.month}
+          activeFijos={f.activeFijos}
+          consumedForCategory={f.consumedForCategory}
+          compareFixed={f.compareFixed}
+          categoryName={f.categoryName}
+          onEditCap={f.setEditingBudgetCap}
+          onBudgetMarkPaid={(b) => void f.handleBudgetMarkPaid(b)}
+          onBudgetUndoPaid={(b) => void f.handleBudgetUndoPaid(b)}
+          rowProps={f.rowProps}
+        />
       )}
 
       <PayFixedModal
