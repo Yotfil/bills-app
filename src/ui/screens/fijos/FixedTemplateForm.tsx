@@ -8,7 +8,7 @@ import { currentMonthKey } from '../../../lib/date';
 import { createFixedTemplate, updateFixedTemplate } from '../../../data/fixedTemplateRepository';
 import { syncMonthlyToTemplate } from '../../../data/fixedMonthlyRepository';
 import { syncCuotaFromTemplate } from '../../../data/cuotaService';
-import { budgetForCategory } from '../../../domain/budgetBackedFixed';
+import { budgetForCategory } from '../../../domain/checklistBudgets';
 import type { FixedTemplateFormProps } from './FixedTemplateFormProps';
 import type { FixedPayKind } from '../../../domain/types';
 

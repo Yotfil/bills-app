@@ -6,7 +6,7 @@ import {
   budgetCapForMonth,
   budgetManuallyPaid,
   linkedBudgetItems,
-} from '../../../domain/budgetBackedFixed';
+} from '../../../domain/checklistBudgets';
 import type { FixedBudgetsTabProps } from './FixedBudgetsTabProps';
 
 // Pestaña Presupuestos de Fijos (§8.3): SOLO los presupuestos marcados "Mostrar en Fijos", cada uno

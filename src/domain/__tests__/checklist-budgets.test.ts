@@ -8,11 +8,11 @@ import {
   budgetForCategory,
   exceededChecklistBudgets,
   nearLimitChecklistBudgets,
-} from '../budgetBackedFixed';
+} from '../checklistBudgets';
 import { makeBudget } from './fixtures';
 
 // Presupuestos en el checklist de Fijos (CLAUDE.md §5.9, Opción C).
-describe('budgetBackedFixed', () => {
+describe('checklistBudgets', () => {
   it('budgetForCategory devuelve el presupuesto activo de la categoría, o null', () => {
     const budgets = [
       makeBudget({ id: 'b1', categoryId: 'cat-ocio' }),
