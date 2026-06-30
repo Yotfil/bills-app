@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { useAuthSync } from './ui/hooks/useAuthSync';
 import { useUserSettings } from './ui/hooks/useUserSettings';
@@ -7,21 +8,48 @@ import { NoAccessScreen } from './ui/screens/NoAccessScreen';
 import { OnboardingScreen } from './ui/screens/onboarding/OnboardingScreen';
 import { Splash } from './ui/components/Splash';
 import { AppLayout } from './ui/AppLayout';
+// Hot-path (barra inferior + captura): se cargan eager para que la navegación principal sea instantánea.
 import { MoreScreen } from './ui/screens/MoreScreen';
-import { SettingsScreen } from './ui/screens/SettingsScreen';
-import { AccountsScreen } from './ui/screens/AccountsScreen';
-import { CardsScreen } from './ui/screens/CardsScreen';
 import { AddTransactionScreen } from './ui/screens/AddTransactionScreen';
 import { RegistroScreen } from './ui/screens/RegistroScreen';
 import { DashboardScreen } from './ui/screens/dashboard/DashboardScreen';
 import { FijosScreen } from './ui/screens/fijos/FijosScreen';
-import { PlantillaScreen } from './ui/screens/plantilla/PlantillaScreen';
-import { BudgetHistoryScreen } from './ui/screens/budgets/BudgetHistoryScreen';
-import { LoansScreen } from './ui/screens/loans/LoansScreen';
-import { CategoriesScreen } from './ui/screens/categories/CategoriesScreen';
-import { ArchivedScreen } from './ui/screens/archived/ArchivedScreen';
-import { ReportsScreen } from './ui/screens/reports/ReportsScreen';
-import { SubscriptionsScreen } from './ui/screens/subscriptions/SubscriptionsScreen';
+// Pantallas secundarias (deep links de "Más"): lazy → fuera del chunk inicial (§13.3). Son named
+// exports, así que el dynamic import mapea a `default` para `React.lazy`.
+const SettingsScreen = lazy(() =>
+  import('./ui/screens/SettingsScreen').then((m) => ({ default: m.SettingsScreen })),
+);
+const AccountsScreen = lazy(() =>
+  import('./ui/screens/AccountsScreen').then((m) => ({ default: m.AccountsScreen })),
+);
+const CardsScreen = lazy(() =>
+  import('./ui/screens/CardsScreen').then((m) => ({ default: m.CardsScreen })),
+);
+const PlantillaScreen = lazy(() =>
+  import('./ui/screens/plantilla/PlantillaScreen').then((m) => ({ default: m.PlantillaScreen })),
+);
+const BudgetHistoryScreen = lazy(() =>
+  import('./ui/screens/budgets/BudgetHistoryScreen').then((m) => ({
+    default: m.BudgetHistoryScreen,
+  })),
+);
+const LoansScreen = lazy(() =>
+  import('./ui/screens/loans/LoansScreen').then((m) => ({ default: m.LoansScreen })),
+);
+const CategoriesScreen = lazy(() =>
+  import('./ui/screens/categories/CategoriesScreen').then((m) => ({ default: m.CategoriesScreen })),
+);
+const ArchivedScreen = lazy(() =>
+  import('./ui/screens/archived/ArchivedScreen').then((m) => ({ default: m.ArchivedScreen })),
+);
+const ReportsScreen = lazy(() =>
+  import('./ui/screens/reports/ReportsScreen').then((m) => ({ default: m.ReportsScreen })),
+);
+const SubscriptionsScreen = lazy(() =>
+  import('./ui/screens/subscriptions/SubscriptionsScreen').then((m) => ({
+    default: m.SubscriptionsScreen,
+  })),
+);
 
 // Raíz: decide qué mostrar según el estado de la sesión (CLAUDE.md §3).
 //   loading         → splash mientras Firebase resuelve si hay sesión
@@ -61,40 +89,43 @@ function App() {
 
   return (
     <BrowserRouter>
-      {settings.onboardingCompleted ? (
-        <Routes>
-          <Route path="/onboarding" element={<OnboardingScreen />} />
-          <Route element={<AppLayout />}>
-            <Route path="/" element={<DashboardScreen />} />
-            <Route path="/registro" element={<RegistroScreen />} />
-            <Route path="/agregar" element={<AddTransactionScreen />} />
-            <Route path="/fijos" element={<FijosScreen />} />
-            <Route path="/mas" element={<MoreScreen />} />
-            <Route path="/mas/cuentas" element={<AccountsScreen />} />
-            <Route path="/mas/ahorros" element={<AccountsScreen savingsBucket />} />
-            <Route path="/mas/tarjetas" element={<CardsScreen />} />
-            <Route path="/mas/fijos" element={<PlantillaScreen />} />
-            {/* Ruta vieja: la plantilla de presupuestos ahora es un tab de Plantilla. */}
-            <Route
-              path="/mas/presupuestos"
-              element={<Navigate to="/mas/fijos?tab=presupuestos" replace />}
-            />
-            <Route path="/mas/presupuestos/historico" element={<BudgetHistoryScreen />} />
-            <Route path="/mas/creditos" element={<LoansScreen />} />
-            <Route path="/mas/categorias" element={<CategoriesScreen />} />
-            <Route path="/mas/reportes" element={<ReportsScreen />} />
-            <Route path="/mas/suscripciones" element={<SubscriptionsScreen />} />
-            <Route path="/mas/archivados" element={<ArchivedScreen />} />
-            <Route path="/mas/ajustes" element={<SettingsScreen />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Route>
-        </Routes>
-      ) : (
-        // Aún sin onboarding: cualquier ruta muestra el onboarding (sin redirecciones que atrapen).
-        <Routes>
-          <Route path="*" element={<OnboardingScreen />} />
-        </Routes>
-      )}
+      {/* Suspense para las pantallas lazy: muestra el splash mientras llega su chunk. */}
+      <Suspense fallback={<Splash />}>
+        {settings.onboardingCompleted ? (
+          <Routes>
+            <Route path="/onboarding" element={<OnboardingScreen />} />
+            <Route element={<AppLayout />}>
+              <Route path="/" element={<DashboardScreen />} />
+              <Route path="/registro" element={<RegistroScreen />} />
+              <Route path="/agregar" element={<AddTransactionScreen />} />
+              <Route path="/fijos" element={<FijosScreen />} />
+              <Route path="/mas" element={<MoreScreen />} />
+              <Route path="/mas/cuentas" element={<AccountsScreen />} />
+              <Route path="/mas/ahorros" element={<AccountsScreen savingsBucket />} />
+              <Route path="/mas/tarjetas" element={<CardsScreen />} />
+              <Route path="/mas/fijos" element={<PlantillaScreen />} />
+              {/* Ruta vieja: la plantilla de presupuestos ahora es un tab de Plantilla. */}
+              <Route
+                path="/mas/presupuestos"
+                element={<Navigate to="/mas/fijos?tab=presupuestos" replace />}
+              />
+              <Route path="/mas/presupuestos/historico" element={<BudgetHistoryScreen />} />
+              <Route path="/mas/creditos" element={<LoansScreen />} />
+              <Route path="/mas/categorias" element={<CategoriesScreen />} />
+              <Route path="/mas/reportes" element={<ReportsScreen />} />
+              <Route path="/mas/suscripciones" element={<SubscriptionsScreen />} />
+              <Route path="/mas/archivados" element={<ArchivedScreen />} />
+              <Route path="/mas/ajustes" element={<SettingsScreen />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Route>
+          </Routes>
+        ) : (
+          // Aún sin onboarding: cualquier ruta muestra el onboarding (sin redirecciones que atrapen).
+          <Routes>
+            <Route path="*" element={<OnboardingScreen />} />
+          </Routes>
+        )}
+      </Suspense>
     </BrowserRouter>
   );
 }
