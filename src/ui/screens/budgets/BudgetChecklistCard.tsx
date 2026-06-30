@@ -1,6 +1,6 @@
 import { formatCop } from '../../../lib/currency';
 import { progressBarColor } from '../../../lib/progress';
-import { budgetFilled } from '../../../domain/budgetBackedFixed';
+import { budgetFilled } from '../../../domain/checklistBudgets';
 import type { BudgetChecklistCardProps } from './BudgetChecklistCardProps';
 
 // Presupuesto "de checklist" en la vista mensual de Fijos (Opción C, §5.9): no se paga con un

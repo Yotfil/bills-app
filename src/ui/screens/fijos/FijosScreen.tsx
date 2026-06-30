@@ -14,7 +14,7 @@ import { FixedSyncBanner } from './FixedSyncBanner';
 import { FixedSyncModal } from './FixedSyncModal';
 import { BudgetCapModal } from '../budgets/BudgetCapModal';
 import { useFijos, type FixedTab } from './useFijos';
-import { budgetCapForMonth } from '../../../domain/budgetBackedFixed';
+import { budgetCapForMonth } from '../../../domain/checklistBudgets';
 import { addMonths, formatMonthLabel } from '../../../lib/date';
 
 // Pantalla de Fijos (CLAUDE.md §8.3): orquesta el hook `useFijos` (toda la lógica) y compone las

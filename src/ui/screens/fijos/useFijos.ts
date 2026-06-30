@@ -8,7 +8,7 @@ import { EMPTY_FIXED_FILTER, matchesFixedFilter, type FixedFilter } from '../../
 import { matchesQuery } from '../../../lib/text';
 import { fixedTotals, mutedPendingTotal } from '../../../domain/fixed';
 import { budgetStatus } from '../../../domain/reports';
-import { budgetChecklistTotals, isBudgetItem } from '../../../domain/budgetBackedFixed';
+import { budgetChecklistTotals, isBudgetItem } from '../../../domain/checklistBudgets';
 import {
   computeFixedSyncDiff,
   fixedSyncChangeCount,

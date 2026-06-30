@@ -4,7 +4,7 @@ import { BackButton } from '../../components/BackButton';
 import { MonthSelector } from '../../components/MonthSelector';
 import { BudgetHistoryRow } from './BudgetHistoryRow';
 import { budgetStatus } from '../../../domain/reports';
-import { budgetCapForMonth } from '../../../domain/budgetBackedFixed';
+import { budgetCapForMonth } from '../../../domain/checklistBudgets';
 import { formatCop } from '../../../lib/currency';
 import { addMonths, currentMonthKey, transactionPeriodMonth } from '../../../lib/date';
 import { subscribeBudgets } from '../../../data/budgetRepository';

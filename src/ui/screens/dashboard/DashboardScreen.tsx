@@ -15,7 +15,7 @@ import { budgetStatus, spendByCategory } from '../../../domain/reports';
 import {
   exceededChecklistBudgets,
   nearLimitChecklistBudgets,
-} from '../../../domain/budgetBackedFixed';
+} from '../../../domain/checklistBudgets';
 import { monthlySummary } from '../../../domain/summary';
 import { addMonths, currentMonthKey, monthKey, transactionPeriodMonth } from '../../../lib/date';
 import { NEAR_LIMIT_RATIO } from '../../../lib/progress';

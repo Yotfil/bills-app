@@ -8,7 +8,7 @@ import { subscribeCategories } from '../../data/categoryRepository';
 import { subscribeTransactions } from '../../data/transactionRepository';
 import { budgetStatus } from '../../domain/reports';
 import { budgetAlertLevel, budgetAlertRank } from '../../domain/budgetAlert';
-import { budgetCapForMonth } from '../../domain/budgetBackedFixed';
+import { budgetCapForMonth } from '../../domain/checklistBudgets';
 import { formatCop } from '../../lib/currency';
 import { NEAR_LIMIT_RATIO } from '../../lib/progress';
 import { currentMonthKey, transactionPeriodMonth } from '../../lib/date';
