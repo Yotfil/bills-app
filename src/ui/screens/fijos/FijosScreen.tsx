@@ -4,31 +4,24 @@ import { MonthSelector } from '../../components/MonthSelector';
 import { DisponibleRealBar } from '../../components/DisponibleRealBar';
 import { SearchBar } from '../../components/SearchBar';
 import { SegmentedTabs } from '../../components/SegmentedTabs';
-import { BulkSelectBar } from '../../components/BulkSelectBar';
-import { FixedFilters } from './FixedFilters';
 import { FixedMutedBar } from './FixedMutedBar';
 import { FixedTotalsBar } from './FixedTotalsBar';
-import { FixedRow } from './FixedRow';
+import { FixedExpensesTab } from './FixedExpensesTab';
 import { FixedBudgetsTab } from './FixedBudgetsTab';
 import { PayFixedModal } from './PayFixedModal';
 import { AllocateFixedModal } from './AllocateFixedModal';
 import { FixedSyncBanner } from './FixedSyncBanner';
 import { FixedSyncModal } from './FixedSyncModal';
 import { BudgetCapModal } from '../budgets/BudgetCapModal';
-import { useFijos, type FixedTab, type FixedSort } from './useFijos';
-import { EMPTY_FIXED_FILTER, isFixedFilterActive } from '../../../domain/fixedFilters';
+import { useFijos, type FixedTab } from './useFijos';
 import { budgetCapForMonth } from '../../../domain/budgetBackedFixed';
 import { addMonths, formatMonthLabel } from '../../../lib/date';
-import type { FixedObligationMonthly } from '../../../domain/types';
 
 // Pantalla de Fijos (CLAUDE.md §8.3): orquesta el hook `useFijos` (toda la lógica) y compone las
 // secciones. Dos tabs: Gastos (se pagan/destinan) y Presupuestos de checklist (su tope cuenta, no se
 // pagan con movimiento). Ambos alimentan los totales de arriba.
 export function FijosScreen() {
   const f = useFijos();
-  const renderRow = (fixed: FixedObligationMonthly, opts?: { nested?: boolean }) => (
-    <FixedRow key={fixed.id} {...f.rowProps(fixed, opts)} />
-  );
 
   return (
     <div className="mx-auto flex max-w-md flex-col gap-3 p-4 pb-24">
@@ -109,122 +102,36 @@ export function FijosScreen() {
         />
       )}
 
-      {/* Filtros (§8.3) y orden en una sola fila; el panel de filtros se despliega debajo. */}
-      {f.tab === 'gastos' && f.gastosCount > 0 && (
-        <>
-          <div className="flex items-center justify-between text-sm">
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => f.setFiltersExpanded((v) => !v)}
-                className="text-slate-500 underline"
-              >
-                Filtros {f.filtersExpanded ? '▴' : '▾'}
-              </button>
-              {isFixedFilterActive(f.gastoFilter) && (
-                <button
-                  type="button"
-                  onClick={() => f.setGastoFilter(EMPTY_FIXED_FILTER)}
-                  className="text-slate-400 underline"
-                >
-                  Limpiar
-                </button>
-              )}
-            </div>
-            <div className="flex items-center gap-2">
-              <label htmlFor="fixed-sort" className="text-xs text-slate-400">
-                Ordenar
-              </label>
-              <select
-                id="fixed-sort"
-                value={f.sort}
-                onChange={(e) => f.setSort(e.target.value as FixedSort)}
-                aria-label="Ordenar fijos"
-                className="rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-700 outline-none focus:border-slate-500"
-              >
-                <option value="status">Estado</option>
-                <option value="name-asc">Nombre A→Z</option>
-                <option value="name-desc">Nombre Z→A</option>
-                <option value="category">Categoría</option>
-              </select>
-            </div>
-          </div>
-
-          <FixedFilters
-            filter={f.gastoFilter}
-            onChange={f.setGastoFilter}
-            categoryOptions={f.gastoCategoryOptions}
-            methodOptions={f.gastoMethodOptions}
-            expanded={f.filtersExpanded}
-          />
-        </>
-      )}
-
-      {/* Acciones masivas solo en Gastos: los presupuestos de checklist no se pagan ni se destinan. */}
-      {f.tab === 'gastos' && (
-        <>
-          {f.unpaid.length > 1 && f.selected.size === 0 && (
-            <button
-              type="button"
-              onClick={f.handleMarkAllPaid}
-              className="text-center text-sm text-slate-500 underline"
-            >
-              Marcar los {f.unpaid.length} como pagados (sin movimiento)
-            </button>
-          )}
-
-          <BulkSelectBar
-            selectedCount={f.selectedFijos.length}
-            totalCount={f.sorted.length}
-            allSelected={f.allVisibleSelected}
-            onToggleAll={f.toggleAllVisible}
-            actions={[
-              { label: 'Marcar pagados', onClick: () => void f.handleBulkMarkPaid() },
-              { label: 'Eliminar', danger: true, onClick: () => void f.handleBulkDelete() },
-            ]}
-          />
-        </>
-      )}
-
       {f.loading && <p className="text-slate-400">Cargando…</p>}
 
-      {!f.loading && f.fijos.length === 0 && f.tab === 'gastos' && (
-        <div className="rounded-2xl bg-white p-5 text-center shadow-sm">
-          {f.activeTemplates.length > 0 ? (
-            <>
-              <p className="text-slate-500">No has generado los fijos de este mes.</p>
-              <button
-                type="button"
-                onClick={f.handleGenerate}
-                disabled={f.generating}
-                className="mt-3 rounded-xl bg-slate-800 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-              >
-                Generar {f.activeTemplates.length} fijos del mes
-              </button>
-            </>
-          ) : (
-            <p className="text-slate-500">
-              Aún no tienes plantilla de fijos.{' '}
-              <Link to="/mas/fijos" className="font-medium text-slate-700 underline">
-                Créala aquí
-              </Link>
-              .
-            </p>
-          )}
-        </div>
-      )}
-
-      {f.activeFijos.length > 0 && f.gastosCount === 0 && f.tab === 'gastos' && (
-        <p className="text-slate-500">No tienes gastos fijos este mes.</p>
-      )}
-
-      {f.tab === 'gastos' && f.gastosCount > 0 && f.sorted.length === 0 && (
-        <p className="text-slate-500">Ningún fijo coincide con la búsqueda o los filtros.</p>
-      )}
-
-      {/* Tab Gastos: lista de fijos (los anidados consumen una bolsa y se ven en Presupuestos). */}
-      {f.tab === 'gastos' && (
-        <ul className="flex flex-col gap-2">{f.sorted.map((fixed) => renderRow(fixed))}</ul>
+      {/* Tab Gastos: toolbar de filtros/orden, acciones masivas, estados vacíos y la lista. */}
+      {f.tab === 'gastos' && !f.loading && (
+        <FixedExpensesTab
+          gastoFilter={f.gastoFilter}
+          setGastoFilter={f.setGastoFilter}
+          filtersExpanded={f.filtersExpanded}
+          setFiltersExpanded={f.setFiltersExpanded}
+          sort={f.sort}
+          setSort={f.setSort}
+          gastoCategoryOptions={f.gastoCategoryOptions}
+          gastoMethodOptions={f.gastoMethodOptions}
+          gastosCount={f.gastosCount}
+          unpaid={f.unpaid}
+          selected={f.selected}
+          handleMarkAllPaid={f.handleMarkAllPaid}
+          selectedFijos={f.selectedFijos}
+          sorted={f.sorted}
+          allVisibleSelected={f.allVisibleSelected}
+          toggleAllVisible={f.toggleAllVisible}
+          handleBulkMarkPaid={f.handleBulkMarkPaid}
+          handleBulkDelete={f.handleBulkDelete}
+          fijos={f.fijos}
+          activeFijos={f.activeFijos}
+          activeTemplates={f.activeTemplates}
+          handleGenerate={f.handleGenerate}
+          generating={f.generating}
+          rowProps={f.rowProps}
+        />
       )}
 
       {f.tab === 'presupuestos' && (
