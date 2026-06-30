@@ -1,12 +1,12 @@
 import { formatCop } from '../../../lib/currency';
 import { progressBarColor } from '../../../lib/progress';
-import { budgetBackedFilled } from '../../../domain/budgetBackedFixed';
+import { budgetFilled } from '../../../domain/budgetBackedFixed';
 import type { BudgetChecklistCardProps } from './BudgetChecklistCardProps';
 
 // Presupuesto "de checklist" en la vista mensual de Fijos (Opción C, §5.9): no se paga con un
 // movimiento; muestra el avance del gasto vs el tope y se marca "Lleno" cuando el gasto de su
-// categoría alcanza el tope. Reemplaza la fila respaldada (FixedRow budgetBacked), pero ahora el
-// estado/tope vienen del `Budget`. Sus ítems `consumesBudget` se renderizan anidados aparte (el padre).
+// categoría alcanza el tope. El estado/tope vienen del `Budget`. Sus ítems `consumesBudget` se
+// renderizan anidados aparte (este es el padre/bolsa).
 export function BudgetChecklistCard({
   categoryName,
   cap,
@@ -16,7 +16,7 @@ export function BudgetChecklistCard({
   onMarkPaid,
   onUndoPaid,
 }: BudgetChecklistCardProps) {
-  const filledByConsumption = budgetBackedFilled(consumed, cap);
+  const filledByConsumption = budgetFilled(consumed, cap);
   const filled = manuallyPaid || filledByConsumption;
   const exceeded = !manuallyPaid && consumed > cap; // gastó MÁS que el tope (§5.9)
   const overspend = consumed - cap;

@@ -79,7 +79,6 @@ export function FixedTemplateForm({
       defaultPaymentMethod: method,
       payKind,
       debtTargetId: payKind === 'debt_payment' ? debtTargetId : null,
-      budgetBacked: false,
       consumesBudget: isConsumesBudget,
       autoPayDay: autoDay,
     };
@@ -95,7 +94,6 @@ export function FixedTemplateForm({
           categoryId: data.categoryId,
           payKind: data.payKind,
           debtTargetId: data.debtTargetId,
-          budgetBacked: data.budgetBacked,
           consumesBudget: data.consumesBudget,
           autoPayDay: data.autoPayDay,
           paymentMethod: method,
