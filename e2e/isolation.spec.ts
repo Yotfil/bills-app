@@ -37,10 +37,17 @@ test('un usuario no puede leer los datos de otro', async ({ request }) => {
 
   const aliceDoc = `${FIRESTORE}/users/${alice.uid}/accounts/secreta`;
 
-  // Alice escribe una cuenta en su propio árbol → permitido.
+  // Alice escribe una cuenta en su propio árbol → permitido. El doc debe cumplir la estructura
+  // mínima que validan las reglas (name string + saldos numéricos), como los que crea la app.
   const write = await request.patch(aliceDoc, {
     headers: { Authorization: `Bearer ${alice.token}` },
-    data: { fields: { name: { stringValue: 'Cuenta secreta de Alice' } } },
+    data: {
+      fields: {
+        name: { stringValue: 'Cuenta secreta de Alice' },
+        cachedBalance: { integerValue: '1000' },
+        initialBalance: { integerValue: '1000' },
+      },
+    },
   });
   expect(write.ok()).toBeTruthy();
 

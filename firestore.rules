@@ -4,6 +4,13 @@ rules_version = '2';
 // Principio: todo cuelga de /users/{uid} y cada quien SOLO accede a lo suyo. Lo que no se
 // permite explícitamente queda denegado por defecto. Usamos un match explícito por
 // subcolección (en vez de un comodín) para no exponer colecciones no previstas.
+//
+// Además de ownership, las escrituras validan una ESTRUCTURA MÍNIMA (§11): tipos de los campos
+// que alimentan los saldos y estados. El dominio ya valida en el cliente; esto es la última
+// línea de defensa server-side para que un bug (o una escritura por fuera de la app) no
+// corrompa los datos. Se validan tipos, no reglas de negocio completas: en updates parciales
+// las reglas evalúan el documento RESULTANTE, así que exigir un campo aquí no obliga a
+// enviarlo en cada update (basta con que exista en el doc).
 service cloud.firestore {
   match /databases/{database}/documents {
     // ¿La petición es del dueño de ese árbol de usuario?
@@ -37,30 +44,61 @@ service cloud.firestore {
       // Perfil y ajustes del propio usuario (solo si está aprobado).
       allow read, write: if canAccess(uid);
 
-      // Subcolecciones privadas del usuario (§9.2).
+      // Subcolecciones privadas del usuario (§9.2). En cada una: leer/borrar exige ser el
+      // dueño; crear/actualizar exige además la estructura mínima del documento resultante.
       match /accounts/{accountId} {
-        allow read, write: if canAccess(uid);
+        allow read, delete: if canAccess(uid);
+        allow create, update: if canAccess(uid)
+          && request.resource.data.name is string
+          && request.resource.data.cachedBalance is number
+          && request.resource.data.initialBalance is number;
       }
       match /cards/{cardId} {
-        allow read, write: if canAccess(uid);
+        allow read, delete: if canAccess(uid);
+        allow create, update: if canAccess(uid)
+          && request.resource.data.name is string
+          && request.resource.data.creditLimit is number
+          && request.resource.data.cachedDebt is number;
       }
       match /loans/{loanId} {
-        allow read, write: if canAccess(uid);
+        allow read, delete: if canAccess(uid);
+        allow create, update: if canAccess(uid)
+          && request.resource.data.name is string
+          && request.resource.data.cachedBalance is number
+          && request.resource.data.monthlyPayment is number;
       }
       match /categories/{categoryId} {
-        allow read, write: if canAccess(uid);
+        allow read, delete: if canAccess(uid);
+        allow create, update: if canAccess(uid)
+          && request.resource.data.name is string;
       }
       match /fixedTemplates/{templateId} {
-        allow read, write: if canAccess(uid);
+        allow read, delete: if canAccess(uid);
+        allow create, update: if canAccess(uid)
+          && request.resource.data.name is string
+          && request.resource.data.budgetedAmount is number;
       }
       match /fixedMonthly/{fixedId} {
-        allow read, write: if canAccess(uid);
+        allow read, delete: if canAccess(uid);
+        allow create, update: if canAccess(uid)
+          && request.resource.data.month is string
+          && request.resource.data.budgetedAmount is number
+          && request.resource.data.status in ['pending', 'allocated', 'paid'];
       }
       match /budgets/{budgetId} {
-        allow read, write: if canAccess(uid);
+        allow read, delete: if canAccess(uid);
+        allow create, update: if canAccess(uid)
+          && request.resource.data.monthlyLimit is number;
       }
+      // Los movimientos son la fuente de verdad de los saldos (§9.3): el monto DEBE ser un
+      // entero positivo (§3, §11) y el tipo uno de los cinco del dominio.
       match /transactions/{txnId} {
-        allow read, write: if canAccess(uid);
+        allow read, delete: if canAccess(uid);
+        allow create, update: if canAccess(uid)
+          && request.resource.data.amount is int
+          && request.resource.data.amount > 0
+          && request.resource.data.type in ['expense', 'income', 'transfer', 'debt_payment', 'adjustment']
+          && request.resource.data.concept is string;
       }
     }
   }
