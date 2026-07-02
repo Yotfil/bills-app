@@ -11,7 +11,7 @@ import {
   type DocumentReference,
 } from 'firebase/firestore';
 import { fixedMonthlyCol, fixedTemplatesCol } from './collections';
-import { create, hardDelete, listAll } from './crud';
+import { createMany, hardDelete, listAll } from './crud';
 import { createTransaction, deleteTransaction } from './transactionService';
 import { generateMonthlyFixeds } from '../domain/rollover';
 import { buildTransactionFromFixed } from '../domain/fixed';
@@ -91,7 +91,7 @@ export async function generateFixedMonthly(uid: string, month: string): Promise<
   const templates = await listAll(fixedTemplatesCol(uid));
 
   const drafts = generateMonthlyFixeds(templates, month, existingTemplateIds);
-  await Promise.all(drafts.map((draft) => create(fixedMonthlyCol(uid), draft)));
+  await createMany(fixedMonthlyCol(uid), drafts); // atómico: el mes se genera completo o no se genera
   return drafts.length;
 }
 
@@ -106,7 +106,7 @@ export async function addFixedMonthlyFromTemplates(
   templates: FixedObligationTemplate[],
 ): Promise<number> {
   const drafts = generateMonthlyFixeds(templates, month, []);
-  await Promise.all(drafts.map((draft) => create(fixedMonthlyCol(uid), draft)));
+  await createMany(fixedMonthlyCol(uid), drafts);
   return drafts.length;
 }
 
