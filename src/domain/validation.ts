@@ -114,6 +114,18 @@ export function validateTransaction(txn: TransactionDraft): ValidationError[] {
   return errors;
 }
 
+/**
+ * Mensaje en español para mostrarle un error de validación al usuario en un formulario. Vive junto
+ * a los códigos (arriba) para que agregar un código nuevo recuerde darle mensaje.
+ */
+export function validationErrorMessage(error: ValidationError): string {
+  if (error === 'amount_must_be_positive_integer') return 'Ingresa un monto válido mayor a 0.';
+  if (error === 'expense_requires_category') return 'Elige una categoría.';
+  if (error.includes('source')) return 'Elige el medio de pago.';
+  if (error.includes('destination')) return 'Elige el destino.';
+  return 'Revisa los datos del movimiento.';
+}
+
 export function assertValidTransaction(txn: TransactionDraft): void {
   const errors = validateTransaction(txn);
   if (errors.length > 0) {

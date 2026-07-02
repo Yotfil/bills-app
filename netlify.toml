@@ -17,3 +17,22 @@
   from = "/*"
   to = "/index.html"
   status = 200
+
+# Cabeceras de seguridad (defensa en profundidad; los datos ya los protegen las reglas de
+# Firestore). Sin CSP a propósito: exigiría allowlistar con cuidado los endpoints de
+# Firebase/Google (auth, Firestore, popup de Google Sign-In) y las APIs de la tasa USD/COP;
+# un CSP mal calibrado rompe el login. Si se quiere, va como tarea aparte con pruebas.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    # Nadie puede meter la app en un iframe (anti-clickjacking). El popup de Google
+    # Sign-In no se afecta: esto controla quién nos enmarca a NOSOTROS, no al revés.
+    X-Frame-Options = "DENY"
+    # El navegador no "adivina" content-types (bloquea servir HTML/JS disfrazado).
+    X-Content-Type-Options = "nosniff"
+    # No filtrar la URL completa (con rutas internas) a sitios externos.
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    # La app no usa cámara, micrófono ni ubicación: se declaran negados.
+    Permissions-Policy = "camera=(), microphone=(), geolocation=()"
+    # Siempre HTTPS (Netlify ya lo fuerza; esto lo fija también en el navegador).
+    Strict-Transport-Security = "max-age=31536000; includeSubDomains"

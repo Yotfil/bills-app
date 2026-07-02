@@ -4,6 +4,7 @@ import { categoriesCol } from './collections';
 import {
   archive,
   create,
+  createMany,
   hardDelete,
   listAll,
   subscribeAll,
@@ -84,10 +85,11 @@ export async function seedBaseCategories(uid: string): Promise<void> {
   if (existing.length > 0) return;
 
   const all = [...BASE_CATEGORIES, ...SYSTEM_CATEGORIES];
-  await Promise.all(
-    all.map((cat, index) =>
-      create(categoriesCol(uid), { ...cat, sortOrder: index, archived: false, archivedAt: null }),
-    ),
+  // Batch atómico: o se siembran TODAS o ninguna. Una siembra parcial dejaba al usuario con
+  // categorías faltantes que rompían la plantilla sugerida (bug histórico, 2026-06-25).
+  await createMany(
+    categoriesCol(uid),
+    all.map((cat, index) => ({ ...cat, sortOrder: index, archived: false, archivedAt: null })),
   );
 }
 

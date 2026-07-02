@@ -3,6 +3,7 @@ import { SelectField } from '../components/SelectField';
 import { MoneyInput } from '../components/MoneyInput';
 import type { TransactionFormProps } from './TransactionFormProps';
 import { useUserCollection } from '../hooks/useUserCollection';
+import { useAsyncAction } from '../hooks/useAsyncAction';
 import { useSessionStore } from '../../store/sessionStore';
 import { useEntryPrefsStore } from '../../store/entryPrefsStore';
 import { subscribeAccounts } from '../../data/accountRepository';
@@ -11,10 +12,16 @@ import { subscribeCategories } from '../../data/categoryRepository';
 import { subscribeLoans } from '../../data/loanRepository';
 import { subscribeBudgets } from '../../data/budgetRepository';
 import { createTransaction, editTransaction } from '../../data/transactionService';
-import { buildManualTransactionDraft, type ManualEntryInput } from '../../domain/transactionDraft';
-import { validateTransaction } from '../../domain/validation';
+import {
+  buildManualTransactionDraft,
+  defaultConcept,
+  ENTRY_TYPE_LABELS,
+  type ManualEntryInput,
+} from '../../domain/transactionDraft';
+import { validateTransaction, validationErrorMessage } from '../../domain/validation';
 import { fromDateInputValue, nowTimestamp, toDateInputValue } from '../../lib/date';
 import { formatCop } from '../../lib/currency';
+import type { BoostRow } from './BoostRow';
 import type {
   Account,
   Budget,
@@ -26,21 +33,7 @@ import type {
   TransactionDraft,
 } from '../../domain/types';
 
-// Fila editable de "aumentar un presupuesto" desde un ingreso (§5.9).
-interface BoostRow {
-  budgetId: string;
-  month: string; // 'YYYY-MM'
-  amount: string;
-}
-
 type EntryType = ManualEntryInput['type'];
-
-const TYPE_LABELS: Record<EntryType, string> = {
-  expense: 'Gasto',
-  income: 'Ingreso',
-  transfer: 'Transferencia',
-  debt_payment: 'Abono',
-};
 
 const refToValue = (ref: EntityRef | null): string => (ref ? `${ref.kind}:${ref.id}` : '');
 function valueToRef(value: string): EntityRef | null {
@@ -90,8 +83,7 @@ export function TransactionForm({ existing, onDone }: TransactionFormProps) {
       amount: String(b.amount),
     })) ?? [],
   );
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { busy, error, setError, run } = useAsyncAction();
 
   const activeBudgets = budgets.filter((b) => !b.archived && b.active);
   const categoryName = (id: string) => categories.find((c) => c.id === id)?.name ?? 'Categoría';
@@ -159,7 +151,12 @@ export function TransactionForm({ existing, onDone }: TransactionFormProps) {
             type,
             amount: Math.round(Number(amount) || 0),
             date: fromDateInputValue(dateValue),
-            concept: concept || conceptFallback(type, spendCategories, categoryId),
+            concept:
+              concept ||
+              defaultConcept(
+                type,
+                categoryId ? spendCategories.find((c) => c.id === categoryId)?.name : undefined,
+              ),
             categoryId: type === 'expense' ? categoryId : null,
             source: type === 'income' ? null : source,
             destination:
@@ -186,23 +183,20 @@ export function TransactionForm({ existing, onDone }: TransactionFormProps) {
 
     const errors = validateTransaction(draft);
     if (errors.length > 0) {
-      setError(errorMessage(errors[0]!));
+      setError(validationErrorMessage(errors[0]!));
       return;
     }
 
-    setBusy(true);
-    try {
+    const ok = await run(async () => {
       if (isEdit && existing) {
         await editTransaction(uid, existing.id, draft);
       } else {
         await createTransaction(uid, draft);
       }
+    });
+    if (ok) {
       if (!isAdjustment) rememberPrefs(type, draft.source);
       onDone();
-    } catch {
-      setError('No se pudo guardar. Intenta de nuevo.');
-    } finally {
-      setBusy(false);
     }
   }
 
@@ -215,7 +209,7 @@ export function TransactionForm({ existing, onDone }: TransactionFormProps) {
         </span>
       ) : (
         <div className="flex gap-2 overflow-x-auto">
-          {(Object.keys(TYPE_LABELS) as EntryType[]).map((t) => (
+          {(Object.keys(ENTRY_TYPE_LABELS) as EntryType[]).map((t) => (
             <button
               key={t}
               type="button"
@@ -224,7 +218,7 @@ export function TransactionForm({ existing, onDone }: TransactionFormProps) {
                 type === t ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-600'
               }`}
             >
-              {TYPE_LABELS[t]}
+              {ENTRY_TYPE_LABELS[t]}
             </button>
           ))}
         </div>
@@ -427,24 +421,4 @@ export function TransactionForm({ existing, onDone }: TransactionFormProps) {
       </button>
     </form>
   );
-}
-
-/** Concepto por defecto cuando el usuario lo deja en blanco. */
-function conceptFallback(
-  type: EntryType,
-  categories: Category[],
-  categoryId: string | null,
-): string {
-  if (type === 'expense' && categoryId) {
-    return categories.find((c) => c.id === categoryId)?.name ?? TYPE_LABELS[type];
-  }
-  return TYPE_LABELS[type];
-}
-
-function errorMessage(error: string): string {
-  if (error === 'amount_must_be_positive_integer') return 'Ingresa un monto válido mayor a 0.';
-  if (error === 'expense_requires_category') return 'Elige una categoría.';
-  if (error.includes('source')) return 'Elige el medio de pago.';
-  if (error.includes('destination')) return 'Elige el destino.';
-  return 'Revisa los datos del movimiento.';
 }

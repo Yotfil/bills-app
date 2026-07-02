@@ -7,10 +7,10 @@
 // Nota: la SINCRONIZACIÓN DE MONTO (cuota del crédito ↔ fijo) es solo para créditos, porque la
 // tarjeta no tiene un valor de cuota propio (su deuda se mueve con gastos/abonos). El pago en 1
 // toque (`payLinkedCuota`) sí sirve para tarjetas y créditos por igual.
+import { doc, serverTimestamp, writeBatch, type DocumentReference } from 'firebase/firestore';
 import { listAll } from './crud';
 import { fixedTemplatesCol } from './collections';
 import { updateLoan } from './loanRepository';
-import { updateFixedTemplate } from './fixedTemplateRepository';
 import {
   generateFixedMonthly,
   listFixedMonthlyForMonth,
@@ -53,12 +53,18 @@ export async function syncCuotaFromLoan(
 ): Promise<void> {
   const templates = await listAll(fixedTemplatesCol(uid));
   const linked = templates.filter((t) => targetsLoan(t, loanId));
-  await Promise.all(
-    linked.map(async (t) => {
-      await updateFixedTemplate(uid, t.id, { budgetedAmount: amount });
-      await syncMonthlyAmount(uid, t.id, month, amount);
-    }),
-  );
+  if (linked.length === 0) return;
+
+  // Plantillas e instancias del mes cambian en UN batch atómico: si algo falla no queda la
+  // plantilla con el monto nuevo y los fijos del mes con el viejo (cuotas desfasadas).
+  const batch = writeBatch(fixedTemplatesCol(uid).firestore);
+  const stamp = serverTimestamp();
+  for (const t of linked) {
+    const templateRef = doc(fixedTemplatesCol(uid), t.id) as unknown as DocumentReference;
+    batch.update(templateRef, { budgetedAmount: amount, updatedAt: stamp });
+    await syncMonthlyAmount(uid, t.id, month, amount, batch); // suma al batch, sin commitear
+  }
+  await batch.commit();
 }
 
 /**

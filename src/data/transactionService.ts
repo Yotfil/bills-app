@@ -83,28 +83,41 @@ function applyDeltaToBatch(batch: WriteBatch, uid: string, delta: LedgerDelta): 
   }
 }
 
-/** Crea un movimiento y aplica su efecto en los saldos, en un batch atómico. Devuelve el id.
- * No requiere lectura → se ENCOLA offline. */
-export async function createTransaction(uid: string, draft: TransactionDraft): Promise<string> {
+/**
+ * Agrega a un `batch` EXISTENTE el documento del movimiento y su efecto en los saldos, SIN
+ * commitear: el caller decide qué más entra en el mismo commit atómico (p.ej. pagar un fijo
+ * escribe el movimiento y la marca de pagado juntos, §5.3). Devuelve el id que tendrá el
+ * movimiento. No hace lecturas → el commit del caller se ENCOLA offline.
+ */
+export function addTransactionToBatch(
+  batch: WriteBatch,
+  uid: string,
+  draft: TransactionDraft,
+): string {
   assertValidTransaction(draft); // una transacción inválida no se guarda (§11)
-  const delta = transactionDelta(draft);
   const newRef = newRawDoc(transactionsCol(uid)); // id generado antes del commit
-
-  const batch = writeBatch(requireDb());
   batch.set(newRef, {
     ...draft,
     schemaVersion: CURRENT_SCHEMA_VERSION,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
-  applyDeltaToBatch(batch, uid, delta);
+  applyDeltaToBatch(batch, uid, transactionDelta(draft));
+  return newRef.id;
+}
+
+/** Crea un movimiento y aplica su efecto en los saldos, en un batch atómico. Devuelve el id.
+ * No requiere lectura → se ENCOLA offline. */
+export async function createTransaction(uid: string, draft: TransactionDraft): Promise<string> {
+  const batch = writeBatch(requireDb());
+  const id = addTransactionToBatch(batch, uid, draft);
   await batch.commit(); // offline: encola y resuelve; online: escribe ya
 
   // Aumentos de presupuesto ligados al ingreso (§5.9): suben el tope del mes elegido. Paso aparte
   // del batch (no afectan saldos); si fallara, el ingreso queda sin aumento y se reaplica.
   await applyBudgetBoosts(uid, draft.budgetBoosts, 1);
 
-  return newRef.id;
+  return id;
 }
 
 /**
