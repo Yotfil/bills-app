@@ -3,6 +3,7 @@ import { SelectField } from '../components/SelectField';
 import { MoneyInput } from '../components/MoneyInput';
 import type { TransactionFormProps } from './TransactionFormProps';
 import { useUserCollection } from '../hooks/useUserCollection';
+import { useAsyncAction } from '../hooks/useAsyncAction';
 import { useSessionStore } from '../../store/sessionStore';
 import { useEntryPrefsStore } from '../../store/entryPrefsStore';
 import { subscribeAccounts } from '../../data/accountRepository';
@@ -90,8 +91,7 @@ export function TransactionForm({ existing, onDone }: TransactionFormProps) {
       amount: String(b.amount),
     })) ?? [],
   );
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { busy, error, setError, run } = useAsyncAction();
 
   const activeBudgets = budgets.filter((b) => !b.archived && b.active);
   const categoryName = (id: string) => categories.find((c) => c.id === id)?.name ?? 'Categoría';
@@ -190,19 +190,16 @@ export function TransactionForm({ existing, onDone }: TransactionFormProps) {
       return;
     }
 
-    setBusy(true);
-    try {
+    const ok = await run(async () => {
       if (isEdit && existing) {
         await editTransaction(uid, existing.id, draft);
       } else {
         await createTransaction(uid, draft);
       }
+    });
+    if (ok) {
       if (!isAdjustment) rememberPrefs(type, draft.source);
       onDone();
-    } catch {
-      setError('No se pudo guardar. Intenta de nuevo.');
-    } finally {
-      setBusy(false);
     }
   }
 

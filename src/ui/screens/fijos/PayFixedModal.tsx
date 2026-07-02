@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { Modal } from '../../components/Modal';
 import { SelectField } from '../../components/SelectField';
 import { MoneyInput } from '../../components/MoneyInput';
+import { useAsyncAction } from '../../hooks/useAsyncAction';
 import { formatCop } from '../../../lib/currency';
 import { refToValue, valueToRef } from '../../../lib/entityRef';
 import type { PayFixedModalProps } from './PayFixedModalProps';
@@ -41,7 +42,7 @@ function PayFixedForm({ fixed, accounts, cards, loans, onConfirm, onClose }: Pay
   const isDebtPayment = fixed.payKind === 'debt_payment';
   const [amount, setAmount] = useState(String(fixed.budgetedAmount));
   const [source, setSource] = useState(refToValue(fixed.paymentMethod));
-  const [busy, setBusy] = useState(false);
+  const { busy, error, run } = useAsyncAction();
 
   // En abono a deuda el origen es una cuenta; en gasto puede ser cuenta o tarjeta.
   const sourceOptions = [
@@ -69,17 +70,14 @@ function PayFixedForm({ fixed, accounts, cards, loans, onConfirm, onClose }: Pay
     event.preventDefault();
     const paymentMethod = valueToRef(source);
     if (!paymentMethod || debtTargetMissing) return;
-    setBusy(true);
-    try {
+    const ok = await run(async () => {
       await onConfirm({
         amount: Math.round(Number(amount) || 0),
         paymentMethod,
         debtTarget,
       });
-      onClose();
-    } finally {
-      setBusy(false);
-    }
+    });
+    if (ok) onClose();
   }
 
   return (
@@ -112,6 +110,11 @@ function PayFixedForm({ fixed, accounts, cards, loans, onConfirm, onClose }: Pay
         <p className="text-sm text-red-600">
           La deuda destino de este fijo no es una tarjeta ni crédito registrado. No se puede pagar
           todavía.
+        </p>
+      )}
+      {error && (
+        <p role="alert" className="text-sm text-red-600">
+          {error}
         </p>
       )}
 

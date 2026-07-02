@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { Modal } from '../components/Modal';
 import { MoneyInput } from '../components/MoneyInput';
+import { useAsyncAction } from '../hooks/useAsyncAction';
 import { useSessionStore } from '../../store/sessionStore';
 import { createAccount, updateAccount } from '../../data/accountRepository';
 import type { AccountFormProps } from './AccountFormProps';
@@ -21,7 +22,7 @@ export function AccountForm({ open, account, defaultSavingsBucket, onClose }: Ac
   const [foreignAmount, setForeignAmount] = useState(
     account?.foreignAmount != null ? String(account.foreignAmount) : '',
   );
-  const [busy, setBusy] = useState(false);
+  const { busy, error, run } = useAsyncAction();
 
   // Reinicia el formulario cada vez que se abre con otra cuenta (o para crear).
   const formKey = account?.id ?? 'new';
@@ -31,8 +32,7 @@ export function AccountForm({ open, account, defaultSavingsBucket, onClose }: Ac
     if (!uid || !name.trim()) return;
     const currency = foreignCurrency.trim().toUpperCase() || null;
     const fAmount = currency && foreignAmount ? Math.round(Number(foreignAmount) || 0) : null;
-    setBusy(true);
-    try {
+    const ok = await run(async () => {
       if (isEdit && account) {
         await updateAccount(uid, account.id, {
           name: name.trim(),
@@ -51,10 +51,8 @@ export function AccountForm({ open, account, defaultSavingsBucket, onClose }: Ac
           foreignAmount: fAmount,
         });
       }
-      onClose();
-    } finally {
-      setBusy(false);
-    }
+    });
+    if (ok) onClose();
   }
 
   return (
@@ -116,6 +114,11 @@ export function AccountForm({ open, account, defaultSavingsBucket, onClose }: Ac
         {isEdit && (
           <p className="text-xs text-slate-400">
             El saldo no se edita aquí: se corrige reconciliando la cuenta (§5.7).
+          </p>
+        )}
+        {error && (
+          <p role="alert" className="text-sm text-red-600">
+            {error}
           </p>
         )}
         <button
