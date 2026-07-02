@@ -10,6 +10,7 @@ import {
   onSnapshot,
   serverTimestamp,
   updateDoc,
+  writeBatch,
   type CollectionReference,
   type DocumentData,
   type DocumentReference,
@@ -64,6 +65,33 @@ export async function create<T extends BaseDoc>(
   } as unknown as WithFieldValue<T>;
   const ref = await addDoc(col, payload);
   return ref.id;
+}
+
+/**
+ * Crea VARIOS documentos en UN batch atómico: o entran todos o ninguno. Evita siembras
+ * parciales si algo falla a mitad (p.ej. quedar con 7 de 15 categorías base, o con la mitad de
+ * los fijos del mes). Límite de Firestore: 500 escrituras por batch, de sobra para las siembras
+ * de esta app. Devuelve los ids en el mismo orden de entrada.
+ */
+export async function createMany<T extends BaseDoc>(
+  col: Col<T>,
+  items: Array<CreateInput<T>>,
+): Promise<string[]> {
+  if (items.length === 0) return [];
+  const batch = writeBatch(col.firestore);
+  const ids = items.map((data) => {
+    const ref = doc(col); // id autogenerado; el converter quita `id` al escribir
+    const payload = {
+      ...data,
+      schemaVersion: CURRENT_SCHEMA_VERSION,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    } as unknown as WithFieldValue<T>;
+    batch.set(ref, payload);
+    return ref.id;
+  });
+  await batch.commit();
+  return ids;
 }
 
 /** Actualiza campos de un documento y refresca `updatedAt`. */
