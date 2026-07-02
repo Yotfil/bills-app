@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { validateTransaction } from '../validation';
+import { validateTransaction, validationErrorMessage } from '../validation';
 import { accountRef, cardRef, loanRef, makeTxn } from './fixtures';
 
 // CLAUDE.md §12.1 + §11 — Validación por tipo de transacción.
@@ -217,5 +217,16 @@ describe('Validación de transacciones (§11)', () => {
         validateTransaction(income({ budgetBoosts: [{ budgetId: '', month: '', amount: 100 }] })),
       ).toContain('budget_boost_invalid');
     });
+  });
+});
+
+// Traducción de códigos de validación a mensajes para el usuario (vive junto a los códigos).
+describe('validationErrorMessage', () => {
+  it('traduce los códigos comunes y cae en un genérico para el resto', () => {
+    expect(validationErrorMessage('amount_must_be_positive_integer')).toMatch(/monto/i);
+    expect(validationErrorMessage('expense_requires_category')).toMatch(/categoría/i);
+    expect(validationErrorMessage('expense_requires_account_or_card_source')).toMatch(/medio de pago/i);
+    expect(validationErrorMessage('transfer_requires_distinct_account_destination')).toMatch(/destino/i);
+    expect(validationErrorMessage('budget_boost_invalid')).toMatch(/revisa/i);
   });
 });

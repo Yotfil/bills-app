@@ -7,26 +7,16 @@ import { subscribeBudgets } from '../../data/budgetRepository';
 import { subscribeCategories } from '../../data/categoryRepository';
 import { subscribeTransactions } from '../../data/transactionRepository';
 import { budgetStatus } from '../../domain/reports';
-import { budgetAlertLevel, budgetAlertRank } from '../../domain/budgetAlert';
-import { budgetCapForMonth } from '../../domain/checklistBudgets';
+import { computePendingBudgetAlerts } from '../../domain/budgetAlert';
 import { formatCop } from '../../lib/currency';
 import { NEAR_LIMIT_RATIO } from '../../lib/progress';
 import { currentMonthKey, transactionPeriodMonth } from '../../lib/date';
-import type { AcknowledgedLevel } from '../../store/BudgetAlertState';
 import type { Budget, Category, Transaction } from '../../domain/types';
 
 // Aviso emergente que sale APENAS un presupuesto alcanza el 80% del tope (o lo excede), una sola vez
 // por presupuesto y nivel (CLAUDE.md §5.9). Se monta una vez en el layout para vigilar en toda la app.
 // Los pendientes se derivan en el render (sin efectos): el modal aparece mientras haya un cruce no
 // confirmado y desaparece cuando el usuario toca "Entendido" (que marca el aviso como mostrado).
-interface PendingAlert {
-  key: string;
-  level: AcknowledgedLevel;
-  categoryName: string;
-  consumed: number;
-  cap: number;
-}
-
 export function BudgetAlertWatcher() {
   const uid = useSessionStore((s) => s.user?.uid);
   const { items: budgets } = useUserCollection<Budget>(subscribeBudgets);
@@ -40,23 +30,16 @@ export function BudgetAlertWatcher() {
   const monthTxns = transactions.filter((t) => transactionPeriodMonth(t) === month);
   const categoryName = (id: string) => categories.find((c) => c.id === id)?.name ?? 'Categoría';
 
-  const pending: PendingAlert[] = [];
-  if (uid) {
-    for (const b of budgets) {
-      // Solo los presupuestos "de checklist" se vigilan activamente (§5.9): los demás son tope base
-      // pasivo en la Plantilla, no alertan.
-      if (b.archived || !b.active || !b.inChecklist) continue;
-      // El tope efectivo del mes vive en el `Budget` (§5.9): override del mes o base.
-      const cap = budgetCapForMonth(b, month);
-      const consumed = budgetStatus(monthTxns, b.categoryId, 0).consumed;
-      const level = budgetAlertLevel(consumed, cap, NEAR_LIMIT_RATIO);
-      if (level === 'none') continue;
-      const key = `${month}:${b.id}`;
-      if (budgetAlertRank(level) > budgetAlertRank(acknowledged[key] ?? 'none')) {
-        pending.push({ key, level, categoryName: categoryName(b.categoryId), consumed, cap });
-      }
-    }
-  }
+  const pending = uid
+    ? computePendingBudgetAlerts({
+        budgets,
+        month,
+        nearRatio: NEAR_LIMIT_RATIO,
+        consumedForCategory: (id) => budgetStatus(monthTxns, id, 0).consumed,
+        acknowledged,
+        categoryName,
+      })
+    : [];
 
   function handleAck() {
     pending.forEach((p) => acknowledge(p.key, p.level));

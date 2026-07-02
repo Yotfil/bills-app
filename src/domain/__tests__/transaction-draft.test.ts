@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildManualTransactionDraft } from '../transactionDraft';
+import { buildManualTransactionDraft, defaultConcept } from '../transactionDraft';
 import { validateTransaction } from '../validation';
 import { accountRef, cardRef, STUB_TS } from './fixtures';
 
@@ -89,5 +89,19 @@ describe('buildManualTransactionDraft', () => {
       hormiga: true,
     });
     expect(draft.tags).not.toContain('hormiga');
+  });
+});
+
+// Concepto por defecto cuando el usuario lo deja en blanco (§5.4, cero fricción).
+describe('defaultConcept', () => {
+  it('en un gasto usa el nombre de la categoría; sin ella, la etiqueta del tipo', () => {
+    expect(defaultConcept('expense', 'Comidas')).toBe('Comidas');
+    expect(defaultConcept('expense')).toBe('Gasto');
+  });
+
+  it('en los demás tipos usa la etiqueta del tipo (la categoría no aplica)', () => {
+    expect(defaultConcept('income', 'Comidas')).toBe('Ingreso');
+    expect(defaultConcept('transfer')).toBe('Transferencia');
+    expect(defaultConcept('debt_payment')).toBe('Abono');
   });
 });
