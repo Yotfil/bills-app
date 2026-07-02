@@ -8,11 +8,13 @@ import {
   serverTimestamp,
   updateDoc,
   where,
+  writeBatch,
   type DocumentReference,
+  type WriteBatch,
 } from 'firebase/firestore';
 import { fixedMonthlyCol, fixedTemplatesCol } from './collections';
 import { createMany, hardDelete, listAll } from './crud';
-import { createTransaction, deleteTransaction } from './transactionService';
+import { addTransactionToBatch, deleteTransaction } from './transactionService';
 import { generateMonthlyFixeds } from '../domain/rollover';
 import { buildTransactionFromFixed } from '../domain/fixed';
 import { nowTimestamp } from '../lib/date';
@@ -62,22 +64,27 @@ export async function listFixedMonthlyForMonth(
  * Sincroniza SOLO el monto de los fijos del mes (no pagados) de una plantilla, sin tocar el
  * resto del snapshot (medio de pago, categoría…). Lo usa el vínculo crédito↔cuota cuando cambia
  * el valor de la cuota (§5.6). Devuelve cuántos actualizó.
+ *
+ * Todas las instancias cambian en UN batch (no una a una): sin actualizaciones parciales si algo
+ * falla a mitad. Si el caller pasa su propio `batch`, las escrituras se suman a él SIN commitear
+ * (el caller decide qué más entra en ese commit atómico, p.ej. la plantilla en syncCuotaFromLoan).
  */
 export async function syncMonthlyAmount(
   uid: string,
   templateId: string,
   month: string,
   amount: number,
+  batch?: WriteBatch,
 ): Promise<number> {
   const snap = await getDocs(query(fixedMonthlyCol(uid), where('month', '==', month)));
   const targets = snap.docs.filter(
     (d) => d.data().templateId === templateId && d.data().status !== 'paid',
   );
-  await Promise.all(
-    targets.map((d) =>
-      updateDoc(rawDoc(uid, d.id), { budgetedAmount: amount, updatedAt: serverTimestamp() }),
-    ),
-  );
+  const writer = batch ?? writeBatch(fixedMonthlyCol(uid).firestore);
+  for (const d of targets) {
+    writer.update(rawDoc(uid, d.id), { budgetedAmount: amount, updatedAt: serverTimestamp() });
+  }
+  if (!batch) await writer.commit();
   return targets.length;
 }
 
@@ -204,15 +211,22 @@ export async function syncMonthlyToTemplate(
   const targets = snap.docs.filter(
     (d) => d.data().templateId === templateId && d.data().status !== 'paid',
   );
-  await Promise.all(
-    targets.map((d) => updateDoc(rawDoc(uid, d.id), { ...snapshot, updatedAt: serverTimestamp() })),
-  );
+  // Un batch: todos los snapshots del mes se actualizan juntos o ninguno.
+  const batch = writeBatch(fixedMonthlyCol(uid).firestore);
+  for (const d of targets) {
+    batch.update(rawDoc(uid, d.id), { ...snapshot, updatedAt: serverTimestamp() });
+  }
+  await batch.commit();
   return targets.length;
 }
 
 /**
- * Destinado/Pendiente → Pagado (§5.2, §5.3): crea la transacción real (que baja el saldo de
- * forma atómica) y enlaza el fijo con ella. Guarda el monto real y el medio usado.
+ * Destinado/Pendiente → Pagado (§5.2, §5.3): crea la transacción real (que baja el saldo) y
+ * enlaza el fijo con ella. Guarda el monto real y el medio usado.
+ *
+ * Movimiento + marca de pagado van en UN batch atómico: entran juntos o no entra nada. Antes
+ * eran dos escrituras separadas y un fallo entre ambas dejaba un movimiento huérfano sin enlace
+ * en el fijo (el fijo seguía "pendiente" con el gasto ya descontado del saldo).
  */
 export async function payFixed(
   uid: string,
@@ -229,9 +243,10 @@ export async function payFixed(
     paymentMethod: input.paymentMethod,
     debtTarget: input.debtTarget ?? null,
   });
-  const transactionId = await createTransaction(uid, draft);
 
-  await updateDoc(rawDoc(uid, fixed.id), {
+  const batch = writeBatch(fixedMonthlyCol(uid).firestore);
+  const transactionId = addTransactionToBatch(batch, uid, draft);
+  batch.update(rawDoc(uid, fixed.id), {
     status: 'paid',
     paymentMethod: input.paymentMethod,
     paidAmount: input.amount, // monto REAL pagado (§5.3): puede diferir del presupuestado
@@ -241,6 +256,7 @@ export async function payFixed(
     // Auto-registro: marca el mes como ya auto-pagado (guard que persiste tras "Deshacer pago").
     ...(opts.auto ? { autoPaidAt: serverTimestamp() } : {}),
   });
+  await batch.commit(); // sin lecturas → offline se encola igual que un movimiento manual
 }
 
 /**
