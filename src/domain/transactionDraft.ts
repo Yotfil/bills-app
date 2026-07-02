@@ -6,6 +6,23 @@ import type { ManualEntryInput } from './ManualEntryInput';
 
 export type { ManualEntryInput } from './ManualEntryInput';
 
+/** Etiquetas en español de los tipos capturables a mano: botones del form y concepto por defecto. */
+export const ENTRY_TYPE_LABELS: Record<ManualEntryInput['type'], string> = {
+  expense: 'Gasto',
+  income: 'Ingreso',
+  transfer: 'Transferencia',
+  debt_payment: 'Abono',
+};
+
+/**
+ * Concepto por defecto cuando el usuario lo deja en blanco (§5.4, cero fricción): en un gasto, el
+ * nombre de su categoría; en los demás tipos (o sin categoría), la etiqueta del tipo.
+ */
+export function defaultConcept(type: ManualEntryInput['type'], categoryName?: string): string {
+  if (type === 'expense' && categoryName) return categoryName;
+  return ENTRY_TYPE_LABELS[type];
+}
+
 /**
  * Arma el borrador según el tipo, poniendo en null lo que cada tipo no usa (§11). No valida:
  * de eso se encarga `validateTransaction` antes de persistir.
