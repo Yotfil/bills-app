@@ -1,7 +1,7 @@
-import type { CachedRate } from './CachedRate';
+import type { CachedRateTable } from './CachedRateTable';
 
-// Almacén de la tasa cacheada (lo implementa localStorage en producción; en tests, memoria).
+// Almacén de la tabla cacheada (lo implementa localStorage en producción; en tests, memoria).
 export interface RateCacheStore {
-  read(): CachedRate | null;
-  write(rate: CachedRate): void;
+  read(): CachedRateTable | null;
+  write(table: CachedRateTable): void;
 }
