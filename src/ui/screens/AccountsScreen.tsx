@@ -8,7 +8,7 @@ import { BackButton } from '../components/BackButton';
 import { Pencil, Scale, Archive, Trash2 } from 'lucide-react';
 import { ActionMenu } from '../components/ActionMenu';
 import { ConfirmDeleteModal } from '../components/ConfirmDeleteModal';
-import { formatCop, formatCopPlain } from '../../lib/currency';
+import { formatCop, formatForeignAmount } from '../../lib/currency';
 import { accountAvailable, accountReserved } from '../../domain/derived';
 import { entityHasMovements } from '../../domain/entityUsage';
 import { archiveAccount, deleteAccount, subscribeAccounts } from '../../data/accountRepository';
@@ -144,7 +144,7 @@ export function AccountsScreen({ savingsBucket = false }: AccountsScreenProps) {
                   </dd>
                   {account.foreignCurrency && account.foreignAmount != null && (
                     <dd className="text-[11px] text-slate-400">
-                      ≈ {formatCopPlain(account.foreignAmount)} {account.foreignCurrency}
+                      ≈ {formatForeignAmount(account.foreignAmount)} {account.foreignCurrency}
                     </dd>
                   )}
                 </div>

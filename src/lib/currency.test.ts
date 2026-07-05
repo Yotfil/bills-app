@@ -1,5 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { formatCop, formatCopPlain, digitsOnly, formatThousands } from './currency';
+import {
+  formatCop,
+  formatCopPlain,
+  digitsOnly,
+  formatThousands,
+  formatForeignAmount,
+  normalizeDecimalText,
+  parseDecimal,
+} from './currency';
 
 describe('formatCopPlain', () => {
   it('agrega separadores de miles sin decimales', () => {
@@ -57,5 +65,49 @@ describe('formatThousands', () => {
 
   it('es idempotente: re-formatear un valor ya formateado no lo cambia', () => {
     expect(formatThousands(formatThousands('1000'))).toBe('1.000');
+  });
+});
+
+// Helpers de montos en DIVISA (USD, EUR…): a diferencia del COP, sí llevan decimales.
+describe('formatForeignAmount', () => {
+  it('formatea con miles y hasta 2 decimales (es-CO: coma decimal)', () => {
+    expect(formatForeignAmount(9918.5)).toBe('9.918,5');
+    expect(formatForeignAmount(12782)).toBe('12.782');
+    expect(formatForeignAmount(1234.567)).toBe('1.234,57');
+  });
+});
+
+describe('normalizeDecimalText', () => {
+  it('acepta coma o punto como separador decimal y normaliza a punto', () => {
+    expect(normalizeDecimalText('1234,56')).toBe('1234.56');
+    expect(normalizeDecimalText('1234.56')).toBe('1234.56');
+  });
+
+  it('permite el separador colgante mientras se escribe', () => {
+    expect(normalizeDecimalText('12,')).toBe('12.');
+  });
+
+  it('recorta a 2 decimales y descarta separadores extra', () => {
+    expect(normalizeDecimalText('1.2.3')).toBe('1.23');
+    expect(normalizeDecimalText('10,999')).toBe('10.99');
+  });
+
+  it('limpia caracteres no numéricos y ceros a la izquierda', () => {
+    expect(normalizeDecimalText('abc')).toBe('');
+    expect(normalizeDecimalText('007')).toBe('7');
+    expect(normalizeDecimalText(',5')).toBe('0.5');
+  });
+});
+
+describe('parseDecimal', () => {
+  it('convierte el texto a número', () => {
+    expect(parseDecimal('1234,56')).toBe(1234.56);
+    expect(parseDecimal('12.')).toBe(12);
+    expect(parseDecimal('0.5')).toBe(0.5);
+  });
+
+  it('vacío o inválido devuelve null', () => {
+    expect(parseDecimal('')).toBeNull();
+    expect(parseDecimal('abc')).toBeNull();
   });
 });
