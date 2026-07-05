@@ -14,7 +14,9 @@ import { entityHasMovements } from '../../domain/entityUsage';
 import { archiveAccount, deleteAccount, subscribeAccounts } from '../../data/accountRepository';
 import { markFixedPending, subscribeAllocatedFixeds } from '../../data/fixedMonthlyRepository';
 import { subscribeTransactions } from '../../data/transactionRepository';
-import { reconcileAccount } from '../../data/reconciliationService';
+import { reconcileAccount, reconcileAccountForeign } from '../../data/reconciliationService';
+import { useUsdRateTable } from '../hooks/useUsdRateTable';
+import { copPerUnit } from '../../domain/currencyConversion';
 import type { AccountsScreenProps } from './AccountsScreenProps';
 import type { ReconcileTarget } from './ReconcileTarget';
 import type {
@@ -74,6 +76,12 @@ export function AccountsScreen({ savingsBucket = false }: AccountsScreenProps) {
     setDeleting(null);
   }
 
+  // Si la cuenta vive en otra moneda y hay tasa del día, se reconcilia EN LA DIVISA (el COP
+  // es el reflejo de la conversión). Sin tasa (offline sin caché), degrada al modo COP.
+  const { table } = useUsdRateTable();
+  const foreignRate =
+    reconciling?.foreignCurrency && table ? copPerUnit(table, reconciling.foreignCurrency) : null;
+
   const reconcileTarget: ReconcileTarget | null =
     reconciling && uid
       ? {
@@ -81,9 +89,21 @@ export function AccountsScreen({ savingsBucket = false }: AccountsScreenProps) {
           name: reconciling.name,
           registeredValue: reconciling.cachedBalance,
           registeredLabel: 'Saldo registrado',
-          inputLabel: 'Saldo real de la cuenta (COP)',
+          inputLabel:
+            foreignRate !== null
+              ? `Saldo real de la cuenta (${reconciling.foreignCurrency})`
+              : 'Saldo real de la cuenta (COP)',
           goodDirection: 'increase', // más saldo = verde
           reconcile: (real, note) => reconcileAccount(uid, reconciling, real, note),
+          ...(foreignRate !== null && table
+            ? {
+                foreignCurrency: reconciling.foreignCurrency,
+                foreignAmount: reconciling.foreignAmount,
+                copPerUnit: foreignRate,
+                reconcileForeign: (realForeign: number, note: string) =>
+                  reconcileAccountForeign(uid, reconciling, realForeign, table, note),
+              }
+            : {}),
         }
       : null;
 
