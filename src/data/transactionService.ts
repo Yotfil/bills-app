@@ -39,6 +39,7 @@ import {
 } from '../domain/ledger';
 import { listAll } from './crud';
 import { applyBudgetBoosts } from './budgetBoostService';
+import { foreignIncomeDelta } from '../domain/revaluation';
 import type { TransactionDraft } from '../domain/types';
 import type { RecalculationCorrections } from './RecalculationCorrections';
 
@@ -84,6 +85,33 @@ function applyDeltaToBatch(batch: WriteBatch, uid: string, delta: LedgerDelta): 
 }
 
 /**
+ * Aplica al batch el efecto de un movimiento sobre el MONTO EN DIVISA de las cuentas (decisión
+ * 2026-07-07): un ingreso en divisa suma su monto original a `Account.foreignAmount` (la fuente
+ * de verdad de las cuentas en moneda extranjera, ver revaluación). Va en el MISMO batch que los
+ * saldos para que la revaluación diaria nunca vea un estado a medias. `factors` permite netear
+ * revertir el movimiento viejo (−1) y aplicar el nuevo (+1) en una sola escritura por cuenta.
+ */
+function applyForeignDeltaToBatch(
+  batch: WriteBatch,
+  uid: string,
+  entries: Array<{ txn: Pick<TransactionDraft, 'type' | 'destination' | 'foreignAmount'>; factor: 1 | -1 }>,
+): void {
+  const perAccount: Record<string, number> = {};
+  for (const { txn, factor } of entries) {
+    const delta = foreignIncomeDelta(txn);
+    if (!delta) continue;
+    perAccount[delta.accountId] = (perAccount[delta.accountId] ?? 0) + delta.amount * factor;
+  }
+  for (const [id, amount] of Object.entries(perAccount)) {
+    if (amount === 0) continue;
+    batch.update(rawDoc(accountsCol(uid), id), {
+      foreignAmount: increment(amount),
+      updatedAt: serverTimestamp(),
+    });
+  }
+}
+
+/**
  * Agrega a un `batch` EXISTENTE el documento del movimiento y su efecto en los saldos, SIN
  * commitear: el caller decide qué más entra en el mismo commit atómico (p.ej. pagar un fijo
  * escribe el movimiento y la marca de pagado juntos, §5.3). Devuelve el id que tendrá el
@@ -103,6 +131,7 @@ export function addTransactionToBatch(
     updatedAt: serverTimestamp(),
   });
   applyDeltaToBatch(batch, uid, transactionDelta(draft));
+  applyForeignDeltaToBatch(batch, uid, [{ txn: draft, factor: 1 }]);
   return newRef.id;
 }
 
@@ -144,9 +173,18 @@ export async function editTransaction(
     // Siempre refleja los boosts del nuevo draft (vacío si el tipo dejó de ser ingreso): así no
     // queda un `budgetBoosts` viejo que se revertiría doble al borrar luego el movimiento.
     budgetBoosts: newDraft.budgetBoosts ?? [],
+    // Igual con la divisa: si el ingreso dejó de ser en divisa (o de ser ingreso), se limpia para
+    // que borrar el movimiento después no revierta un monto que ya no aplica.
+    foreignCurrency: newDraft.foreignCurrency ?? null,
+    foreignAmount: newDraft.foreignAmount ?? null,
     updatedAt: serverTimestamp(),
   });
   applyDeltaToBatch(batch, uid, delta);
+  // Divisa: revierte el efecto del movimiento viejo y aplica el del nuevo (neteado por cuenta).
+  applyForeignDeltaToBatch(batch, uid, [
+    { txn: oldTxn, factor: -1 },
+    { txn: newDraft, factor: 1 },
+  ]);
   await batch.commit();
 
   // Aumentos de presupuesto ligados (§5.9): revierte los viejos y aplica los nuevos.
@@ -178,6 +216,8 @@ export async function deleteTransaction(uid: string, id: string): Promise<void> 
   const batch = writeBatch(requireDb());
   batch.delete(rawDoc(transactionsCol(uid), id));
   applyDeltaToBatch(batch, uid, delta);
+  // Divisa: al borrar un ingreso en divisa, su monto original sale de la fuente de verdad.
+  applyForeignDeltaToBatch(batch, uid, [{ txn: data, factor: -1 }]);
   if (fixedRef) {
     batch.update(fixedRef, {
       status: 'pending',
