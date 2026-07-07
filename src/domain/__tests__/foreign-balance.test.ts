@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { accountBalanceCop, accountCopRate, copToForeign } from '../foreignBalance';
+import { accountAvailable, disponibleReal } from '../derived';
+import { makeAccount } from './fixtures';
 import type { ExchangeRateTable } from '../ExchangeRateTable';
 
 // Decisión 2026-07-09 — saldo COP en vivo: la cuenta en divisa vive en su moneda y el COP
@@ -49,6 +51,24 @@ describe('accountBalanceCop', () => {
   it('cuenta con divisa pero sin monto anotado, cae a cachedBalance', () => {
     const account = { cachedBalance: 500, foreignCurrency: 'USD', foreignAmount: null };
     expect(accountBalanceCop(account, table)).toBe(500);
+  });
+});
+
+describe('derivados con cuentas en divisa (accountAvailable / disponibleReal)', () => {
+  it('el disponible de una cuenta en divisa usa el COP en vivo', () => {
+    const usd = makeAccount({ id: 'usd-1', cachedBalance: 1, foreignCurrency: 'USD', foreignAmount: 100 });
+    expect(accountAvailable(usd, [], table)).toBe(400_000);
+  });
+
+  it('el disponible real suma cuentas COP y en divisa con la conversión del día', () => {
+    const cop = makeAccount({ id: 'cop-1', cachedBalance: 1_000_000 });
+    const usd = makeAccount({ id: 'usd-1', cachedBalance: 1, foreignCurrency: 'USD', foreignAmount: 100 });
+    expect(disponibleReal([cop, usd], [], table)).toBe(1_400_000);
+  });
+
+  it('con table = null todo cae al comportamiento histórico (cachedBalance)', () => {
+    const usd = makeAccount({ id: 'usd-1', cachedBalance: 777, foreignCurrency: 'USD', foreignAmount: 100 });
+    expect(disponibleReal([usd], [], null)).toBe(777);
   });
 });
 

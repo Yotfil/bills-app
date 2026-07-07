@@ -17,6 +17,7 @@ import { subscribeTransactions } from '../../data/transactionRepository';
 import { reconcileAccount, reconcileAccountForeign } from '../../data/reconciliationService';
 import { useUsdRateTable } from '../hooks/useUsdRateTable';
 import { copPerUnit } from '../../domain/currencyConversion';
+import { accountBalanceCop } from '../../domain/foreignBalance';
 import type { AccountsScreenProps } from './AccountsScreenProps';
 import type { ReconcileTarget } from './ReconcileTarget';
 import type {
@@ -87,7 +88,8 @@ export function AccountsScreen({ savingsBucket = false }: AccountsScreenProps) {
       ? {
           id: reconciling.id,
           name: reconciling.name,
-          registeredValue: reconciling.cachedBalance,
+          // El registrado debe coincidir con el saldo que la pantalla muestra (COP en vivo).
+          registeredValue: accountBalanceCop(reconciling, table),
           registeredLabel: 'Saldo registrado',
           inputLabel:
             foreignRate !== null
@@ -133,7 +135,7 @@ export function AccountsScreen({ savingsBucket = false }: AccountsScreenProps) {
       <ul className="flex flex-col gap-3">
         {accounts.map((account) => {
           const reserved = accountReserved(allocatedFixeds, account.id);
-          const available = accountAvailable(account, allocatedFixeds);
+          const available = accountAvailable(account, allocatedFixeds, table);
           return (
             <li key={account.id} className="rounded-xl border border-slate-200 bg-white p-4">
               <div className="flex items-start justify-between gap-2">
@@ -159,12 +161,15 @@ export function AccountsScreen({ savingsBucket = false }: AccountsScreenProps) {
               <dl className="mt-3 grid grid-cols-3 gap-2 text-center">
                 <div>
                   <dt className="text-xs text-slate-400">Saldo</dt>
+                  {/* En cuentas en divisa el COP es la conversión EN VIVO (≈); la divisa es el
+                      valor exacto (decisión 2026-07-09). */}
                   <dd className="text-sm font-medium text-slate-800">
-                    {formatCop(account.cachedBalance)}
+                    {account.foreignCurrency ? '≈ ' : ''}
+                    {formatCop(accountBalanceCop(account, table))}
                   </dd>
                   {account.foreignCurrency && account.foreignAmount != null && (
                     <dd className="text-[11px] text-slate-400">
-                      ≈ {formatForeignAmount(account.foreignAmount)} {account.foreignCurrency}
+                      {formatForeignAmount(account.foreignAmount)} {account.foreignCurrency}
                     </dd>
                   )}
                 </div>

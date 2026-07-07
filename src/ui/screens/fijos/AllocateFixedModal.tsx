@@ -58,9 +58,11 @@ function AllocateFixedForm({
   }));
 
   // Vista previa del efecto sobre la cuenta elegida: disponible actual y cómo queda tras reservar.
+  // Se pasa `table = null`: aquí solo se destina a cuentas COP (las de divisa se excluyen), donde
+  // el fallback a cachedBalance es exacto — no hace falta cargar la tasa en el modal.
   const selectedAccount = accounts.find((a) => refToValue({ kind: 'account', id: a.id }) === source);
   const currentAvailable = selectedAccount
-    ? accountAvailable(selectedAccount, monthlyFixeds)
+    ? accountAvailable(selectedAccount, monthlyFixeds, null)
     : null;
   const afterAvailable =
     currentAvailable === null ? null : currentAvailable - fixed.budgetedAmount;

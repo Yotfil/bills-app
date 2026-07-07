@@ -69,6 +69,13 @@ vi.mock('../../../data/fixedMonthlyRepository', () => ({
 // Evita llamadas de red a la API de tasa durante el render del dashboard.
 vi.mock('../../../data/exchangeRate/exchangeRateService', () => ({
   getUsdToCopRate: () => Promise.resolve(null),
+  // Tabla del día para el COP en vivo de cuentas en divisa (decisión 2026-07-09): 1 USD = 4.000.
+  getUsdRateTable: () =>
+    Promise.resolve({
+      rates: { USD: 1, COP: 4000 },
+      date: '2026-07-09',
+      source: 'exchangerate-api',
+    }),
 }));
 
 beforeEach(() => {
