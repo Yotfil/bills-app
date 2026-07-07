@@ -13,6 +13,15 @@ const sampleAccount = {
   archived: false,
 } as unknown as Account;
 
+// Cuenta en divisa: un ingreso a ella se captura en USD (decisión 2026-07-07).
+const usdAccount = {
+  id: 'acc-usd',
+  name: 'Global66',
+  archived: false,
+  foreignCurrency: 'USD',
+  foreignAmount: 12782,
+} as unknown as Account;
+
 const sampleCategory = {
   id: 'cat-1',
   name: 'Comidas',
@@ -23,9 +32,16 @@ const sampleCategory = {
 
 vi.mock('../../data/accountRepository', () => ({
   subscribeAccounts: (_uid: string, cb: (items: Account[]) => void) => {
-    cb([sampleAccount]);
+    cb([sampleAccount, usdAccount]);
     return () => {};
   },
+}));
+// Tabla de tasas fija: 1 USD = 4.000 COP (sin red en tests).
+vi.mock('../hooks/useUsdRateTable', () => ({
+  useUsdRateTable: () => ({
+    table: { rates: { USD: 1, COP: 4000 }, date: '2026-07-07', source: 'exchangerate-api' },
+    loading: false,
+  }),
 }));
 vi.mock('../../data/cardRepository', () => ({
   subscribeCards: (_uid: string, cb: (items: unknown[]) => void) => {
@@ -104,6 +120,52 @@ describe('TransactionForm', () => {
     useEntryPrefsStore.setState({ lastSource: { kind: 'account', id: 'acc-1' } });
     render(<TransactionForm onDone={vi.fn()} />);
     expect(screen.getByRole('combobox')).toHaveValue('account:acc-1');
+  });
+
+  it('un ingreso a una cuenta en divisa se captura en USD y guarda el COP convertido', async () => {
+    render(<TransactionForm onDone={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Ingreso' }));
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'account:acc-usd' } });
+    // Con la cuenta USD elegida, el monto se pide en USD (input decimal).
+    expect(screen.getByText('Monto (USD)')).toBeInTheDocument();
+    fireEvent.change(screen.getByPlaceholderText('0'), { target: { value: '100,5' } });
+    expect(screen.getByText(/con la tasa del día/)).toBeInTheDocument(); // ≈ COP visible
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar' }));
+
+    await vi.waitFor(() => expect(mockedCreate).toHaveBeenCalledTimes(1));
+    const draft = mockedCreate.mock.calls[0]![1] as TransactionDraft;
+    expect(draft.type).toBe('income');
+    expect(draft.amount).toBe(402_000); // 100.5 USD × 4.000
+    expect(draft.foreignCurrency).toBe('USD');
+    expect(draft.foreignAmount).toBe(100.5);
+    expect(draft.destination).toEqual({ kind: 'account', id: 'acc-usd' });
+  });
+
+  it('un ingreso a una cuenta COP no lleva campos de divisa', async () => {
+    render(<TransactionForm onDone={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Ingreso' }));
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'account:acc-1' } });
+    fillAmount('50000');
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar' }));
+
+    await vi.waitFor(() => expect(mockedCreate).toHaveBeenCalledTimes(1));
+    const draft = mockedCreate.mock.calls[0]![1] as TransactionDraft;
+    expect(draft.amount).toBe(50_000);
+    expect(draft.foreignCurrency).toBeNull();
+    expect(draft.foreignAmount).toBeNull();
+  });
+
+  it('ingreso en divisa sin monto: error visible y no guarda', async () => {
+    render(<TransactionForm onDone={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Ingreso' }));
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'account:acc-usd' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Ingresa el monto en USD');
+    expect(mockedCreate).not.toHaveBeenCalled();
   });
 
   it('si el guardado falla, muestra el error y no cierra el form', async () => {

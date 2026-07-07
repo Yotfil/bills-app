@@ -1,14 +1,19 @@
 import { useState, type FormEvent } from 'react';
 import { Modal } from '../components/Modal';
 import { MoneyInput } from '../components/MoneyInput';
-import { formatCop } from '../../lib/currency';
+import { DecimalInput } from '../components/DecimalInput';
+import { useAsyncAction } from '../hooks/useAsyncAction';
+import { formatCop, formatForeignAmount, parseDecimal } from '../../lib/currency';
 import { computeReconciliation } from '../../domain/reconciliation';
+import { foreignToCop } from '../../domain/currencyConversion';
 import type { ReconcileModalProps } from './ReconcileModalProps';
 import type { ReconcileTarget } from './ReconcileTarget';
 
 // Reconciliar cuenta / tarjeta / crédito (CLAUDE.md §5.7): el usuario indica el valor real y la
 // app crea un movimiento de ajuste por el desfase. Muestra una vista previa antes de confirmar.
 // Es genérico: cada pantalla arma el `target` con su etiqueta y su función de reconciliación.
+// Si la cuenta vive en otra moneda (y hay tasa del día), se reconcilia EN LA DIVISA y el COP
+// es solo el reflejo de la conversión (decisión 2026-07-05).
 export function ReconcileModal({ open, target, onClose }: ReconcileModalProps) {
   if (!target) return null;
   return (
@@ -21,39 +26,79 @@ export function ReconcileModal({ open, target, onClose }: ReconcileModalProps) {
 function ReconcileForm({ target, onClose }: { target: ReconcileTarget; onClose: () => void }) {
   const [realValue, setRealValue] = useState('');
   const [note, setNote] = useState('');
-  const [busy, setBusy] = useState(false);
+  const { busy, error, run } = useAsyncAction();
 
-  const real = realValue === '' ? null : Math.round(Number(realValue) || 0);
+  // Modo divisa: solo si la pantalla pasó moneda + tasa + acción (sin tasa se degrada a COP).
+  const foreign =
+    target.foreignCurrency && target.copPerUnit != null && target.reconcileForeign
+      ? {
+          currency: target.foreignCurrency,
+          rate: target.copPerUnit,
+          submit: target.reconcileForeign,
+        }
+      : null;
+
+  const parsedForeign = foreign ? parseDecimal(realValue) : null;
+  // `real` siempre en COP: en modo divisa es la conversión con la tasa del día.
+  const real = foreign
+    ? parsedForeign === null
+      ? null
+      : foreignToCop(parsedForeign, foreign.rate)
+    : realValue === ''
+      ? null
+      : Math.round(Number(realValue) || 0);
   const preview = real === null ? null : computeReconciliation(target.registeredValue, real);
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     if (real === null) return;
-    setBusy(true);
-    try {
-      await target.reconcile(real, note);
-      onClose();
-    } finally {
-      setBusy(false);
-    }
+    const ok = await run(() =>
+      foreign && parsedForeign !== null
+        ? foreign.submit(parsedForeign, note)
+        : target.reconcile(real, note),
+    );
+    if (ok) onClose();
   }
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-3">
       <p className="text-sm text-slate-500">
         {target.registeredLabel}:{' '}
-        <span className="font-semibold text-slate-700">{formatCop(target.registeredValue)}</span>
+        <span className="font-semibold text-slate-700">
+          {foreign && target.foreignAmount != null
+            ? `${formatForeignAmount(target.foreignAmount)} ${foreign.currency}`
+            : formatCop(target.registeredValue)}
+        </span>
+        {foreign && target.foreignAmount != null && (
+          <span className="text-slate-400"> (≈ {formatCop(target.registeredValue)})</span>
+        )}
       </p>
 
       <label className="flex flex-col gap-1">
         <span className="text-xs text-slate-400">{target.inputLabel}</span>
-        <MoneyInput
-          autoFocus
-          value={realValue}
-          onChange={setRealValue}
-          className="rounded-xl border border-slate-300 px-4 py-3 text-lg font-semibold outline-none focus:border-slate-500"
-        />
+        {foreign ? (
+          <DecimalInput
+            autoFocus
+            value={realValue}
+            onChange={setRealValue}
+            className="rounded-xl border border-slate-300 px-4 py-3 text-lg font-semibold outline-none focus:border-slate-500"
+          />
+        ) : (
+          <MoneyInput
+            autoFocus
+            value={realValue}
+            onChange={setRealValue}
+            className="rounded-xl border border-slate-300 px-4 py-3 text-lg font-semibold outline-none focus:border-slate-500"
+          />
+        )}
       </label>
+
+      {foreign && real !== null && (
+        <p className="text-xs text-slate-400">
+          ≈ {formatCop(real)} con la tasa del día ({formatCop(foreign.rate)} por{' '}
+          {foreign.currency})
+        </p>
+      )}
 
       {preview === null && real !== null && (
         <p className="text-sm text-slate-400">El valor coincide: no se creará ningún ajuste.</p>
@@ -79,6 +124,12 @@ function ReconcileForm({ target, onClose }: { target: ReconcileTarget; onClose: 
         onChange={(e) => setNote(e.target.value)}
         className="rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-500"
       />
+
+      {error && (
+        <p role="alert" className="text-sm text-red-600">
+          {error}
+        </p>
+      )}
 
       <button
         type="submit"

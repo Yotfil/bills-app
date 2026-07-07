@@ -1,7 +1,8 @@
-import type { ExchangeRate } from '../../domain/ExchangeRate';
+import type { ExchangeRateTable } from '../../domain/ExchangeRateTable';
 
-// Fuente de la tasa USD→COP, detrás de una interfaz para poder cambiarla sin tocar la UI
-// (CLAUDE.md §5.11). Cada implementación obtiene la tasa de su API.
+// Interfaz de la fuente de tasas (CLAUDE.md §5.11): encapsula la API concreta para poder
+// cambiarla sin tocar la UI ni la lógica. Devuelve la tabla completa base USD (de ahí se
+// deriva tanto la tasa USD→COP del dashboard como cualquier conversión X→COP).
 export interface ExchangeRateProvider {
-  fetchUsdToCop(): Promise<ExchangeRate>;
+  fetchUsdRates(): Promise<ExchangeRateTable>;
 }

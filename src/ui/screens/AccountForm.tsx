@@ -1,14 +1,22 @@
 import { useState, type FormEvent } from 'react';
 import { Modal } from '../components/Modal';
 import { MoneyInput } from '../components/MoneyInput';
+import { DecimalInput } from '../components/DecimalInput';
+import { SelectField } from '../components/SelectField';
 import { useAsyncAction } from '../hooks/useAsyncAction';
+import { useUsdRateTable } from '../hooks/useUsdRateTable';
 import { useSessionStore } from '../../store/sessionStore';
 import { createAccount, updateAccount } from '../../data/accountRepository';
+import { convertToCop, listCurrencyCodes } from '../../domain/currencyConversion';
+import { parseDecimal } from '../../lib/currency';
 import type { AccountFormProps } from './AccountFormProps';
 import type { AccountType } from '../../domain/types';
 
 // Formulario para crear/editar una cuenta (CLAUDE.md §8.4). El saldo no se edita aquí: se
-// corrige reconciliando (§5.7).
+// corrige reconciliando (§5.7). Si la cuenta vive en otra moneda (decisión 2026-07-05), la
+// moneda se elige de las disponibles en la API de tasas y el saldo COP es el reflejo de la
+// conversión: al crear se autollena con monto × tasa del día; al editar, la revaluación
+// automática realinea el saldo.
 export function AccountForm({ open, account, defaultSavingsBucket, onClose }: AccountFormProps) {
   const uid = useSessionStore((s) => s.user?.uid);
   const isEdit = !!account;
@@ -22,7 +30,22 @@ export function AccountForm({ open, account, defaultSavingsBucket, onClose }: Ac
   const [foreignAmount, setForeignAmount] = useState(
     account?.foreignAmount != null ? String(account.foreignAmount) : '',
   );
-  const { busy, error, run } = useAsyncAction();
+  const { busy, error, setError, run } = useAsyncAction();
+  const { table } = useUsdRateTable();
+
+  // Monedas disponibles según la API (sin COP: COP = "sin divisa"). Si la cuenta ya tiene una
+  // moneda que no está en la lista (p.ej. offline sin caché), se conserva como opción.
+  const codes = table ? listCurrencyCodes(table).filter((c) => c !== 'COP') : [];
+  const currencyOptions = (
+    foreignCurrency && !codes.includes(foreignCurrency) ? [foreignCurrency, ...codes] : codes
+  ).map((code) => ({ value: code, label: code }));
+
+  const parsedForeign = foreignCurrency ? parseDecimal(foreignAmount) : null;
+  // Saldo COP derivado del monto en divisa con la tasa del día (autollena el saldo inicial).
+  const convertedCop =
+    foreignCurrency && table && parsedForeign !== null
+      ? convertToCop(parsedForeign, foreignCurrency, table)
+      : null;
 
   // Reinicia el formulario cada vez que se abre con otra cuenta (o para crear).
   const formKey = account?.id ?? 'new';
@@ -30,8 +53,15 @@ export function AccountForm({ open, account, defaultSavingsBucket, onClose }: Ac
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     if (!uid || !name.trim()) return;
-    const currency = foreignCurrency.trim().toUpperCase() || null;
-    const fAmount = currency && foreignAmount ? Math.round(Number(foreignAmount) || 0) : null;
+    const currency = foreignCurrency || null;
+    if (currency && parsedForeign === null) {
+      setError(`Ingresa el monto en ${currency}.`);
+      return;
+    }
+    if (!isEdit && currency && convertedCop === null) {
+      setError(`No hay tasa disponible para ${currency}. Revisa tu conexión e intenta de nuevo.`);
+      return;
+    }
     const ok = await run(async () => {
       if (isEdit && account) {
         await updateAccount(uid, account.id, {
@@ -39,16 +69,19 @@ export function AccountForm({ open, account, defaultSavingsBucket, onClose }: Ac
           type,
           savingsBucket,
           foreignCurrency: currency,
-          foreignAmount: fAmount,
+          foreignAmount: currency ? parsedForeign : null,
         });
       } else {
         await createAccount(uid, {
           name,
           type,
-          initialBalance: Math.round(Number(initialBalance) || 0),
+          // Con divisa, el saldo inicial COP es la conversión del monto (tasa del día).
+          initialBalance: currency
+            ? (convertedCop ?? 0)
+            : Math.round(Number(initialBalance) || 0),
           savingsBucket,
           foreignCurrency: currency,
-          foreignAmount: fAmount,
+          foreignAmount: currency ? parsedForeign : null,
         });
       }
     });
@@ -74,14 +107,37 @@ export function AccountForm({ open, account, defaultSavingsBucket, onClose }: Ac
           <option value="cash">Efectivo</option>
           <option value="term_deposit">CDT / Inversión</option>
         </select>
+
+        <SelectField
+          label="Moneda de la cuenta"
+          value={foreignCurrency}
+          onChange={setForeignCurrency}
+          options={currencyOptions}
+          placeholder="COP (pesos)"
+        />
+
+        {foreignCurrency && (
+          <label className="flex flex-col gap-1">
+            <span className="text-xs text-slate-400">Monto en {foreignCurrency}</span>
+            <DecimalInput
+              placeholder="p.ej. 12.782,50"
+              value={foreignAmount}
+              onChange={setForeignAmount}
+              className="rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-500"
+            />
+          </label>
+        )}
+
         {!isEdit && (
           <MoneyInput
             placeholder="Saldo inicial (COP)"
-            value={initialBalance}
+            value={foreignCurrency ? (convertedCop !== null ? String(convertedCop) : '') : initialBalance}
             onChange={setInitialBalance}
-            className="rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-500"
+            disabled={!!foreignCurrency}
+            className="rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-500 disabled:bg-slate-100 disabled:text-slate-500"
           />
         )}
+
         <label className="flex items-center gap-2 text-sm text-slate-600">
           <input
             type="checkbox"
@@ -91,26 +147,18 @@ export function AccountForm({ open, account, defaultSavingsBucket, onClose }: Ac
           Es una bolsa de ahorro (no cuenta en el disponible)
         </label>
 
-        {/* Moneda extranjera (opcional): el saldo se lleva en COP; esto es solo referencia. */}
-        <div className="flex gap-2">
-          <input
-            placeholder="Moneda"
-            value={foreignCurrency}
-            onChange={(e) => setForeignCurrency(e.target.value)}
-            className="w-24 rounded-xl border border-slate-300 px-3 py-3 uppercase outline-none focus:border-slate-500"
-          />
-          <MoneyInput
-            placeholder="Monto"
-            value={foreignAmount}
-            onChange={setForeignAmount}
-            className="flex-1 rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-500"
-          />
-        </div>
-        <p className="text-xs text-slate-400">
-          Opcional. Si la cuenta está en otra moneda (p.ej. USD), anótala aquí solo como referencia:
-          la app sigue en pesos y <span className="font-medium">no convierte nada</span>. Verás una
-          nota tipo «≈ 9.918 USD» bajo el saldo en COP.
-        </p>
+        {foreignCurrency ? (
+          <p className="text-xs text-slate-400">
+            El monto en {foreignCurrency} es la fuente de verdad: el saldo en pesos{' '}
+            <span className="font-medium">se alinea solo con la tasa del día</span> (crea un
+            ajuste automático). Para corregirlo, reconcilia la cuenta en {foreignCurrency}.
+          </p>
+        ) : (
+          <p className="text-xs text-slate-400">
+            En COP el saldo se lleva en pesos, como siempre. Si la cuenta vive en otra moneda
+            (p.ej. USD), elígela arriba y anota el monto en esa moneda.
+          </p>
+        )}
         {isEdit && (
           <p className="text-xs text-slate-400">
             El saldo no se edita aquí: se corrige reconciliando la cuenta (§5.7).

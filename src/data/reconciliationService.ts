@@ -6,9 +6,13 @@ import { categoriesCol } from './collections';
 import { listAll } from './crud';
 import { ADJUSTMENT_CATEGORY_NAME } from './categoryRepository';
 import { createTransaction } from './transactionService';
+import { updateAccount } from './accountRepository';
 import { buildReconciliationAdjustment } from '../domain/reconciliation';
+import { convertToCop, copPerUnit } from '../domain/currencyConversion';
+import { buildForeignReconcileNote } from '../domain/revaluation';
 import { nowTimestamp } from '../lib/date';
 import type { Account, CreditCard, EntityRef, Loan } from '../domain/types';
+import type { ExchangeRateTable } from '../domain/ExchangeRateTable';
 
 /** Busca el id de la categoría de sistema de ajustes (sembrada en el primer login, §6). */
 export async function getAdjustmentCategoryId(uid: string): Promise<string> {
@@ -58,6 +62,35 @@ export const reconcileAccount = (
     realBalance,
     note,
   );
+
+/**
+ * Reconcilia una cuenta en MONEDA EXTRANJERA (decisión 2026-07-05): el usuario dice "el saldo
+ * real es X USD"; la divisa es la fuente de verdad y el COP es el reflejo de la conversión con
+ * la tasa del día. Actualiza primero foreignAmount y luego crea el ajuste COP: si el ajuste
+ * fallara, la revaluación automática realineará el saldo después (el orden inverso perdería
+ * la reconciliación, porque la revaluación devolvería el COP al monto en divisa viejo).
+ */
+export async function reconcileAccountForeign(
+  uid: string,
+  account: Account,
+  realForeign: number,
+  table: ExchangeRateTable,
+  note?: string | null,
+): Promise<boolean> {
+  if (!account.foreignCurrency) {
+    throw new Error(`La cuenta "${account.name}" no tiene moneda extranjera.`);
+  }
+  const rate = copPerUnit(table, account.foreignCurrency);
+  const targetCop = convertToCop(realForeign, account.foreignCurrency, table);
+  if (rate === null || targetCop === null) {
+    throw new Error(`No hay tasa disponible para ${account.foreignCurrency}.`);
+  }
+  await updateAccount(uid, account.id, { foreignAmount: realForeign });
+  const finalNote = note?.trim()
+    ? note
+    : buildForeignReconcileNote(account.foreignCurrency, rate);
+  return reconcileAccount(uid, account, targetCop, finalNote);
+}
 
 /** Reconcilia la DEUDA de una tarjeta de crédito (§5.5, §5.7). */
 export const reconcileCard = (
