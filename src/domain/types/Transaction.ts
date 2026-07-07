@@ -33,6 +33,12 @@ export interface Transaction extends BaseDoc {
   // varios presupuestos en el mes elegido. Solo en `income`. Se hornea en el override del presupuesto
   // al crear y se revierte al borrar/editar. Ausente = sin aumentos.
   budgetBoosts?: BudgetBoost[];
+  // Ingreso EN DIVISA a una cuenta en moneda extranjera (decisión 2026-07-07): el monto original en
+  // la divisa de la cuenta destino; `amount` es su conversión a COP con la tasa del día. LIGADO y
+  // reversible: crear/editar/borrar el movimiento incrementa/revierte Account.foreignAmount (la
+  // fuente de verdad de esas cuentas), para que la revaluación diaria no lo deshaga. Ausente = COP.
+  foreignCurrency?: string | null;
+  foreignAmount?: number | null; // en la divisa, puede llevar decimales (la regla "entero" es COP)
 }
 
 /**

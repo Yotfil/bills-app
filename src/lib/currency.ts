@@ -40,3 +40,36 @@ export function formatThousands(rawDigits: string): string {
   if (digits === '') return '';
   return formatCopPlain(Number(digits));
 }
+
+/**
+ * Formatea un monto en DIVISA (no COP) con hasta 2 decimales, es-CO: 9918.5 -> "9.918,5".
+ * Los montos en divisa sí llevan decimales (un saldo USD tiene centavos); la regla de
+ * "enteros sin decimales" (§3) aplica solo a los pesos.
+ */
+export function formatForeignAmount(amount: number): string {
+  return new Intl.NumberFormat('es-CO', { maximumFractionDigits: 2 }).format(amount);
+}
+
+/**
+ * Normaliza el texto de un input decimal al string crudo con punto: acepta coma o punto como
+ * separador (teclados es-CO muestran coma), deja UN solo separador y máximo 2 decimales.
+ *   "1234,56" -> "1234.56" | "12." -> "12." (se está escribiendo) | "abc" -> "" | "007" -> "7".
+ */
+export function normalizeDecimalText(text: string): string {
+  const cleaned = text.replace(/,/g, '.').replace(/[^\d.]/g, '');
+  if (cleaned === '') return '';
+  const dot = cleaned.indexOf('.');
+  if (dot === -1) return String(parseInt(cleaned, 10)); // quita ceros a la izquierda
+  const intPart = cleaned.slice(0, dot);
+  const decimals = cleaned.slice(dot + 1).replace(/\./g, '').slice(0, 2);
+  const intNormalized = intPart === '' ? '0' : String(parseInt(intPart, 10));
+  return `${intNormalized}.${decimals}`;
+}
+
+/** Convierte el texto de un input decimal a número; null si está vacío o no es un número. */
+export function parseDecimal(text: string): number | null {
+  const normalized = normalizeDecimalText(text);
+  if (normalized === '') return null;
+  const value = Number(normalized.endsWith('.') ? normalized.slice(0, -1) : normalized);
+  return Number.isFinite(value) ? value : null;
+}
