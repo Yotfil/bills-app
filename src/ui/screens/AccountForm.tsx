@@ -150,8 +150,8 @@ export function AccountForm({ open, account, defaultSavingsBucket, onClose }: Ac
         {foreignCurrency ? (
           <p className="text-xs text-slate-400">
             El monto en {foreignCurrency} es la fuente de verdad: el saldo en pesos{' '}
-            <span className="font-medium">se alinea solo con la tasa del día</span> (crea un
-            ajuste automático). Para corregirlo, reconcilia la cuenta en {foreignCurrency}.
+            <span className="font-medium">se calcula en vivo con la tasa del día</span>. Para
+            corregirlo, reconcilia la cuenta en {foreignCurrency}.
           </p>
         ) : (
           <p className="text-xs text-slate-400">
