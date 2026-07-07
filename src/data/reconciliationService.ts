@@ -9,7 +9,7 @@ import { createTransaction } from './transactionService';
 import { updateAccount } from './accountRepository';
 import { buildReconciliationAdjustment } from '../domain/reconciliation';
 import { convertToCop, copPerUnit } from '../domain/currencyConversion';
-import { buildForeignReconcileNote } from '../domain/revaluation';
+import { buildForeignReconcileNote } from '../domain/foreignLedger';
 import { nowTimestamp } from '../lib/date';
 import type { Account, CreditCard, EntityRef, Loan } from '../domain/types';
 import type { ExchangeRateTable } from '../domain/ExchangeRateTable';

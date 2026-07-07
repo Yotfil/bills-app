@@ -4,7 +4,7 @@
 // movimiento de AJUSTE (§5.7), que crea el servicio de datos; aquí vive solo el cálculo puro.
 import { copPerUnit, foreignToCop } from './currencyConversion';
 import { formatCopPlain } from '../lib/currency';
-import type { Account, TransactionDraft } from './types';
+import type { Account } from './types';
 import type { ExchangeRateTable } from './ExchangeRateTable';
 import type { RevaluationResult } from './RevaluationResult';
 
@@ -34,21 +34,4 @@ export function buildRevaluationNote(currency: string, rateToCop: number): strin
   return `Revaluación ${currency} (tasa ${formatCopPlain(rateToCop)})`;
 }
 
-/** Nota por defecto al reconciliar en divisa, p.ej. "Reconciliación en USD (tasa 3.950)". */
-export function buildForeignReconcileNote(currency: string, rateToCop: number): string {
-  return `Reconciliación en ${currency} (tasa ${formatCopPlain(rateToCop)})`;
-}
-
-type ForeignTxn = Pick<TransactionDraft, 'type' | 'destination' | 'foreignAmount'>;
-
-/**
- * Delta que un movimiento aplica al monto en divisa (foreignAmount) de una cuenta. Hoy solo los
- * INGRESOS en divisa lo llevan (decisión 2026-07-07): el ingreso suma su monto original a la
- * fuente de verdad de la cuenta destino, para que la revaluación diaria no lo deshaga.
- * Devuelve null si el movimiento no toca la divisa de ninguna cuenta.
- */
-export function foreignIncomeDelta(txn: ForeignTxn): { accountId: string; amount: number } | null {
-  if (txn.type !== 'income' || !txn.foreignAmount) return null;
-  if (!txn.destination || txn.destination.kind !== 'account') return null;
-  return { accountId: txn.destination.id, amount: txn.foreignAmount };
-}
+// (buildForeignReconcileNote y el delta de divisa por movimiento viven en foreignLedger.ts.)

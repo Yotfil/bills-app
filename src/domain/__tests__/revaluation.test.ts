@@ -1,10 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import {
-  computeRevaluation,
-  buildRevaluationNote,
-  buildForeignReconcileNote,
-  foreignIncomeDelta,
-} from '../revaluation';
+import { computeRevaluation, buildRevaluationNote } from '../revaluation';
 import { computeReconciliation } from '../reconciliation';
 import { convertToCop } from '../currencyConversion';
 import type { ExchangeRateTable } from '../ExchangeRateTable';
@@ -68,36 +63,8 @@ describe('revaluación + reconciliación', () => {
   });
 });
 
-describe('foreignIncomeDelta', () => {
-  const base = { type: 'income' as const, destination: { kind: 'account' as const, id: 'acc-1' } };
-
-  it('un ingreso en divisa suma su monto original a la cuenta destino', () => {
-    expect(foreignIncomeDelta({ ...base, foreignAmount: 100.5 })).toEqual({
-      accountId: 'acc-1',
-      amount: 100.5,
-    });
-  });
-
-  it('un ingreso sin divisa (COP) no aplica delta', () => {
-    expect(foreignIncomeDelta({ ...base, foreignAmount: null })).toBeNull();
-    expect(foreignIncomeDelta({ ...base, foreignAmount: undefined })).toBeNull();
-  });
-
-  it('otros tipos no aplican delta aunque traigan foreignAmount', () => {
-    expect(foreignIncomeDelta({ ...base, type: 'expense', foreignAmount: 100 })).toBeNull();
-  });
-
-  it('sin cuenta destino no aplica delta', () => {
-    expect(foreignIncomeDelta({ type: 'income', destination: null, foreignAmount: 100 })).toBeNull();
-  });
-});
-
 describe('notas de ajuste', () => {
   it('la nota de revaluación incluye moneda y tasa formateada', () => {
     expect(buildRevaluationNote('USD', 3950.4)).toBe('Revaluación USD (tasa 3.950)');
-  });
-
-  it('la nota de reconciliación en divisa incluye moneda y tasa', () => {
-    expect(buildForeignReconcileNote('USD', 4000)).toBe('Reconciliación en USD (tasa 4.000)');
   });
 });
