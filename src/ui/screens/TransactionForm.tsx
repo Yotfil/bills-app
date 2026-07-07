@@ -1,9 +1,11 @@
-import { useMemo, useState, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { SelectField } from '../components/SelectField';
 import { MoneyInput } from '../components/MoneyInput';
+import { DecimalInput } from '../components/DecimalInput';
 import type { TransactionFormProps } from './TransactionFormProps';
 import { useUserCollection } from '../hooks/useUserCollection';
 import { useAsyncAction } from '../hooks/useAsyncAction';
+import { useUsdRateTable } from '../hooks/useUsdRateTable';
 import { useSessionStore } from '../../store/sessionStore';
 import { useEntryPrefsStore } from '../../store/entryPrefsStore';
 import { subscribeAccounts } from '../../data/accountRepository';
@@ -20,7 +22,8 @@ import {
 } from '../../domain/transactionDraft';
 import { validateTransaction, validationErrorMessage } from '../../domain/validation';
 import { fromDateInputValue, nowTimestamp, toDateInputValue } from '../../lib/date';
-import { formatCop } from '../../lib/currency';
+import { formatCop, parseDecimal } from '../../lib/currency';
+import { copPerUnit, foreignToCop } from '../../domain/currencyConversion';
 import type { BoostRow } from './BoostRow';
 import type {
   Account,
@@ -83,14 +86,31 @@ export function TransactionForm({ existing, onDone }: TransactionFormProps) {
       amount: String(b.amount),
     })) ?? [],
   );
+  // Ingreso EN DIVISA (decisión 2026-07-07): si la cuenta destino vive en otra moneda, el monto
+  // se captura en ESA moneda y el COP es el reflejo de la conversión con la tasa del día.
+  const [foreignText, setForeignText] = useState(
+    existing?.foreignAmount != null ? String(existing.foreignAmount) : '',
+  );
   const { busy, error, setError, run } = useAsyncAction();
+  const { table } = useUsdRateTable();
+
+  const destinationAccount =
+    type === 'income' && destination?.kind === 'account'
+      ? (activeAccounts.find((a) => a.id === destination.id) ?? null)
+      : null;
+  const incomeCurrency = destinationAccount?.foreignCurrency ?? null;
+  const incomeRate = incomeCurrency && table ? copPerUnit(table, incomeCurrency) : null;
+  const parsedForeign = incomeCurrency ? parseDecimal(foreignText) : null;
+  // COP derivado del monto en divisa (es el `amount` que se guarda).
+  const foreignCop =
+    incomeRate !== null && parsedForeign !== null ? foreignToCop(parsedForeign, incomeRate) : null;
 
   const activeBudgets = budgets.filter((b) => !b.archived && b.active);
   const categoryName = (id: string) => categories.find((c) => c.id === id)?.name ?? 'Categoría';
 
   // El total asignado a presupuestos no puede exceder el monto del ingreso (§5.9).
   const boostsTotal = boosts.reduce((sum, r) => sum + (Math.round(Number(r.amount)) || 0), 0);
-  const incomeAmount = Math.round(Number(amount)) || 0;
+  const incomeAmount = incomeCurrency ? (foreignCop ?? 0) : Math.round(Number(amount)) || 0;
   const boostsExceedIncome = type === 'income' && boostsTotal > incomeAmount;
 
   const addBoost = () =>
@@ -99,8 +119,9 @@ export function TransactionForm({ existing, onDone }: TransactionFormProps) {
     setBoosts((prev) => prev.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
   const removeBoost = (i: number) => setBoosts((prev) => prev.filter((_, idx) => idx !== i));
 
-  // Opciones de medio de pago según el tipo (§11).
-  const sourceOptions = useMemo(() => {
+  // Opciones de medio de pago según el tipo (§11). Cálculo plano y barato (listas cortas):
+  // el React Compiler memoiza solo, sin useMemo manual.
+  const sourceOptions = (() => {
     const accountOpts = activeAccounts.map((a) => ({
       value: refToValue({ kind: 'account', id: a.id }),
       label: a.name,
@@ -121,13 +142,27 @@ export function TransactionForm({ existing, onDone }: TransactionFormProps) {
       return [...accountOpts, ...cardOpts];
     }
     return accountOpts; // income/transfer/debt_payment salen/entran a cuentas
-  }, [type, isAdjustment, activeAccounts, activeCards, activeLoans]);
+  })();
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     if (!uid) return;
     setError(null);
     if (boostsExceedIncome) return; // los aumentos no pueden exceder el ingreso (mensaje inline)
+
+    // Ingreso en divisa: exige monto en la moneda de la cuenta y tasa del día para convertir.
+    if (incomeCurrency && !isAdjustment) {
+      if (parsedForeign === null || parsedForeign <= 0) {
+        setError(`Ingresa el monto en ${incomeCurrency}.`);
+        return;
+      }
+      if (foreignCop === null) {
+        setError(
+          `No hay tasa disponible para ${incomeCurrency}. Revisa tu conexión e intenta de nuevo.`,
+        );
+        return;
+      }
+    }
 
     // El ajuste conserva su tipo, su categoría de sistema y su dirección; solo cambian monto, cuenta,
     // nota y fecha. No pasa por el builder manual (no contempla 'adjustment').
@@ -149,7 +184,7 @@ export function TransactionForm({ existing, onDone }: TransactionFormProps) {
           }
         : buildManualTransactionDraft({
             type,
-            amount: Math.round(Number(amount) || 0),
+            amount: incomeCurrency ? (foreignCop ?? 0) : Math.round(Number(amount) || 0),
             date: fromDateInputValue(dateValue),
             concept:
               concept ||
@@ -179,6 +214,10 @@ export function TransactionForm({ existing, onDone }: TransactionFormProps) {
       draft.budgetBoosts = boosts
         .filter((r) => r.budgetId && r.month && Number(r.amount) > 0)
         .map((r) => ({ budgetId: r.budgetId, month: r.month, amount: Math.round(Number(r.amount)) }));
+      // Ingreso en divisa: guarda el monto original; el servicio lo suma a la fuente de verdad de
+      // la cuenta (Account.foreignAmount) en el mismo batch. `null` limpia el campo al editar.
+      draft.foreignCurrency = incomeCurrency;
+      draft.foreignAmount = incomeCurrency ? parsedForeign : null;
     }
 
     const errors = validateTransaction(draft);
@@ -224,17 +263,36 @@ export function TransactionForm({ existing, onDone }: TransactionFormProps) {
         </div>
       )}
 
-      {/* Monto: lo primero y con teclado numérico (§5.4). */}
+      {/* Monto: lo primero y con teclado numérico (§5.4). Si el ingreso entra a una cuenta en
+          divisa, se captura en ESA moneda y el COP se muestra como reflejo de la conversión. */}
       <label className="flex flex-col gap-1">
-        <span className="text-xs text-slate-400">Monto (COP)</span>
-        <MoneyInput
-          autoFocus
-          placeholder="0"
-          value={amount}
-          onChange={setAmount}
-          className="rounded-xl border border-slate-300 px-4 py-3 text-2xl font-semibold outline-none focus:border-slate-500"
-        />
+        <span className="text-xs text-slate-400">Monto ({incomeCurrency ?? 'COP'})</span>
+        {incomeCurrency ? (
+          <DecimalInput
+            autoFocus
+            placeholder="0"
+            value={foreignText}
+            onChange={setForeignText}
+            className="rounded-xl border border-slate-300 px-4 py-3 text-2xl font-semibold outline-none focus:border-slate-500"
+          />
+        ) : (
+          <MoneyInput
+            autoFocus
+            placeholder="0"
+            value={amount}
+            onChange={setAmount}
+            className="rounded-xl border border-slate-300 px-4 py-3 text-2xl font-semibold outline-none focus:border-slate-500"
+          />
+        )}
       </label>
+      {incomeCurrency &&
+        (foreignCop !== null ? (
+          <p className="-mt-2 text-xs text-slate-400">≈ {formatCop(foreignCop)} con la tasa del día</p>
+        ) : incomeRate === null ? (
+          <p className="-mt-2 text-xs text-amber-600">
+            Sin tasa del día para {incomeCurrency}: revisa tu conexión para registrar este ingreso.
+          </p>
+        ) : null)}
 
       {/* Categoría: solo en gasto, justo después del monto (§5.4). */}
       {type === 'expense' && (

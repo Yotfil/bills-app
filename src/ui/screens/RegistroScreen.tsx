@@ -6,7 +6,7 @@ import { Modal } from '../components/Modal';
 import { DisponibleRealBar } from '../components/DisponibleRealBar';
 import { TransactionForm } from './TransactionForm';
 import { TransactionFilters } from './TransactionFilters';
-import { formatCop } from '../../lib/currency';
+import { formatCop, formatForeignAmount } from '../../lib/currency';
 import { dayKey, formatDayLabel, formatMonthLabel, formatTime, monthKey } from '../../lib/date';
 import { subscribeTransactions } from '../../data/transactionRepository';
 import { subscribeAccounts } from '../../data/accountRepository';
@@ -193,6 +193,12 @@ export function RegistroScreen() {
                         {SIGN[txn.type]}
                         {formatCop(txn.amount)}
                       </span>
+                      {/* Ingreso en divisa: el COP es la conversión; se muestra el monto original. */}
+                      {txn.foreignAmount != null && txn.foreignCurrency && (
+                        <span className="text-[11px] text-slate-400">
+                          {formatForeignAmount(txn.foreignAmount)} {txn.foreignCurrency}
+                        </span>
+                      )}
                       {time && <span className="text-xs text-slate-400">{time}</span>}
                     </span>
                   </button>
