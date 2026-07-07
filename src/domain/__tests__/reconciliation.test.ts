@@ -1,6 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { buildReconciliationAdjustment, computeReconciliation } from '../reconciliation';
+import {
+  buildForeignReconciliationAdjustment,
+  buildReconciliationAdjustment,
+  computeReconciliation,
+} from '../reconciliation';
 import { transactionDelta } from '../ledger';
+import { foreignDelta } from '../foreignLedger';
 import { accountRef, cardRef, loanRef, STUB_TS } from './fixtures';
 
 // CLAUDE.md §12.1 — Reconciliación de cuentas, tarjetas y créditos (§5.7).
@@ -78,5 +83,61 @@ describe('Reconciliación de crédito (saldo)', () => {
     expect(adj.adjustmentDirection).toBe('increase');
     const delta = transactionDelta(adj);
     expect(61_000_000 + delta.loans['loan-1']!).toBe(61_884_141);
+  });
+});
+
+// Decisión 2026-07-09 — reconciliar una cuenta en divisa crea UN ajuste EN LA DIVISA: el
+// desfase se mide en la moneda de la cuenta y el amount COP es la conversión del día.
+describe('Reconciliación en divisa', () => {
+  const options = {
+    source: accountRef('acc-usd'),
+    adjustmentCategoryId: 'cat-ajuste',
+    date: STUB_TS,
+    note: null,
+  };
+
+  it('saldo real menor: ajuste decrease con el Δ en divisa y su COP convertido', () => {
+    const adj = buildForeignReconciliationAdjustment(12_782, 9_515, 'USD', 3344, options);
+    expect(adj?.adjustmentDirection).toBe('decrease');
+    expect(adj?.foreignCurrency).toBe('USD');
+    expect(adj?.foreignAmount).toBe(3_267);
+    expect(adj?.amount).toBe(10_924_848); // 3.267 × 3.344
+    // El ajuste mueve AMBOS ledgers: divisa (foreignDelta) y COP (transactionDelta).
+    expect(foreignDelta(adj!)).toEqual([{ accountId: 'acc-usd', amount: -3_267 }]);
+    expect(transactionDelta(adj!).accounts['acc-usd']).toBe(-10_924_848);
+  });
+
+  it('saldo real mayor: ajuste increase', () => {
+    const adj = buildForeignReconciliationAdjustment(100, 150.5, 'USD', 4000, options);
+    expect(adj?.adjustmentDirection).toBe('increase');
+    expect(adj?.foreignAmount).toBe(50.5);
+    expect(adj?.amount).toBe(202_000);
+    expect(foreignDelta(adj!)).toEqual([{ accountId: 'acc-usd', amount: 50.5 }]);
+  });
+
+  it('sin desfase en la divisa → null (no se crea movimiento)', () => {
+    expect(buildForeignReconciliationAdjustment(100, 100, 'USD', 4000, options)).toBeNull();
+    // El ruido de coma flotante no cuenta como desfase (se redondea a centavos).
+    expect(
+      buildForeignReconciliationAdjustment(100.1, 100.10000000001, 'USD', 4000, options),
+    ).toBeNull();
+  });
+
+  it('un Δ de centavos clampa el COP a mínimo 1 peso (§11: amount > 0)', () => {
+    const adj = buildForeignReconciliationAdjustment(100, 100.01, 'USD', 0.5, options);
+    expect(adj?.amount).toBe(1); // 0.01 × 0.5 = 0.005 → round 0 → clamp 1
+  });
+
+  it('sin nota, usa la nota por defecto con moneda y tasa', () => {
+    const adj = buildForeignReconciliationAdjustment(100, 90, 'USD', 4000, options);
+    expect(adj?.note).toBe('Reconciliación en USD (tasa 4.000)');
+  });
+
+  it('con nota del usuario, la conserva', () => {
+    const adj = buildForeignReconciliationAdjustment(100, 90, 'USD', 4000, {
+      ...options,
+      note: 'comisión de la plataforma',
+    });
+    expect(adj?.note).toBe('comisión de la plataforma');
   });
 });
