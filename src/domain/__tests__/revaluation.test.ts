@@ -3,6 +3,7 @@ import {
   computeRevaluation,
   buildRevaluationNote,
   buildForeignReconcileNote,
+  foreignIncomeDelta,
 } from '../revaluation';
 import { computeReconciliation } from '../reconciliation';
 import { convertToCop } from '../currencyConversion';
@@ -64,6 +65,30 @@ describe('revaluación + reconciliación', () => {
   it('reconciliar en divisa: el COP objetivo sale de convertToCop con la tasa del día', () => {
     // El usuario dice "el saldo real es 13.000 USD" → objetivo 52.000.000 COP.
     expect(convertToCop(13_000, 'USD', table)).toBe(52_000_000);
+  });
+});
+
+describe('foreignIncomeDelta', () => {
+  const base = { type: 'income' as const, destination: { kind: 'account' as const, id: 'acc-1' } };
+
+  it('un ingreso en divisa suma su monto original a la cuenta destino', () => {
+    expect(foreignIncomeDelta({ ...base, foreignAmount: 100.5 })).toEqual({
+      accountId: 'acc-1',
+      amount: 100.5,
+    });
+  });
+
+  it('un ingreso sin divisa (COP) no aplica delta', () => {
+    expect(foreignIncomeDelta({ ...base, foreignAmount: null })).toBeNull();
+    expect(foreignIncomeDelta({ ...base, foreignAmount: undefined })).toBeNull();
+  });
+
+  it('otros tipos no aplican delta aunque traigan foreignAmount', () => {
+    expect(foreignIncomeDelta({ ...base, type: 'expense', foreignAmount: 100 })).toBeNull();
+  });
+
+  it('sin cuenta destino no aplica delta', () => {
+    expect(foreignIncomeDelta({ type: 'income', destination: null, foreignAmount: 100 })).toBeNull();
   });
 });
 
