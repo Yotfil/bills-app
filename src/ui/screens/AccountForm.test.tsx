@@ -94,6 +94,33 @@ describe('AccountForm — moneda extranjera', () => {
     );
   });
 
+  it('en edición, la moneda y el monto en divisa NO se editan (solo informativos)', async () => {
+    const { updateAccount } = await import('../../data/accountRepository');
+    const usdAccount = {
+      id: 'acc-usd',
+      name: 'Global66',
+      type: 'savings',
+      savingsBucket: true,
+      foreignCurrency: 'USD',
+      foreignAmount: 12782,
+      initialBalance: 0,
+      cachedBalance: 0,
+      archived: false,
+    } as never;
+    render(<AccountForm open account={usdAccount} onClose={() => {}} />);
+
+    // No hay selector de moneda ni input de monto en divisa; se muestra como dato fijo.
+    expect(screen.queryByLabelText('Moneda de la cuenta')).not.toBeInTheDocument();
+    expect(screen.queryByPlaceholderText('p.ej. 12.782,50')).not.toBeInTheDocument();
+    expect(screen.getByText(/12\.782 USD/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar' }));
+    await waitFor(() => expect(vi.mocked(updateAccount)).toHaveBeenCalledTimes(1));
+    const payload = vi.mocked(updateAccount).mock.calls[0]![2] as Record<string, unknown>;
+    expect(payload).not.toHaveProperty('foreignAmount');
+    expect(payload).not.toHaveProperty('foreignCurrency');
+  });
+
   it('con divisa elegida pero sin monto, muestra error y no crea', async () => {
     renderForm();
     fireEvent.change(screen.getByPlaceholderText('Nombre (p.ej. Bancolombia)'), {

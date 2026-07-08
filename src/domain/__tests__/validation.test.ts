@@ -218,6 +218,103 @@ describe('Validación de transacciones (§11)', () => {
       ).toContain('budget_boost_invalid');
     });
   });
+
+  describe('movimientos en divisa (decisión 2026-07-09)', () => {
+    const foreignIncome = (extra: Record<string, unknown> = {}) =>
+      makeTxn({
+        type: 'income',
+        source: null,
+        destination: accountRef('usd'),
+        categoryId: null,
+        foreignCurrency: 'USD',
+        foreignAmount: 100.5,
+        ...extra,
+      });
+
+    it('acepta ingreso y gasto en divisa con cuenta en el lado correcto', () => {
+      expect(validateTransaction(foreignIncome())).toEqual([]);
+      expect(
+        validateTransaction(
+          makeTxn({
+            type: 'expense',
+            source: accountRef('usd'),
+            categoryId: 'c1',
+            foreignCurrency: 'USD',
+            foreignAmount: 52.1,
+          }),
+        ),
+      ).toEqual([]);
+    });
+
+    it('acepta transferencia en divisa entre dos cuentas', () => {
+      expect(
+        validateTransaction(
+          makeTxn({
+            type: 'transfer',
+            source: accountRef('usd-a'),
+            destination: accountRef('usd-b'),
+            categoryId: null,
+            foreignCurrency: 'USD',
+            foreignAmount: 200,
+          }),
+        ),
+      ).toEqual([]);
+    });
+
+    it('rechaza foreignAmount <= 0 o no finito (decimales sí valen)', () => {
+      expect(validateTransaction(foreignIncome({ foreignAmount: 0 }))).toContain(
+        'foreign_amount_must_be_positive',
+      );
+      expect(validateTransaction(foreignIncome({ foreignAmount: -5 }))).toContain(
+        'foreign_amount_must_be_positive',
+      );
+      expect(validateTransaction(foreignIncome({ foreignAmount: 100.5 }))).toEqual([]);
+    });
+
+    it('exige moneda y monto juntos', () => {
+      expect(validateTransaction(foreignIncome({ foreignCurrency: null }))).toContain(
+        'foreign_requires_currency',
+      );
+      expect(validateTransaction(foreignIncome({ foreignAmount: null }))).toContain(
+        'foreign_requires_currency',
+      );
+    });
+
+    it('prohíbe divisa en abonos a deuda (las deudas son COP)', () => {
+      expect(
+        validateTransaction(
+          makeTxn({
+            type: 'debt_payment',
+            source: accountRef('usd'),
+            destination: cardRef('tc'),
+            categoryId: null,
+            foreignCurrency: 'USD',
+            foreignAmount: 100,
+          }),
+        ),
+      ).toContain('foreign_forbidden_on_debt_payment');
+    });
+
+    it('rechaza gasto en divisa con tarjeta como origen (las tarjetas son COP)', () => {
+      expect(
+        validateTransaction(
+          makeTxn({
+            type: 'expense',
+            source: cardRef('tc'),
+            categoryId: 'c1',
+            foreignCurrency: 'USD',
+            foreignAmount: 10,
+          }),
+        ),
+      ).toContain('foreign_requires_account_side');
+    });
+
+    it('los movimientos sin divisa no se ven afectados', () => {
+      expect(validateTransaction(makeTxn({ type: 'expense', source: accountRef('a') }))).toEqual(
+        [],
+      );
+    });
+  });
 });
 
 // Traducción de códigos de validación a mensajes para el usuario (vive junto a los códigos).

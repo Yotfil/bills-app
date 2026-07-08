@@ -39,23 +39,36 @@ function ReconcileForm({ target, onClose }: { target: ReconcileTarget; onClose: 
       : null;
 
   const parsedForeign = foreign ? parseDecimal(realValue) : null;
-  // `real` siempre en COP: en modo divisa es la conversión con la tasa del día.
-  const real = foreign
-    ? parsedForeign === null
-      ? null
-      : foreignToCop(parsedForeign, foreign.rate)
+  // Modo divisa: el desfase se calcula EN LA DIVISA (el ajuste vive en esa moneda y el COP es
+  // solo la conversión del día). Redondeo a centavos para no ver desfases fantasma de float.
+  const deltaForeign =
+    foreign && parsedForeign !== null
+      ? Math.round((parsedForeign - (target.foreignAmount ?? 0)) * 100) / 100
+      : null;
+  // Modo COP (cuentas sin divisa, tarjetas, créditos): igual que siempre.
+  const realCop = foreign
+    ? null
     : realValue === ''
       ? null
       : Math.round(Number(realValue) || 0);
-  const preview = real === null ? null : computeReconciliation(target.registeredValue, real);
+  const copPreview = realCop === null ? null : computeReconciliation(target.registeredValue, realCop);
+
+  const hasValue = foreign ? parsedForeign !== null : realCop !== null;
+  const hasChange = foreign ? deltaForeign !== null && deltaForeign !== 0 : copPreview !== null;
+  // Dirección del ajuste (para colorear igual que el modo COP: subir saldo = verde).
+  const direction = foreign
+    ? deltaForeign !== null && deltaForeign > 0
+      ? 'increase'
+      : 'decrease'
+    : (copPreview?.direction ?? 'increase');
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
-    if (real === null) return;
+    if (!hasValue || !hasChange) return;
     const ok = await run(() =>
       foreign && parsedForeign !== null
         ? foreign.submit(parsedForeign, note)
-        : target.reconcile(real, note),
+        : target.reconcile(realCop ?? 0, note),
     );
     if (ok) onClose();
   }
@@ -93,26 +106,43 @@ function ReconcileForm({ target, onClose }: { target: ReconcileTarget; onClose: 
         )}
       </label>
 
-      {foreign && real !== null && (
+      {foreign && parsedForeign !== null && (
         <p className="text-xs text-slate-400">
-          ≈ {formatCop(real)} con la tasa del día ({formatCop(foreign.rate)} por{' '}
-          {foreign.currency})
+          ≈ {formatCop(foreignToCop(parsedForeign, foreign.rate))} con la tasa del día (
+          {formatCop(foreign.rate)} por {foreign.currency})
         </p>
       )}
 
-      {preview === null && real !== null && (
+      {hasValue && !hasChange && (
         <p className="text-sm text-slate-400">El valor coincide: no se creará ningún ajuste.</p>
       )}
-      {preview && (
+      {/* El ajuste de una cuenta en divisa se muestra EN LA DIVISA (el COP es la conversión). */}
+      {foreign && deltaForeign !== null && deltaForeign !== 0 && (
+        <p className="text-sm">
+          Se creará un ajuste de{' '}
+          <span
+            className={direction === target.goodDirection ? 'text-emerald-600' : 'text-red-600'}
+          >
+            {deltaForeign > 0 ? '+' : '−'}
+            {formatForeignAmount(Math.abs(deltaForeign))} {foreign.currency}
+          </span>{' '}
+          <span className="text-slate-400">
+            (≈ {deltaForeign > 0 ? '+' : '−'}
+            {formatCop(Math.max(1, foreignToCop(Math.abs(deltaForeign), foreign.rate)))})
+          </span>
+          .
+        </p>
+      )}
+      {!foreign && copPreview && (
         <p className="text-sm">
           Se creará un ajuste de{' '}
           <span
             className={
-              preview.direction === target.goodDirection ? 'text-emerald-600' : 'text-red-600'
+              copPreview.direction === target.goodDirection ? 'text-emerald-600' : 'text-red-600'
             }
           >
-            {preview.direction === 'increase' ? '+' : '−'}
-            {formatCop(preview.amount)}
+            {copPreview.direction === 'increase' ? '+' : '−'}
+            {formatCop(copPreview.amount)}
           </span>
           .
         </p>
@@ -133,10 +163,10 @@ function ReconcileForm({ target, onClose }: { target: ReconcileTarget; onClose: 
 
       <button
         type="submit"
-        disabled={busy || real === null || preview === null}
+        disabled={busy || !hasValue || !hasChange}
         className="rounded-xl bg-slate-800 py-3 font-medium text-white disabled:opacity-50"
       >
-        {preview === null ? 'Sin cambios' : 'Reconciliar'}
+        {hasValue && !hasChange ? 'Sin cambios' : 'Reconciliar'}
       </button>
     </form>
   );

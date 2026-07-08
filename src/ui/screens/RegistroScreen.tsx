@@ -193,9 +193,15 @@ export function RegistroScreen() {
                         {SIGN[txn.type]}
                         {formatCop(txn.amount)}
                       </span>
-                      {/* Ingreso en divisa: el COP es la conversión; se muestra el monto original. */}
+                      {/* Movimiento en divisa: el COP es la conversión; el monto original va con
+                          su signo (en un ajuste, el de la dirección de la reconciliación). */}
                       {txn.foreignAmount != null && txn.foreignCurrency && (
                         <span className="text-[11px] text-slate-400">
+                          {txn.type === 'adjustment'
+                            ? txn.adjustmentDirection === 'decrease'
+                              ? '−'
+                              : '+'
+                            : SIGN[txn.type]}
                           {formatForeignAmount(txn.foreignAmount)} {txn.foreignCurrency}
                         </span>
                       )}

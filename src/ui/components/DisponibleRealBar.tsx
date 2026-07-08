@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useUserCollection } from '../hooks/useUserCollection';
+import { useUsdRateTable } from '../hooks/useUsdRateTable';
 import { subscribeAccounts } from '../../data/accountRepository';
 import { subscribeAllocatedFixeds } from '../../data/fixedMonthlyRepository';
 import { disponibleReal } from '../../domain/derived';
@@ -13,9 +14,12 @@ export function DisponibleRealBar() {
   // Reservado = todo lo destinado y no pagado, de cualquier mes (§5.1, §5.2).
   const { items: allocatedFixeds } =
     useUserCollection<FixedObligationMonthly>(subscribeAllocatedFixeds);
+  // Cuentas en divisa: COP en vivo con la tasa del día (decisión 2026-07-09).
+  const { table } = useUsdRateTable();
   const available = disponibleReal(
     accounts.filter((a) => !a.archived),
     allocatedFixeds,
+    table,
   );
 
   return (

@@ -22,7 +22,7 @@ import {
 } from '../../domain/transactionDraft';
 import { validateTransaction, validationErrorMessage } from '../../domain/validation';
 import { fromDateInputValue, nowTimestamp, toDateInputValue } from '../../lib/date';
-import { formatCop, parseDecimal } from '../../lib/currency';
+import { formatCop, formatForeignAmount, parseDecimal } from '../../lib/currency';
 import { copPerUnit, foreignToCop } from '../../domain/currencyConversion';
 import type { BoostRow } from './BoostRow';
 import type {
@@ -86,32 +86,59 @@ export function TransactionForm({ existing, onDone }: TransactionFormProps) {
       amount: String(b.amount),
     })) ?? [],
   );
-  // Ingreso EN DIVISA (decisión 2026-07-07): si la cuenta destino vive en otra moneda, el monto
-  // se captura en ESA moneda y el COP es el reflejo de la conversión con la tasa del día.
+  // Movimiento EN DIVISA (decisión 2026-07-09): si la cuenta del movimiento vive en otra
+  // moneda, el monto se captura en ESA moneda y el COP guardado es la conversión del día.
+  // La cuenta "del movimiento" es el destino en un ingreso y el origen en un gasto o una
+  // transferencia (las cuentas en divisa son monomoneda; con tarjeta nunca hay modo divisa).
   const [foreignText, setForeignText] = useState(
     existing?.foreignAmount != null ? String(existing.foreignAmount) : '',
   );
   const { busy, error, setError, run } = useAsyncAction();
   const { table } = useUsdRateTable();
 
-  const destinationAccount =
-    type === 'income' && destination?.kind === 'account'
-      ? (activeAccounts.find((a) => a.id === destination.id) ?? null)
+  const entryAccountRef =
+    type === 'income'
+      ? destination
+      : type === 'expense' || type === 'transfer'
+        ? source
+        : null;
+  const entryAccount =
+    entryAccountRef?.kind === 'account'
+      ? (activeAccounts.find((a) => a.id === entryAccountRef.id) ?? null)
       : null;
-  const incomeCurrency = destinationAccount?.foreignCurrency ?? null;
-  const incomeRate = incomeCurrency && table ? copPerUnit(table, incomeCurrency) : null;
-  const parsedForeign = incomeCurrency ? parseDecimal(foreignText) : null;
+  const entryCurrency = entryAccount?.foreignCurrency ?? null;
+  const entryRate = entryCurrency && table ? copPerUnit(table, entryCurrency) : null;
+  const parsedForeign = entryCurrency ? parseDecimal(foreignText) : null;
   // COP derivado del monto en divisa (es el `amount` que se guarda).
   const foreignCop =
-    incomeRate !== null && parsedForeign !== null ? foreignToCop(parsedForeign, incomeRate) : null;
+    entryRate !== null && parsedForeign !== null ? foreignToCop(parsedForeign, entryRate) : null;
+  // El monto de un ajuste en divisa no se edita a mano (nace de reconciliar): se re-reconcilia.
+  const foreignAdjustment = isAdjustment && existing?.foreignAmount != null;
 
   const activeBudgets = budgets.filter((b) => !b.archived && b.active);
   const categoryName = (id: string) => categories.find((c) => c.id === id)?.name ?? 'Categoría';
 
   // El total asignado a presupuestos no puede exceder el monto del ingreso (§5.9).
   const boostsTotal = boosts.reduce((sum, r) => sum + (Math.round(Number(r.amount)) || 0), 0);
-  const incomeAmount = incomeCurrency ? (foreignCop ?? 0) : Math.round(Number(amount)) || 0;
+  const incomeAmount = entryCurrency ? (foreignCop ?? 0) : Math.round(Number(amount)) || 0;
   const boostsExceedIncome = type === 'income' && boostsTotal > incomeAmount;
+
+  // Moneda de una cuenta por su ref (null = COP o no es cuenta).
+  const currencyOf = (ref: EntityRef | null): string | null =>
+    ref?.kind === 'account'
+      ? (activeAccounts.find((a) => a.id === ref.id)?.foreignCurrency ?? null)
+      : null;
+
+  // Las transferencias son SOLO entre cuentas de la misma moneda (las cuentas en divisa son
+  // monomoneda; el cambio de moneda es manual por ahora). Al cambiar el origen, un destino que
+  // quede en otra moneda se limpia.
+  function handleSourceChange(value: string) {
+    const ref = valueToRef(value);
+    setSource(ref);
+    if (type === 'transfer' && destination && currencyOf(ref) !== currencyOf(destination)) {
+      setDestination(null);
+    }
+  }
 
   const addBoost = () =>
     setBoosts((prev) => [...prev, { budgetId: '', month: dateValue.slice(0, 7), amount: '' }]);
@@ -141,7 +168,14 @@ export function TransactionForm({ existing, onDone }: TransactionFormProps) {
     if (type === 'expense') {
       return [...accountOpts, ...cardOpts];
     }
-    return accountOpts; // income/transfer/debt_payment salen/entran a cuentas
+    // Abono a deuda: solo cuentas COP (las deudas son COP; una cuenta en divisa tendría que
+    // pasar por un cambio de moneda, que por ahora es manual, fuera de la app).
+    if (type === 'debt_payment') {
+      return activeAccounts
+        .filter((a) => !a.foreignCurrency)
+        .map((a) => ({ value: refToValue({ kind: 'account', id: a.id }), label: a.name }));
+    }
+    return accountOpts; // income/transfer salen/entran a cuentas
   })();
 
   async function handleSubmit(event: FormEvent) {
@@ -150,15 +184,15 @@ export function TransactionForm({ existing, onDone }: TransactionFormProps) {
     setError(null);
     if (boostsExceedIncome) return; // los aumentos no pueden exceder el ingreso (mensaje inline)
 
-    // Ingreso en divisa: exige monto en la moneda de la cuenta y tasa del día para convertir.
-    if (incomeCurrency && !isAdjustment) {
+    // Movimiento en divisa: exige monto en la moneda de la cuenta y tasa del día para convertir.
+    if (entryCurrency && !isAdjustment) {
       if (parsedForeign === null || parsedForeign <= 0) {
-        setError(`Ingresa el monto en ${incomeCurrency}.`);
+        setError(`Ingresa el monto en ${entryCurrency}.`);
         return;
       }
       if (foreignCop === null) {
         setError(
-          `No hay tasa disponible para ${incomeCurrency}. Revisa tu conexión e intenta de nuevo.`,
+          `No hay tasa disponible para ${entryCurrency}. Revisa tu conexión e intenta de nuevo.`,
         );
         return;
       }
@@ -181,10 +215,14 @@ export function TransactionForm({ existing, onDone }: TransactionFormProps) {
             note: note.trim() ? note.trim() : null,
             fixedMonthlyId: null,
             periodMonth: null,
+            // Un ajuste en divisa CONSERVA su monto original: si se perdiera aquí, editar la
+            // nota/fecha revertiría el foreignAmount de la cuenta sin reaplicarlo.
+            foreignCurrency: existing.foreignCurrency ?? null,
+            foreignAmount: existing.foreignAmount ?? null,
           }
         : buildManualTransactionDraft({
             type,
-            amount: incomeCurrency ? (foreignCop ?? 0) : Math.round(Number(amount) || 0),
+            amount: entryCurrency ? (foreignCop ?? 0) : Math.round(Number(amount) || 0),
             date: fromDateInputValue(dateValue),
             concept:
               concept ||
@@ -214,10 +252,13 @@ export function TransactionForm({ existing, onDone }: TransactionFormProps) {
       draft.budgetBoosts = boosts
         .filter((r) => r.budgetId && r.month && Number(r.amount) > 0)
         .map((r) => ({ budgetId: r.budgetId, month: r.month, amount: Math.round(Number(r.amount)) }));
-      // Ingreso en divisa: guarda el monto original; el servicio lo suma a la fuente de verdad de
-      // la cuenta (Account.foreignAmount) en el mismo batch. `null` limpia el campo al editar.
-      draft.foreignCurrency = incomeCurrency;
-      draft.foreignAmount = incomeCurrency ? parsedForeign : null;
+    }
+    // Movimiento en divisa: guarda el monto original; el servicio aplica el delta sobre la
+    // fuente de verdad de la cuenta (Account.foreignAmount) en el mismo batch, con el lado
+    // derivado del tipo. `null` explícito limpia el campo al editar.
+    if (!isAdjustment) {
+      draft.foreignCurrency = entryCurrency;
+      draft.foreignAmount = entryCurrency ? parsedForeign : null;
     }
 
     const errors = validateTransaction(draft);
@@ -263,11 +304,11 @@ export function TransactionForm({ existing, onDone }: TransactionFormProps) {
         </div>
       )}
 
-      {/* Monto: lo primero y con teclado numérico (§5.4). Si el ingreso entra a una cuenta en
+      {/* Monto: lo primero y con teclado numérico (§5.4). Si el movimiento usa una cuenta en
           divisa, se captura en ESA moneda y el COP se muestra como reflejo de la conversión. */}
       <label className="flex flex-col gap-1">
-        <span className="text-xs text-slate-400">Monto ({incomeCurrency ?? 'COP'})</span>
-        {incomeCurrency ? (
+        <span className="text-xs text-slate-400">Monto ({entryCurrency ?? 'COP'})</span>
+        {entryCurrency ? (
           <DecimalInput
             autoFocus
             placeholder="0"
@@ -281,16 +322,23 @@ export function TransactionForm({ existing, onDone }: TransactionFormProps) {
             placeholder="0"
             value={amount}
             onChange={setAmount}
-            className="rounded-xl border border-slate-300 px-4 py-3 text-2xl font-semibold outline-none focus:border-slate-500"
+            disabled={foreignAdjustment}
+            className="rounded-xl border border-slate-300 px-4 py-3 text-2xl font-semibold outline-none focus:border-slate-500 disabled:bg-slate-100 disabled:text-slate-500"
           />
         )}
       </label>
-      {incomeCurrency &&
+      {foreignAdjustment && existing && (
+        <p className="-mt-2 text-xs text-slate-400">
+          Este ajuste es en divisa ({formatForeignAmount(existing.foreignAmount ?? 0)}{' '}
+          {existing.foreignCurrency}): su monto no se edita aquí; re-reconcilia la cuenta.
+        </p>
+      )}
+      {entryCurrency &&
         (foreignCop !== null ? (
           <p className="-mt-2 text-xs text-slate-400">≈ {formatCop(foreignCop)} con la tasa del día</p>
-        ) : incomeRate === null ? (
+        ) : entryRate === null ? (
           <p className="-mt-2 text-xs text-amber-600">
-            Sin tasa del día para {incomeCurrency}: revisa tu conexión para registrar este ingreso.
+            Sin tasa del día para {entryCurrency}: revisa tu conexión para registrar el movimiento.
           </p>
         ) : null)}
 
@@ -327,10 +375,16 @@ export function TransactionForm({ existing, onDone }: TransactionFormProps) {
                 : 'Medio de pago'
           }
           value={refToValue(source)}
-          onChange={(v) => setSource(valueToRef(v))}
+          onChange={(v) => handleSourceChange(v)}
           options={sourceOptions}
           placeholder="Selecciona…"
         />
+      )}
+      {type === 'debt_payment' && activeAccounts.some((a) => a.foreignCurrency) && (
+        <p className="-mt-2 text-xs text-slate-400">
+          Las cuentas en otra moneda no aparecen: las deudas se pagan en pesos (el cambio de
+          moneda es manual por ahora).
+        </p>
       )}
 
       {/* Destino: income (cuenta), transfer (cuenta), debt_payment (tarjeta). */}
@@ -408,16 +462,28 @@ export function TransactionForm({ existing, onDone }: TransactionFormProps) {
       )}
 
       {type === 'transfer' && (
-        <SelectField
-          label="Hacia"
-          value={refToValue(destination)}
-          onChange={(v) => setDestination(valueToRef(v))}
-          options={activeAccounts.map((a) => ({
-            value: refToValue({ kind: 'account', id: a.id }),
-            label: a.name,
-          }))}
-          placeholder="Selecciona cuenta…"
-        />
+        <>
+          <SelectField
+            label="Hacia"
+            value={refToValue(destination)}
+            onChange={(v) => setDestination(valueToRef(v))}
+            options={activeAccounts
+              // Solo cuentas de la MISMA moneda que el origen (una vez elegido): las cuentas en
+              // divisa son monomoneda y el cambio de moneda va por fuera de la app por ahora.
+              .filter((a) => !source || (a.foreignCurrency ?? null) === currencyOf(source))
+              .map((a) => ({
+                value: refToValue({ kind: 'account', id: a.id }),
+                label: a.name,
+              }))}
+            placeholder="Selecciona cuenta…"
+          />
+          {entryCurrency && (
+            <p className="-mt-2 text-xs text-slate-400">
+              Solo entre cuentas en {entryCurrency}. El cambio de moneda (p.ej. {entryCurrency}
+              →COP) se hace fuera de la app por ahora.
+            </p>
+          )}
+        </>
       )}
       {type === 'debt_payment' && (
         <SelectField

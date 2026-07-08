@@ -39,7 +39,7 @@ import {
 } from '../domain/ledger';
 import { listAll } from './crud';
 import { applyBudgetBoosts } from './budgetBoostService';
-import { foreignIncomeDelta } from '../domain/revaluation';
+import { foreignDelta } from '../domain/foreignLedger';
 import type { TransactionDraft } from '../domain/types';
 import type { RecalculationCorrections } from './RecalculationCorrections';
 
@@ -86,21 +86,28 @@ function applyDeltaToBatch(batch: WriteBatch, uid: string, delta: LedgerDelta): 
 
 /**
  * Aplica al batch el efecto de un movimiento sobre el MONTO EN DIVISA de las cuentas (decisión
- * 2026-07-07): un ingreso en divisa suma su monto original a `Account.foreignAmount` (la fuente
- * de verdad de las cuentas en moneda extranjera, ver revaluación). Va en el MISMO batch que los
- * saldos para que la revaluación diaria nunca vea un estado a medias. `factors` permite netear
- * revertir el movimiento viejo (−1) y aplicar el nuevo (+1) en una sola escritura por cuenta.
+ * 2026-07-09): cualquier movimiento en divisa (ingreso, gasto, transferencia misma-moneda,
+ * ajuste de reconciliación) mueve `Account.foreignAmount` — la fuente de verdad de las cuentas
+ * en moneda extranjera; el COP mostrado es su conversión en vivo. Va en el MISMO batch que los
+ * saldos COP (todo o nada). `factor` permite netear revertir el movimiento viejo (−1) y aplicar
+ * el nuevo (+1) en una sola escritura por cuenta.
  */
 function applyForeignDeltaToBatch(
   batch: WriteBatch,
   uid: string,
-  entries: Array<{ txn: Pick<TransactionDraft, 'type' | 'destination' | 'foreignAmount'>; factor: 1 | -1 }>,
+  entries: Array<{
+    txn: Pick<
+      TransactionDraft,
+      'type' | 'source' | 'destination' | 'foreignAmount' | 'adjustmentDirection'
+    >;
+    factor: 1 | -1;
+  }>,
 ): void {
   const perAccount: Record<string, number> = {};
   for (const { txn, factor } of entries) {
-    const delta = foreignIncomeDelta(txn);
-    if (!delta) continue;
-    perAccount[delta.accountId] = (perAccount[delta.accountId] ?? 0) + delta.amount * factor;
+    for (const delta of foreignDelta(txn)) {
+      perAccount[delta.accountId] = (perAccount[delta.accountId] ?? 0) + delta.amount * factor;
+    }
   }
   for (const [id, amount] of Object.entries(perAccount)) {
     if (amount === 0) continue;

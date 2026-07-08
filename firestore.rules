@@ -51,7 +51,11 @@ service cloud.firestore {
         allow create, update: if canAccess(uid)
           && request.resource.data.name is string
           && request.resource.data.cachedBalance is number
-          && request.resource.data.initialBalance is number;
+          && request.resource.data.initialBalance is number
+          // Cuenta en divisa (opcional): si trae monto en divisa, debe ser número.
+          && (!('foreignAmount' in request.resource.data)
+              || request.resource.data.foreignAmount == null
+              || request.resource.data.foreignAmount is number);
       }
       match /cards/{cardId} {
         allow read, delete: if canAccess(uid);
@@ -98,7 +102,15 @@ service cloud.firestore {
           && request.resource.data.amount is int
           && request.resource.data.amount > 0
           && request.resource.data.type in ['expense', 'income', 'transfer', 'debt_payment', 'adjustment']
-          && request.resource.data.concept is string;
+          && request.resource.data.concept is string
+          // Movimiento en divisa (opcional): monto > 0 con su moneda, y nunca en abonos a
+          // deuda (las deudas son COP; decisión 2026-07-09).
+          && (!('foreignAmount' in request.resource.data)
+              || request.resource.data.foreignAmount == null
+              || (request.resource.data.foreignAmount is number
+                  && request.resource.data.foreignAmount > 0
+                  && request.resource.data.foreignCurrency is string
+                  && request.resource.data.type != 'debt_payment'));
       }
     }
   }

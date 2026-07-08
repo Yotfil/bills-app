@@ -19,7 +19,11 @@ export type ValidationError =
   | 'adjustment_requires_category'
   | 'adjustment_requires_direction'
   | 'budget_boosts_only_on_income'
-  | 'budget_boost_invalid';
+  | 'budget_boost_invalid'
+  | 'foreign_amount_must_be_positive'
+  | 'foreign_requires_currency'
+  | 'foreign_forbidden_on_debt_payment'
+  | 'foreign_requires_account_side';
 
 /** El monto se guarda como entero de pesos, SIEMPRE positivo (CLAUDE.md §3, §11). */
 function isPositiveIntegerAmount(amount: number): boolean {
@@ -111,6 +115,37 @@ export function validateTransaction(txn: TransactionDraft): ValidationError[] {
     if (!allValid) errors.push('budget_boost_invalid');
   }
 
+  // Movimiento EN DIVISA (decisión 2026-07-09): las cuentas en moneda extranjera son
+  // monomoneda. El monto en divisa admite decimales (la regla "entero" es solo COP), va
+  // acompañado de su moneda, nunca en abonos a deuda (las deudas son COP) y su lado debe
+  // ser una CUENTA según el tipo (el signo lo deriva foreignLedger.foreignDelta).
+  const foreignAmount = txn.foreignAmount ?? null;
+  const hasForeignAmount = foreignAmount !== null;
+  const hasForeignCurrency = !!txn.foreignCurrency;
+  if (hasForeignAmount || hasForeignCurrency) {
+    if (foreignAmount !== null && !(Number.isFinite(foreignAmount) && foreignAmount > 0)) {
+      errors.push('foreign_amount_must_be_positive');
+    }
+    if (hasForeignAmount !== hasForeignCurrency) {
+      errors.push('foreign_requires_currency');
+    }
+    if (txn.type === 'debt_payment') {
+      errors.push('foreign_forbidden_on_debt_payment');
+    } else if (txn.type === 'income' && txn.destination?.kind !== 'account') {
+      errors.push('foreign_requires_account_side');
+    } else if (txn.type === 'expense' && txn.source?.kind !== 'account') {
+      // Un gasto en divisa con tarjeta es inválido: las tarjetas son COP.
+      errors.push('foreign_requires_account_side');
+    } else if (
+      txn.type === 'transfer' &&
+      (txn.source?.kind !== 'account' || txn.destination?.kind !== 'account')
+    ) {
+      errors.push('foreign_requires_account_side');
+    } else if (txn.type === 'adjustment' && txn.source?.kind !== 'account') {
+      errors.push('foreign_requires_account_side');
+    }
+  }
+
   return errors;
 }
 
@@ -121,6 +156,12 @@ export function validateTransaction(txn: TransactionDraft): ValidationError[] {
 export function validationErrorMessage(error: ValidationError): string {
   if (error === 'amount_must_be_positive_integer') return 'Ingresa un monto válido mayor a 0.';
   if (error === 'expense_requires_category') return 'Elige una categoría.';
+  if (error === 'foreign_amount_must_be_positive') return 'Ingresa un monto en divisa mayor a 0.';
+  if (error === 'foreign_requires_currency') return 'Falta la moneda del monto en divisa.';
+  if (error === 'foreign_forbidden_on_debt_payment')
+    return 'Los abonos a deuda se hacen desde cuentas en pesos.';
+  if (error === 'foreign_requires_account_side')
+    return 'Un movimiento en divisa debe usar una cuenta en esa moneda.';
   if (error.includes('source')) return 'Elige el medio de pago.';
   if (error.includes('destination')) return 'Elige el destino.';
   return 'Revisa los datos del movimiento.';
