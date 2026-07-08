@@ -51,7 +51,9 @@ const ITEMS: MenuItem[] = [
 
 export function MoreScreen() {
   return (
-    <div className="flex flex-col gap-4 p-4 pb-24">
+    // pb amplio: en móvil la barra inferior fija + el FAB que sobresale tapaban los últimos
+    // ítems, quedando pegados al borde (se tocaban por error). Deja aire extra al final.
+    <div className="flex flex-col gap-4 p-4 pb-32">
       <h1 className="text-xl font-bold text-slate-800">Más</h1>
 
       <ul className="flex flex-col gap-2">
