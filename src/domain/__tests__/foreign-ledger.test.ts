@@ -58,6 +58,34 @@ describe('foreignDelta', () => {
     ]);
   });
 
+  it('transfer cross-moneda USD→COP: solo baja la divisa del origen (el destino es COP)', () => {
+    expect(
+      foreignDelta({
+        type: 'transfer',
+        source: acc('usd-a'),
+        destination: acc('cop-b'),
+        foreignAmount: 2000, // 2.000 USD salen del origen
+        destinationAmount: 6_832_900, // marca cross-moneda; el destino recibe COP (sin divisa)
+        destinationForeignAmount: null,
+        adjustmentDirection: null,
+      }),
+    ).toEqual([{ accountId: 'usd-a', amount: -2000 }]);
+  });
+
+  it('transfer cross-moneda COP→USD: solo sube la divisa del destino (el origen es COP)', () => {
+    expect(
+      foreignDelta({
+        type: 'transfer',
+        source: acc('cop-a'),
+        destination: acc('usd-b'),
+        foreignAmount: null, // el origen es COP: no mueve divisa
+        destinationAmount: 7_000_000,
+        destinationForeignAmount: 1750, // 1.750 USD entran al destino
+        adjustmentDirection: null,
+      }),
+    ).toEqual([{ accountId: 'usd-b', amount: 1750 }]);
+  });
+
   it('adjustment: aplica ± a la cuenta origen según la dirección (reconciliación en divisa)', () => {
     const base = {
       type: 'adjustment' as const,

@@ -23,7 +23,11 @@ export type ValidationError =
   | 'foreign_amount_must_be_positive'
   | 'foreign_requires_currency'
   | 'foreign_forbidden_on_debt_payment'
-  | 'foreign_requires_account_side';
+  | 'foreign_requires_account_side'
+  | 'destination_amount_only_on_transfer'
+  | 'destination_amount_must_be_positive'
+  | 'destination_foreign_amount_must_be_positive'
+  | 'destination_foreign_requires_currency';
 
 /** El monto se guarda como entero de pesos, SIEMPRE positivo (CLAUDE.md §3, §11). */
 function isPositiveIntegerAmount(amount: number): boolean {
@@ -146,6 +150,34 @@ export function validateTransaction(txn: TransactionDraft): ValidationError[] {
     }
   }
 
+  // Transferencia CROSS-MONEDA (montos manuales por lado): la pata de destino lleva su propio COP
+  // (`destinationAmount`) y, si la cuenta destino es en divisa, su monto en esa moneda. Solo aplica
+  // a transferencias; los montos deben ser válidos y la divisa acompañar a su monto.
+  const destinationAmount = txn.destinationAmount ?? null;
+  if (destinationAmount !== null) {
+    if (txn.type !== 'transfer') {
+      errors.push('destination_amount_only_on_transfer');
+    }
+    if (!isPositiveIntegerAmount(destinationAmount)) {
+      errors.push('destination_amount_must_be_positive');
+    }
+  }
+  const destForeignAmount = txn.destinationForeignAmount ?? null;
+  const hasDestForeignAmount = destForeignAmount !== null;
+  const hasDestForeignCurrency = !!txn.destinationForeignCurrency;
+  if (hasDestForeignAmount || hasDestForeignCurrency) {
+    if (destForeignAmount !== null && !(Number.isFinite(destForeignAmount) && destForeignAmount > 0)) {
+      errors.push('destination_foreign_amount_must_be_positive');
+    }
+    if (hasDestForeignAmount !== hasDestForeignCurrency) {
+      errors.push('destination_foreign_requires_currency');
+    }
+    // El monto en divisa del destino solo tiene sentido en una transferencia hacia una cuenta.
+    if (txn.type !== 'transfer' || txn.destination?.kind !== 'account') {
+      errors.push('foreign_requires_account_side');
+    }
+  }
+
   return errors;
 }
 
@@ -162,6 +194,14 @@ export function validationErrorMessage(error: ValidationError): string {
     return 'Los abonos a deuda se hacen desde cuentas en pesos.';
   if (error === 'foreign_requires_account_side')
     return 'Un movimiento en divisa debe usar una cuenta en esa moneda.';
+  if (error === 'destination_amount_must_be_positive')
+    return 'Ingresa cuánto entra a la cuenta destino (mayor a 0).';
+  if (error === 'destination_foreign_amount_must_be_positive')
+    return 'Ingresa el monto que entra en la moneda del destino (mayor a 0).';
+  if (error === 'destination_foreign_requires_currency')
+    return 'Falta la moneda del monto que entra al destino.';
+  if (error === 'destination_amount_only_on_transfer')
+    return 'El monto de destino solo aplica a transferencias.';
   if (error.includes('source')) return 'Elige el medio de pago.';
   if (error.includes('destination')) return 'Elige el destino.';
   return 'Revisa los datos del movimiento.';

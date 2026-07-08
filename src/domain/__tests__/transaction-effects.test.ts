@@ -60,6 +60,23 @@ describe('Efectos de transacciones sobre saldos', () => {
       const net = Object.values(delta.accounts).reduce((a, b) => a + b, 0);
       expect(net).toBe(0);
     });
+
+    it('cross-moneda → el destino usa su propio COP (destinationAmount)', () => {
+      // USD→COP: sale de la cuenta USD el COP-equivalente y entra a la COP el COP real; cuando un
+      // lado es COP ambos coinciden (neto cero). Aquí probamos que el destino usa destinationAmount.
+      const delta = transactionDelta(
+        makeTxn({
+          type: 'transfer',
+          amount: 6_832_900, // pata de origen (COP)
+          source: accountRef('acc-usd'),
+          destination: accountRef('acc-cop'),
+          destinationAmount: 6_832_900, // pata de destino (COP real que entra)
+          categoryId: null,
+        }),
+      );
+      expect(delta.accounts['acc-usd']).toBe(-6_832_900);
+      expect(delta.accounts['acc-cop']).toBe(6_832_900);
+    });
   });
 
   describe('debt_payment (abono a deuda)', () => {

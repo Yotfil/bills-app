@@ -93,6 +93,86 @@ describe('Validación de transacciones (§11)', () => {
         ),
       ).toContain('transfer_requires_distinct_account_destination');
     });
+
+    it('acepta transfer cross-moneda (USD→COP): pata de destino con su COP y divisa de origen', () => {
+      expect(
+        validateTransaction(
+          makeTxn({
+            type: 'transfer',
+            amount: 6_832_900,
+            source: accountRef('usd'),
+            destination: accountRef('cop'),
+            categoryId: null,
+            foreignCurrency: 'USD',
+            foreignAmount: 2000,
+            destinationAmount: 6_832_900,
+          }),
+        ),
+      ).toEqual([]);
+    });
+
+    it('acepta transfer cross-moneda (COP→USD): la divisa va en la pata de destino', () => {
+      expect(
+        validateTransaction(
+          makeTxn({
+            type: 'transfer',
+            amount: 7_000_000,
+            source: accountRef('cop'),
+            destination: accountRef('usd'),
+            categoryId: null,
+            destinationAmount: 7_000_000,
+            destinationForeignCurrency: 'USD',
+            destinationForeignAmount: 1750,
+          }),
+        ),
+      ).toEqual([]);
+    });
+
+    it('rechaza destinationAmount <= 0', () => {
+      expect(
+        validateTransaction(
+          makeTxn({
+            type: 'transfer',
+            source: accountRef('usd'),
+            destination: accountRef('cop'),
+            categoryId: null,
+            foreignCurrency: 'USD',
+            foreignAmount: 2000,
+            destinationAmount: 0,
+          }),
+        ),
+      ).toContain('destination_amount_must_be_positive');
+    });
+
+    it('rechaza monto de destino en divisa sin su moneda', () => {
+      expect(
+        validateTransaction(
+          makeTxn({
+            type: 'transfer',
+            amount: 7_000_000,
+            source: accountRef('cop'),
+            destination: accountRef('usd'),
+            categoryId: null,
+            destinationAmount: 7_000_000,
+            destinationForeignAmount: 1750,
+          }),
+        ),
+      ).toContain('destination_foreign_requires_currency');
+    });
+
+    it('rechaza destinationAmount fuera de una transferencia', () => {
+      expect(
+        validateTransaction(
+          makeTxn({
+            type: 'income',
+            destination: accountRef('cop'),
+            source: null,
+            categoryId: null,
+            destinationAmount: 100_000,
+          }),
+        ),
+      ).toContain('destination_amount_only_on_transfer');
+    });
   });
 
   describe('debt_payment', () => {
