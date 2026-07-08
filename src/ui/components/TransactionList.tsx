@@ -120,15 +120,27 @@ export function TransactionList({
                         {formatCop(txn.amount)}
                       </span>
                       {/* Movimiento en divisa: el COP es la conversión; el monto original va con
-                          su signo (en un ajuste, el de la dirección de la reconciliación). */}
+                          su signo (en un ajuste, el de la dirección de la reconciliación). En una
+                          transferencia cross-moneda, la pata de origen sale (−) y la de destino
+                          entra (+), cada una en su propia moneda. */}
                       {txn.foreignAmount != null && txn.foreignCurrency && (
                         <span className="text-[11px] text-slate-400">
-                          {txn.type === 'adjustment'
-                            ? txn.adjustmentDirection === 'decrease'
-                              ? '−'
-                              : '+'
-                            : SIGN[txn.type]}
+                          {txn.type === 'transfer'
+                            ? txn.destinationAmount != null
+                              ? '−' // pata de origen de una transferencia cross-moneda (sale)
+                              : '' // transferencia misma-moneda: neutro (como antes)
+                            : txn.type === 'adjustment'
+                              ? txn.adjustmentDirection === 'decrease'
+                                ? '−'
+                                : '+'
+                              : SIGN[txn.type]}
                           {formatForeignAmount(txn.foreignAmount)} {txn.foreignCurrency}
+                        </span>
+                      )}
+                      {txn.destinationForeignAmount != null && txn.destinationForeignCurrency && (
+                        <span className="text-[11px] text-slate-400">
+                          +{formatForeignAmount(txn.destinationForeignAmount)}{' '}
+                          {txn.destinationForeignCurrency}
                         </span>
                       )}
                       {time && <span className="text-xs text-slate-400">{time}</span>}
