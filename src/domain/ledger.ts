@@ -47,9 +47,12 @@ export function transactionDelta(txn: TransactionDraft): LedgerDelta {
       break;
 
     case 'transfer':
-      // Transferencia: baja origen y sube destino por el mismo monto (neto cero).
+      // Transferencia: baja origen por el monto de la pata de ORIGEN (`amount`) y sube destino por
+      // el de la pata de DESTINO. En misma moneda ambos coinciden (neto cero); en cross-moneda el
+      // destino usa su propio COP (`destinationAmount`).
       if (source?.kind === 'account') add(delta.accounts, source.id, -amount);
-      if (destination?.kind === 'account') add(delta.accounts, destination.id, +amount);
+      if (destination?.kind === 'account')
+        add(delta.accounts, destination.id, +(txn.destinationAmount ?? amount));
       break;
 
     case 'debt_payment':

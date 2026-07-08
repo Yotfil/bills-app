@@ -6,8 +6,9 @@
 // El LADO al que aplica se deriva del tipo (no hace falta un campo extra):
 //   income       → +foreignAmount a la cuenta destino
 //   expense      → −foreignAmount a la cuenta origen
-//   transfer     → −origen y +destino (solo entre cuentas de la MISMA moneda; los cruces de
-//                  moneda están fuera de alcance: el cambio USD→COP es manual por ahora)
+//   transfer     → −origen (foreignAmount) y +destino. Misma moneda: el destino reusa foreignAmount.
+//                  Cross-moneda (destinationAmount presente): el destino usa su propia divisa
+//                  (destinationForeignAmount), independiente de la del origen.
 //   adjustment   → ±foreignAmount a la cuenta origen según adjustmentDirection (reconciliación)
 //   debt_payment → nunca (las deudas son COP; se paga solo desde cuentas COP)
 import { formatCopPlain } from '../lib/currency';
@@ -15,7 +16,13 @@ import type { TransactionDraft } from './types';
 
 type ForeignTxn = Pick<
   TransactionDraft,
-  'type' | 'source' | 'destination' | 'foreignAmount' | 'adjustmentDirection'
+  | 'type'
+  | 'source'
+  | 'destination'
+  | 'foreignAmount'
+  | 'adjustmentDirection'
+  | 'destinationAmount'
+  | 'destinationForeignAmount'
 >;
 
 export interface ForeignDeltaEntry {
@@ -29,29 +36,37 @@ export interface ForeignDeltaEntry {
  * `foreignIncomeDelta` (compat: los ingresos existentes se revierten igual al editar/borrar).
  */
 export function foreignDelta(txn: ForeignTxn): ForeignDeltaEntry[] {
-  if (!txn.foreignAmount) return [];
+  // Un movimiento es "en divisa" si la pata de origen (foreignAmount) o la de destino de una
+  // transferencia cross-moneda (destinationForeignAmount) lleva monto en divisa.
+  if (!txn.foreignAmount && !txn.destinationForeignAmount) return [];
   const entries: ForeignDeltaEntry[] = [];
   switch (txn.type) {
     case 'income':
-      if (txn.destination?.kind === 'account') {
+      if (txn.destination?.kind === 'account' && txn.foreignAmount) {
         entries.push({ accountId: txn.destination.id, amount: txn.foreignAmount });
       }
       break;
     case 'expense':
-      if (txn.source?.kind === 'account') {
+      if (txn.source?.kind === 'account' && txn.foreignAmount) {
         entries.push({ accountId: txn.source.id, amount: -txn.foreignAmount });
       }
       break;
-    case 'transfer':
-      if (txn.source?.kind === 'account') {
+    case 'transfer': {
+      // Origen: baja su divisa (si la cuenta es en divisa).
+      if (txn.source?.kind === 'account' && txn.foreignAmount) {
         entries.push({ accountId: txn.source.id, amount: -txn.foreignAmount });
       }
-      if (txn.destination?.kind === 'account') {
-        entries.push({ accountId: txn.destination.id, amount: txn.foreignAmount });
+      // Destino: en cross-moneda su divisa es independiente (destinationForeignAmount); en misma
+      // moneda (legacy) comparte la divisa del origen, así que reusa foreignAmount.
+      const isCross = txn.destinationAmount != null;
+      const destForeign = isCross ? (txn.destinationForeignAmount ?? null) : (txn.foreignAmount ?? null);
+      if (txn.destination?.kind === 'account' && destForeign) {
+        entries.push({ accountId: txn.destination.id, amount: destForeign });
       }
       break;
+    }
     case 'adjustment':
-      if (txn.source?.kind === 'account') {
+      if (txn.source?.kind === 'account' && txn.foreignAmount) {
         const signed =
           txn.adjustmentDirection === 'decrease' ? -txn.foreignAmount : txn.foreignAmount;
         entries.push({ accountId: txn.source.id, amount: signed });

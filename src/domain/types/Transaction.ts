@@ -40,6 +40,15 @@ export interface Transaction extends BaseDoc {
   // (ingreso, gasto, transferencia misma-moneda, ajuste). Ausente = movimiento COP normal.
   foreignCurrency?: string | null;
   foreignAmount?: number | null; // en la divisa, puede llevar decimales (la regla "entero" es COP)
+  // Transferencia CROSS-MONEDA (cuentas en distinta moneda, montos manuales por lado): los campos
+  // `amount`/`foreignCurrency`/`foreignAmount` de arriba describen la pata de ORIGEN (lo que sale);
+  // estos describen la pata de DESTINO (lo que entra). Su presencia (`destinationAmount != null`)
+  // marca la transferencia como cross-moneda. Cuando un lado es COP, `amount` y `destinationAmount`
+  // coinciden (el valor real de la operación) y el ledger COP queda en neto cero; si ambos lados son
+  // divisa, cada pata usa la conversión del día. Ausente = transferencia normal (misma moneda).
+  destinationAmount?: number | null; // COP que ENTRA al destino (entero, positivo)
+  destinationForeignCurrency?: string | null;
+  destinationForeignAmount?: number | null; // en la divisa del destino (decimales permitidos)
 }
 
 /**
