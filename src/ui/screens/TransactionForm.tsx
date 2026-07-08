@@ -123,6 +123,23 @@ export function TransactionForm({ existing, onDone }: TransactionFormProps) {
   const incomeAmount = entryCurrency ? (foreignCop ?? 0) : Math.round(Number(amount)) || 0;
   const boostsExceedIncome = type === 'income' && boostsTotal > incomeAmount;
 
+  // Moneda de una cuenta por su ref (null = COP o no es cuenta).
+  const currencyOf = (ref: EntityRef | null): string | null =>
+    ref?.kind === 'account'
+      ? (activeAccounts.find((a) => a.id === ref.id)?.foreignCurrency ?? null)
+      : null;
+
+  // Las transferencias son SOLO entre cuentas de la misma moneda (las cuentas en divisa son
+  // monomoneda; el cambio de moneda es manual por ahora). Al cambiar el origen, un destino que
+  // quede en otra moneda se limpia.
+  function handleSourceChange(value: string) {
+    const ref = valueToRef(value);
+    setSource(ref);
+    if (type === 'transfer' && destination && currencyOf(ref) !== currencyOf(destination)) {
+      setDestination(null);
+    }
+  }
+
   const addBoost = () =>
     setBoosts((prev) => [...prev, { budgetId: '', month: dateValue.slice(0, 7), amount: '' }]);
   const updateBoost = (i: number, patch: Partial<BoostRow>) =>
@@ -358,7 +375,7 @@ export function TransactionForm({ existing, onDone }: TransactionFormProps) {
                 : 'Medio de pago'
           }
           value={refToValue(source)}
-          onChange={(v) => setSource(valueToRef(v))}
+          onChange={(v) => handleSourceChange(v)}
           options={sourceOptions}
           placeholder="Selecciona…"
         />
@@ -445,16 +462,28 @@ export function TransactionForm({ existing, onDone }: TransactionFormProps) {
       )}
 
       {type === 'transfer' && (
-        <SelectField
-          label="Hacia"
-          value={refToValue(destination)}
-          onChange={(v) => setDestination(valueToRef(v))}
-          options={activeAccounts.map((a) => ({
-            value: refToValue({ kind: 'account', id: a.id }),
-            label: a.name,
-          }))}
-          placeholder="Selecciona cuenta…"
-        />
+        <>
+          <SelectField
+            label="Hacia"
+            value={refToValue(destination)}
+            onChange={(v) => setDestination(valueToRef(v))}
+            options={activeAccounts
+              // Solo cuentas de la MISMA moneda que el origen (una vez elegido): las cuentas en
+              // divisa son monomoneda y el cambio de moneda va por fuera de la app por ahora.
+              .filter((a) => !source || (a.foreignCurrency ?? null) === currencyOf(source))
+              .map((a) => ({
+                value: refToValue({ kind: 'account', id: a.id }),
+                label: a.name,
+              }))}
+            placeholder="Selecciona cuenta…"
+          />
+          {entryCurrency && (
+            <p className="-mt-2 text-xs text-slate-400">
+              Solo entre cuentas en {entryCurrency}. El cambio de moneda (p.ej. {entryCurrency}
+              →COP) se hace fuera de la app por ahora.
+            </p>
+          )}
+        </>
       )}
       {type === 'debt_payment' && (
         <SelectField
