@@ -16,7 +16,7 @@ import {
   dayStartMillis,
   formatMonthLabel,
 } from '../../lib/date';
-import { accountBalanceCop, cardTotalDebtCop } from '../../domain/foreignBalance';
+import { accountBalanceCop, cardForeignDebtEntries } from '../../domain/foreignBalance';
 import { EMPTY_TRANSACTION_FILTER, filterTransactions } from '../../domain/transactionFilters';
 import { subscribeTransactions } from '../../data/transactionRepository';
 import { subscribeAccounts } from '../../data/accountRepository';
@@ -125,16 +125,13 @@ export function EntityMovementsScreen({ kind }: EntityMovementsScreenProps) {
           ) : card ? (
             <p className="mt-1 text-sm text-slate-500">
               Deuda:{' '}
-              <span className="font-medium text-red-600">
-                {card.foreignCurrency && (card.cachedForeignDebt ?? 0) !== 0 ? '≈ ' : ''}
-                {formatCop(cardTotalDebtCop(card, table))}
-              </span>
-              {card.foreignCurrency && (card.cachedForeignDebt ?? 0) !== 0 && (
-                <span className="text-slate-400">
-                  {' '}
-                  · {formatForeignAmount(card.cachedForeignDebt ?? 0)} {card.foreignCurrency}
+              <span className="font-medium text-red-600">{formatCop(card.cachedDebt)}</span>
+              {cardForeignDebtEntries(card).map((d) => (
+                <span key={d.currency} className="font-medium text-red-600">
+                  {' · '}
+                  {formatForeignAmount(d.amount)} {d.currency}
                 </span>
-              )}
+              ))}
             </p>
           ) : null}
         </header>

@@ -51,18 +51,18 @@ vi.mock('../hooks/useUsdRateTable', () => ({
     loading: false,
   }),
 }));
-// Tarjeta que puede cobrar en USD (tarjeta mixta, 2026-07-07).
-const usdCard = {
-  id: 'tc-usd',
+// Cualquier tarjeta puede registrar un gasto en cualquier moneda (tarjeta multimoneda, 2026-07-07).
+const card = {
+  id: 'tc-1',
   name: 'TC Global',
   archived: false,
   creditLimit: 10_000_000,
   cachedDebt: 0,
-  foreignCurrency: 'USD',
+  foreignDebts: {},
 } as unknown as CreditCard;
 vi.mock('../../data/cardRepository', () => ({
   subscribeCards: (_uid: string, cb: (items: unknown[]) => void) => {
-    cb([usdCard]);
+    cb([card]);
     return () => {};
   },
 }));
@@ -199,15 +199,18 @@ describe('TransactionForm', () => {
     expect(screen.queryByText('Moneda del gasto')).not.toBeInTheDocument();
   });
 
-  it('gasto con tarjeta que cobra en divisa: elegir USD guarda el gasto en esa moneda', async () => {
+  it('gasto con tarjeta eligiendo USD: guarda el gasto en esa moneda', async () => {
     render(<TransactionForm onDone={vi.fn()} />);
     fireEvent.click(screen.getByRole('button', { name: /Comidas/ })); // categoría requerida
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'card:tc-usd' } });
-    // Aparece el selector de moneda; por defecto COP.
-    expect(screen.getByText('Moneda del gasto')).toBeInTheDocument();
+    fireEvent.change(screen.getByRole('combobox', { name: /Medio de pago/ }), {
+      target: { value: 'card:tc-1' },
+    });
+    // Con tarjeta aparece el selector de moneda; por defecto COP.
     expect(screen.getByText('Monto (COP)')).toBeInTheDocument();
     // Elegir USD → el monto se pide en esa moneda.
-    fireEvent.click(screen.getByRole('button', { name: 'USD' }));
+    fireEvent.change(screen.getByRole('combobox', { name: /Moneda del gasto/ }), {
+      target: { value: 'USD' },
+    });
     expect(screen.getByText('Monto (USD)')).toBeInTheDocument();
     fireEvent.change(screen.getByPlaceholderText('0'), { target: { value: '52.1' } });
     fireEvent.click(screen.getByRole('button', { name: 'Guardar' }));
@@ -218,7 +221,7 @@ describe('TransactionForm', () => {
     expect(draft.amount).toBe(208_400); // 52.1 USD × 4.000 (para el Registro/reportes)
     expect(draft.foreignCurrency).toBe('USD');
     expect(draft.foreignAmount).toBe(52.1);
-    expect(draft.source).toEqual({ kind: 'card', id: 'tc-usd' });
+    expect(draft.source).toEqual({ kind: 'card', id: 'tc-1' });
   });
 
   it('el abono a deuda NO ofrece cuentas en divisa como origen', () => {

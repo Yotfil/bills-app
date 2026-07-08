@@ -18,18 +18,14 @@ export type { NewCard } from './NewCard';
 
 /** Construye el documento a crear (función pura, testeable). */
 export function buildCardCreateInput(input: NewCard): CreateInput<CreditCard> {
-  const foreignCurrency = input.foreignCurrency ?? null;
-  const initialForeignDebt = foreignCurrency ? (input.initialForeignDebt ?? 0) : 0;
   return {
     name: input.name.trim(),
     creditLimit: input.creditLimit,
     initialDebt: input.initialDebt, // semilla persistida para el recálculo total (§9.3)
     cachedDebt: input.initialDebt, // la deuda arranca igual a la semilla
-    // Tarjeta mixta (2026-07-07): divisa opcional + su semilla de deuda (la deuda en divisa
-    // arranca igual a la semilla). Ausente = tarjeta COP pura.
-    foreignCurrency,
-    initialForeignDebt,
-    cachedForeignDebt: initialForeignDebt,
+    // Tarjeta multimoneda (2026-07-07): las deudas en divisa NO se configuran al crear; nacen al
+    // registrar un gasto en esa moneda (o al reconciliarla). La tarjeta arranca sin deudas en divisa.
+    foreignDebts: {},
     color: input.color ?? '#64748b',
     icon: input.icon ?? 'credit-card',
     sortOrder: input.sortOrder ?? 0,
@@ -44,12 +40,10 @@ export const subscribeCards = (uid: string, onChange: (items: CreditCard[]) => v
 export const createCard = (uid: string, input: NewCard) =>
   create(cardsCol(uid), buildCardCreateInput(input));
 
-// La deuda no se edita a mano (se mueve con gastos/abonos). Aquí solo cupo, divisa y metadatos.
-// `foreignCurrency` es editable para habilitar la divisa en una tarjeta existente (la deuda en
-// divisa arranca en 0 y luego se ajusta reconciliando en divisa).
+// La deuda no se edita a mano (se mueve con gastos/abonos y reconciliación). Aquí solo cupo y metadatos.
 export type EditableCardFields = Pick<
   UpdateInput<CreditCard>,
-  'name' | 'creditLimit' | 'foreignCurrency' | 'color' | 'icon' | 'sortOrder'
+  'name' | 'creditLimit' | 'color' | 'icon' | 'sortOrder'
 >;
 
 export const updateCard = (uid: string, id: string, data: EditableCardFields) =>

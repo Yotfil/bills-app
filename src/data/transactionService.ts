@@ -125,29 +125,39 @@ function applyForeignDeltaToBatch(
   }
 }
 
-// Aplica al batch el delta en DIVISA sobre la deuda de las tarjetas mixtas (`cachedForeignDebt`),
-// espejo de applyForeignDeltaToBatch pero sobre `cardsCol`. `factor` permite netear viejo/nuevo al
-// editar. Un gasto/ajuste en divisa con tarjeta mueve solo este pool (no la deuda COP, §ledger).
+// Aplica al batch el delta en DIVISA sobre los pools de deuda de una tarjeta multimoneda
+// (`foreignDebts[moneda]`), espejo de applyForeignDeltaToBatch pero sobre `cardsCol`. `factor` netea
+// viejo/nuevo al editar. Un gasto/ajuste en divisa con tarjeta mueve solo el pool de SU moneda (no la
+// deuda COP, §ledger). Se escribe con notación de punto (`foreignDebts.USD`), que crea el mapa/clave
+// si no existe; `increment` es conmutativo y se encola offline.
 function applyForeignCardDeltaToBatch(
   batch: WriteBatch,
   uid: string,
   entries: Array<{
-    txn: Pick<TransactionDraft, 'type' | 'source' | 'foreignAmount' | 'adjustmentDirection'>;
+    txn: Pick<
+      TransactionDraft,
+      'type' | 'source' | 'foreignCurrency' | 'foreignAmount' | 'adjustmentDirection'
+    >;
     factor: 1 | -1;
   }>,
 ): void {
-  const perCard: Record<string, number> = {};
+  // perCard[cardId][currency] = monto acumulado en esa divisa.
+  const perCard: Record<string, Record<string, number>> = {};
   for (const { txn, factor } of entries) {
     for (const delta of foreignCardDelta(txn)) {
-      perCard[delta.cardId] = (perCard[delta.cardId] ?? 0) + delta.amount * factor;
+      const byCurrency = (perCard[delta.cardId] ??= {});
+      byCurrency[delta.currency] = (byCurrency[delta.currency] ?? 0) + delta.amount * factor;
     }
   }
-  for (const [id, amount] of Object.entries(perCard)) {
-    if (amount === 0) continue;
-    batch.update(rawDoc(cardsCol(uid), id), {
-      cachedForeignDebt: increment(amount),
-      updatedAt: serverTimestamp(),
-    });
+  for (const [id, byCurrency] of Object.entries(perCard)) {
+    const patch: Record<string, unknown> = {};
+    for (const [currency, amount] of Object.entries(byCurrency)) {
+      if (amount === 0) continue;
+      patch[`foreignDebts.${currency}`] = increment(amount);
+    }
+    if (Object.keys(patch).length === 0) continue;
+    patch.updatedAt = serverTimestamp();
+    batch.update(rawDoc(cardsCol(uid), id), patch);
   }
 }
 
