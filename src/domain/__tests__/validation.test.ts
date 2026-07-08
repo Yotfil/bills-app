@@ -375,12 +375,41 @@ describe('Validación de transacciones (§11)', () => {
       ).toContain('foreign_forbidden_on_debt_payment');
     });
 
-    it('rechaza gasto en divisa con tarjeta como origen (las tarjetas son COP)', () => {
+    it('acepta gasto en divisa con tarjeta como origen (tarjeta mixta, 2026-07-07)', () => {
       expect(
         validateTransaction(
           makeTxn({
             type: 'expense',
             source: cardRef('tc'),
+            categoryId: 'c1',
+            foreignCurrency: 'USD',
+            foreignAmount: 10,
+          }),
+        ),
+      ).toEqual([]);
+    });
+
+    it('acepta ajuste en divisa con tarjeta como origen (reconciliar deuda en USD)', () => {
+      expect(
+        validateTransaction(
+          makeTxn({
+            type: 'adjustment',
+            source: cardRef('tc'),
+            categoryId: 'adj',
+            adjustmentDirection: 'increase',
+            foreignCurrency: 'USD',
+            foreignAmount: 10,
+          }),
+        ),
+      ).toEqual([]);
+    });
+
+    it('rechaza gasto en divisa cuyo origen no es cuenta ni tarjeta', () => {
+      expect(
+        validateTransaction(
+          makeTxn({
+            type: 'expense',
+            source: null,
             categoryId: 'c1',
             foreignCurrency: 'USD',
             foreignAmount: 10,

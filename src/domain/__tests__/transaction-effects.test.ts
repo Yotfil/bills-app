@@ -27,6 +27,20 @@ describe('Efectos de transacciones sobre saldos', () => {
       const after = makeCard({ creditLimit: 1_000_000, cachedDebt: card.cachedDebt + 50_000 });
       expect(cardAvailableCredit(after)).toBe(cardAvailableCredit(card) - 50_000);
     });
+
+    it('con tarjeta EN DIVISA → NO mueve la deuda COP (cachedDebt); va al pool en divisa', () => {
+      const delta = transactionDelta(
+        makeTxn({
+          type: 'expense',
+          amount: 208_400, // conversión COP del día (para el Registro), NO afecta cachedDebt
+          source: cardRef('card-1'),
+          foreignCurrency: 'USD',
+          foreignAmount: 52.1,
+        }),
+      );
+      expect(delta.cards['card-1'] ?? 0).toBe(0);
+      expect(Object.keys(delta.accounts)).toHaveLength(0);
+    });
   });
 
   describe('income (ingreso)', () => {
