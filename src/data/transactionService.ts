@@ -40,6 +40,7 @@ import {
 import { listAll } from './crud';
 import { applyBudgetBoosts } from './budgetBoostService';
 import { foreignDelta } from '../domain/foreignLedger';
+import { foreignCardDelta } from '../domain/foreignCardLedger';
 import type { TransactionDraft } from '../domain/types';
 import type { RecalculationCorrections } from './RecalculationCorrections';
 
@@ -124,6 +125,32 @@ function applyForeignDeltaToBatch(
   }
 }
 
+// Aplica al batch el delta en DIVISA sobre la deuda de las tarjetas mixtas (`cachedForeignDebt`),
+// espejo de applyForeignDeltaToBatch pero sobre `cardsCol`. `factor` permite netear viejo/nuevo al
+// editar. Un gasto/ajuste en divisa con tarjeta mueve solo este pool (no la deuda COP, §ledger).
+function applyForeignCardDeltaToBatch(
+  batch: WriteBatch,
+  uid: string,
+  entries: Array<{
+    txn: Pick<TransactionDraft, 'type' | 'source' | 'foreignAmount' | 'adjustmentDirection'>;
+    factor: 1 | -1;
+  }>,
+): void {
+  const perCard: Record<string, number> = {};
+  for (const { txn, factor } of entries) {
+    for (const delta of foreignCardDelta(txn)) {
+      perCard[delta.cardId] = (perCard[delta.cardId] ?? 0) + delta.amount * factor;
+    }
+  }
+  for (const [id, amount] of Object.entries(perCard)) {
+    if (amount === 0) continue;
+    batch.update(rawDoc(cardsCol(uid), id), {
+      cachedForeignDebt: increment(amount),
+      updatedAt: serverTimestamp(),
+    });
+  }
+}
+
 /**
  * Agrega a un `batch` EXISTENTE el documento del movimiento y su efecto en los saldos, SIN
  * commitear: el caller decide qué más entra en el mismo commit atómico (p.ej. pagar un fijo
@@ -145,6 +172,7 @@ export function addTransactionToBatch(
   });
   applyDeltaToBatch(batch, uid, transactionDelta(draft));
   applyForeignDeltaToBatch(batch, uid, [{ txn: draft, factor: 1 }]);
+  applyForeignCardDeltaToBatch(batch, uid, [{ txn: draft, factor: 1 }]);
   return newRef.id;
 }
 
@@ -203,6 +231,10 @@ export async function editTransaction(
     { txn: oldTxn, factor: -1 },
     { txn: newDraft, factor: 1 },
   ]);
+  applyForeignCardDeltaToBatch(batch, uid, [
+    { txn: oldTxn, factor: -1 },
+    { txn: newDraft, factor: 1 },
+  ]);
   await batch.commit();
 
   // Aumentos de presupuesto ligados (§5.9): revierte los viejos y aplica los nuevos.
@@ -236,6 +268,7 @@ export async function deleteTransaction(uid: string, id: string): Promise<void> 
   applyDeltaToBatch(batch, uid, delta);
   // Divisa: al borrar un ingreso en divisa, su monto original sale de la fuente de verdad.
   applyForeignDeltaToBatch(batch, uid, [{ txn: data, factor: -1 }]);
+  applyForeignCardDeltaToBatch(batch, uid, [{ txn: data, factor: -1 }]);
   if (fixedRef) {
     batch.update(fixedRef, {
       status: 'pending',

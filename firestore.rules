@@ -62,7 +62,17 @@ service cloud.firestore {
         allow create, update: if canAccess(uid)
           && request.resource.data.name is string
           && request.resource.data.creditLimit is number
-          && request.resource.data.cachedDebt is number;
+          && request.resource.data.cachedDebt is number
+          // Tarjeta mixta (opcional): divisa en la que también cobra y su deuda en esa divisa.
+          && (!('foreignCurrency' in request.resource.data)
+              || request.resource.data.foreignCurrency == null
+              || request.resource.data.foreignCurrency is string)
+          && (!('cachedForeignDebt' in request.resource.data)
+              || request.resource.data.cachedForeignDebt == null
+              || request.resource.data.cachedForeignDebt is number)
+          && (!('initialForeignDebt' in request.resource.data)
+              || request.resource.data.initialForeignDebt == null
+              || request.resource.data.initialForeignDebt is number);
       }
       match /loans/{loanId} {
         allow read, delete: if canAccess(uid);
