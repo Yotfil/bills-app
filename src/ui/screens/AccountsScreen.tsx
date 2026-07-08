@@ -17,7 +17,7 @@ import { subscribeTransactions } from '../../data/transactionRepository';
 import { reconcileAccount, reconcileAccountForeign } from '../../data/reconciliationService';
 import { useUsdRateTable } from '../hooks/useUsdRateTable';
 import { copPerUnit } from '../../domain/currencyConversion';
-import { accountBalanceCop } from '../../domain/foreignBalance';
+import { accountBalanceCop, accountCopRate, copToForeign } from '../../domain/foreignBalance';
 import type { AccountsScreenProps } from './AccountsScreenProps';
 import type { ReconcileTarget } from './ReconcileTarget';
 import type {
@@ -136,6 +136,7 @@ export function AccountsScreen({ savingsBucket = false }: AccountsScreenProps) {
         {accounts.map((account) => {
           const reserved = accountReserved(allocatedFixeds, account.id);
           const available = accountAvailable(account, allocatedFixeds, table);
+          const rate = accountCopRate(account, table);
           return (
             <li key={account.id} className="rounded-xl border border-slate-200 bg-white p-4">
               <div className="flex items-start justify-between gap-2">
@@ -192,7 +193,16 @@ export function AccountsScreen({ savingsBucket = false }: AccountsScreenProps) {
                 </div>
                 <div>
                   <dt className="text-xs text-slate-400">Disponible</dt>
-                  <dd className="text-sm font-semibold text-emerald-600">{formatCop(available)}</dd>
+                  <dd className="text-sm font-semibold text-emerald-600">
+                    {account.foreignCurrency ? '≈ ' : ''}
+                    {formatCop(available)}
+                  </dd>
+                  {account.foreignCurrency && rate !== null && (
+                    <dd className="text-[11px] text-slate-400">
+                      {formatForeignAmount(copToForeign(available, rate))}{' '}
+                      {account.foreignCurrency}
+                    </dd>
+                  )}
                 </div>
               </dl>
             </li>

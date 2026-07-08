@@ -91,6 +91,7 @@ describe('AccountsScreen', () => {
     expect(screen.getByText('Global66')).toBeInTheDocument();
     // 100 USD × 4.000 = 400.000 (saldo y disponible); el cachedBalance interno (99) no aparece.
     expect(screen.getAllByText(/400\.000/).length).toBeGreaterThanOrEqual(2);
-    expect(screen.getByText(/100 USD/)).toBeInTheDocument();
+    // El monto en USD aparece bajo el Saldo y bajo el Disponible (bimoneda).
+    expect(screen.getAllByText(/100 USD/).length).toBeGreaterThanOrEqual(2);
   });
 });
