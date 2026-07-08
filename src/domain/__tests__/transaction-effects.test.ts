@@ -27,6 +27,20 @@ describe('Efectos de transacciones sobre saldos', () => {
       const after = makeCard({ creditLimit: 1_000_000, cachedDebt: card.cachedDebt + 50_000 });
       expect(cardAvailableCredit(after)).toBe(cardAvailableCredit(card) - 50_000);
     });
+
+    it('con tarjeta EN DIVISA → NO mueve la deuda COP (cachedDebt); va al pool en divisa', () => {
+      const delta = transactionDelta(
+        makeTxn({
+          type: 'expense',
+          amount: 208_400, // conversión COP del día (para el Registro), NO afecta cachedDebt
+          source: cardRef('card-1'),
+          foreignCurrency: 'USD',
+          foreignAmount: 52.1,
+        }),
+      );
+      expect(delta.cards['card-1'] ?? 0).toBe(0);
+      expect(Object.keys(delta.accounts)).toHaveLength(0);
+    });
   });
 
   describe('income (ingreso)', () => {
@@ -59,6 +73,23 @@ describe('Efectos de transacciones sobre saldos', () => {
       expect(delta.accounts['acc-2']).toBe(100_000);
       const net = Object.values(delta.accounts).reduce((a, b) => a + b, 0);
       expect(net).toBe(0);
+    });
+
+    it('cross-moneda → el destino usa su propio COP (destinationAmount)', () => {
+      // USD→COP: sale de la cuenta USD el COP-equivalente y entra a la COP el COP real; cuando un
+      // lado es COP ambos coinciden (neto cero). Aquí probamos que el destino usa destinationAmount.
+      const delta = transactionDelta(
+        makeTxn({
+          type: 'transfer',
+          amount: 6_832_900, // pata de origen (COP)
+          source: accountRef('acc-usd'),
+          destination: accountRef('acc-cop'),
+          destinationAmount: 6_832_900, // pata de destino (COP real que entra)
+          categoryId: null,
+        }),
+      );
+      expect(delta.accounts['acc-usd']).toBe(-6_832_900);
+      expect(delta.accounts['acc-cop']).toBe(6_832_900);
     });
   });
 
@@ -105,7 +136,7 @@ describe('Efectos de transacciones sobre saldos', () => {
         makeAccount({ id: 'acc-2', cachedBalance: 500_000 }),
       ];
       // Sin fijos destinados, reservado = 0 → disponible real = suma de saldos.
-      expect(disponibleReal(accounts, [])).toBe(1_500_000);
+      expect(disponibleReal(accounts, [], null)).toBe(1_500_000);
     });
 
     it('excluye las bolsas de ahorro (savingsBucket): solo cuentas de uso', () => {
@@ -115,7 +146,7 @@ describe('Efectos de transacciones sobre saldos', () => {
         makeAccount({ id: 'acc-3', cachedBalance: 5_000_000, savingsBucket: true }),
       ];
       // La bolsa de ahorro (5.000.000) NO cuenta en el disponible real.
-      expect(disponibleReal(accounts, [])).toBe(1_150_000);
+      expect(disponibleReal(accounts, [], null)).toBe(1_150_000);
     });
   });
 });

@@ -36,9 +36,11 @@ export function transactionDelta(txn: TransactionDraft): LedgerDelta {
 
   switch (txn.type) {
     case 'expense':
-      // Gasto: baja la cuenta, o sube la deuda de la tarjeta (no toca cuentas).
+      // Gasto: baja la cuenta, o sube la deuda de la tarjeta (no toca cuentas). Un gasto con
+      // tarjeta EN DIVISA no mueve la deuda COP (`cachedDebt`): su efecto va al pool en divisa
+      // (`cachedForeignDebt`, vía foreignCardDelta). La tarjeta es mixta, no monomoneda.
       if (source?.kind === 'account') add(delta.accounts, source.id, -amount);
-      else if (source?.kind === 'card') add(delta.cards, source.id, +amount);
+      else if (source?.kind === 'card' && !txn.foreignAmount) add(delta.cards, source.id, +amount);
       break;
 
     case 'income':
@@ -47,9 +49,12 @@ export function transactionDelta(txn: TransactionDraft): LedgerDelta {
       break;
 
     case 'transfer':
-      // Transferencia: baja origen y sube destino por el mismo monto (neto cero).
+      // Transferencia: baja origen por el monto de la pata de ORIGEN (`amount`) y sube destino por
+      // el de la pata de DESTINO. En misma moneda ambos coinciden (neto cero); en cross-moneda el
+      // destino usa su propio COP (`destinationAmount`).
       if (source?.kind === 'account') add(delta.accounts, source.id, -amount);
-      if (destination?.kind === 'account') add(delta.accounts, destination.id, +amount);
+      if (destination?.kind === 'account')
+        add(delta.accounts, destination.id, +(txn.destinationAmount ?? amount));
       break;
 
     case 'debt_payment':
@@ -65,7 +70,9 @@ export function transactionDelta(txn: TransactionDraft): LedgerDelta {
       // de crédito (en los tres, "el valor real es X" se lleva al registrado con este ajuste).
       const signed = txn.adjustmentDirection === 'decrease' ? -amount : +amount;
       if (source?.kind === 'account') add(delta.accounts, source.id, signed);
-      else if (source?.kind === 'card') add(delta.cards, source.id, signed);
+      // Un ajuste de tarjeta EN DIVISA reconcilia el pool en divisa (cachedForeignDebt), no la
+      // deuda COP: se maneja en foreignCardDelta, igual que el gasto en divisa.
+      else if (source?.kind === 'card' && !txn.foreignAmount) add(delta.cards, source.id, signed);
       else if (source?.kind === 'loan') add(delta.loans, source.id, signed);
       break;
     }

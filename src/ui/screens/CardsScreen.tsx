@@ -1,15 +1,18 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useUserCollection } from '../hooks/useUserCollection';
 import { useFixedMonthly } from '../hooks/useFixedMonthly';
 import { useSessionStore } from '../../store/sessionStore';
 import { CardForm } from './CardForm';
 import { BackButton } from '../components/BackButton';
-import { Pencil, Scale, Archive, Trash2 } from 'lucide-react';
+import { Pencil, Scale, Archive, Trash2, ChevronRight } from 'lucide-react';
 import { ActionMenu } from '../components/ActionMenu';
 import { ConfirmDeleteModal } from '../components/ConfirmDeleteModal';
 import { ReconcileModal } from './ReconcileModal';
-import { formatCop } from '../../lib/currency';
+import { formatCop, formatForeignAmount } from '../../lib/currency';
 import { cardAvailableCredit } from '../../domain/derived';
+import { cardTotalDebtCop } from '../../domain/foreignBalance';
+import { copPerUnit } from '../../domain/currencyConversion';
 import { entityHasMovements } from '../../domain/entityUsage';
 import { cuotaMonthlyFor, hasLinkedCuota, isCuotaPaid } from '../../domain/debtCuota';
 import { archiveCard, deleteCard, subscribeCards } from '../../data/cardRepository';
@@ -17,13 +20,15 @@ import { subscribeTransactions } from '../../data/transactionRepository';
 import { subscribeFixedTemplates } from '../../data/fixedTemplateRepository';
 import { revertFixedPayment } from '../../data/fixedMonthlyRepository';
 import { payLinkedCuota } from '../../data/cuotaService';
-import { reconcileCard } from '../../data/reconciliationService';
+import { reconcileCard, reconcileCardForeign } from '../../data/reconciliationService';
+import { useUsdRateTable } from '../hooks/useUsdRateTable';
 import { currentMonthKey, formatMonthLabel } from '../../lib/date';
 import type { ReconcileTarget } from './ReconcileTarget';
 import type { CreditCard, FixedObligationTemplate, Transaction } from '../../domain/types';
 
 export function CardsScreen() {
   const uid = useSessionStore((s) => s.user?.uid);
+  const navigate = useNavigate();
   const { items, loading } = useUserCollection<CreditCard>(subscribeCards);
   const { items: transactions } = useUserCollection<Transaction>(subscribeTransactions);
   const { items: templates } = useUserCollection<FixedObligationTemplate>(subscribeFixedTemplates);
@@ -33,8 +38,10 @@ export function CardsScreen() {
   const { items: monthlyFixeds } = useFixedMonthly(month);
   const [editing, setEditing] = useState<CreditCard | null>(null);
   const [deleting, setDeleting] = useState<CreditCard | null>(null);
-  const [reconciling, setReconciling] = useState<CreditCard | null>(null);
+  // Reconciliar: la tarjeta y en qué pool (COP o su divisa). `foreign` = reconciliar la deuda en divisa.
+  const [reconciling, setReconciling] = useState<{ card: CreditCard; foreign: boolean } | null>(null);
   const [creating, setCreating] = useState(false);
+  const { table } = useUsdRateTable();
 
   const cards = items.filter((c) => !c.archived).sort((a, b) => a.sortOrder - b.sortOrder);
 
@@ -70,17 +77,39 @@ export function CardsScreen() {
   }
 
   // Reconciliar la DEUDA (§5.7): útil cuando los intereses la subieron o las pruebas la desfasaron.
+  // Una tarjeta mixta tiene dos pools: COP (cachedDebt) y divisa (cachedForeignDebt). El pool en
+  // divisa se reconcilia EN LA DIVISA (el COP es el reflejo de la tasa del día).
+  const reconcileCardRef = reconciling?.card ?? null;
+  const foreignRate =
+    reconcileCardRef?.foreignCurrency && table
+      ? copPerUnit(table, reconcileCardRef.foreignCurrency)
+      : null;
   const reconcileTarget: ReconcileTarget | null =
     reconciling && uid
-      ? {
-          id: reconciling.id,
-          name: reconciling.name,
-          registeredValue: reconciling.cachedDebt,
-          registeredLabel: 'Deuda registrada',
-          inputLabel: 'Deuda real de la tarjeta (COP)',
-          goodDirection: 'decrease', // menos deuda = verde
-          reconcile: (real, note) => reconcileCard(uid, reconciling, real, note),
-        }
+      ? reconciling.foreign && foreignRate !== null && table
+        ? {
+            id: `${reconciling.card.id}-foreign`,
+            name: reconciling.card.name,
+            registeredValue: Math.round((reconciling.card.cachedForeignDebt ?? 0) * foreignRate),
+            registeredLabel: 'Deuda registrada',
+            inputLabel: `Deuda real de la tarjeta (${reconciling.card.foreignCurrency})`,
+            goodDirection: 'decrease', // menos deuda = verde
+            reconcile: () => Promise.resolve(false), // en modo divisa el modal usa reconcileForeign
+            foreignCurrency: reconciling.card.foreignCurrency,
+            foreignAmount: reconciling.card.cachedForeignDebt ?? 0,
+            copPerUnit: foreignRate,
+            reconcileForeign: (realForeign, note) =>
+              reconcileCardForeign(uid, reconciling.card, realForeign, table, note),
+          }
+        : {
+            id: reconciling.card.id,
+            name: reconciling.card.name,
+            registeredValue: reconciling.card.cachedDebt,
+            registeredLabel: 'Deuda registrada',
+            inputLabel: 'Deuda real de la tarjeta (COP)',
+            goodDirection: 'decrease', // menos deuda = verde
+            reconcile: (real, note) => reconcileCard(uid, reconciling.card, real, note),
+          }
       : null;
 
   return (
@@ -106,15 +135,39 @@ export function CardsScreen() {
         {cards.map((card) => {
           const linked = hasLinkedCuota(card.id, templates);
           const cuotaPaid = isCuotaPaid(card.id, monthlyFixeds);
+          // Reconciliar en divisa solo si la tarjeta cobra en una divisa y hay tasa del día.
+          const canReconcileForeign =
+            !!card.foreignCurrency && table !== null && copPerUnit(table, card.foreignCurrency) !== null;
+          const totalDebt = cardTotalDebtCop(card, table);
+          const hasForeignDebt = !!card.foreignCurrency && (card.cachedForeignDebt ?? 0) !== 0;
           return (
             <li key={card.id} className="rounded-xl border border-slate-200 bg-white p-4">
               <div className="flex items-start justify-between">
-                <p className="font-semibold text-slate-800">{card.name}</p>
+                <button
+                  type="button"
+                  onClick={() => navigate(`/mas/tarjetas/${card.id}/movimientos`)}
+                  className="truncate text-left font-semibold text-slate-800 hover:underline"
+                >
+                  {card.name}
+                </button>
                 <ActionMenu
                   ariaLabel={`Acciones de ${card.name}`}
                   items={[
                     { label: 'Editar', icon: Pencil, onSelect: () => setEditing(card) },
-                    { label: 'Reconciliar', icon: Scale, onSelect: () => setReconciling(card) },
+                    {
+                      label: canReconcileForeign ? 'Reconciliar deuda (COP)' : 'Reconciliar',
+                      icon: Scale,
+                      onSelect: () => setReconciling({ card, foreign: false }),
+                    },
+                    ...(canReconcileForeign
+                      ? [
+                          {
+                            label: `Reconciliar deuda (${card.foreignCurrency})`,
+                            icon: Scale,
+                            onSelect: () => setReconciling({ card, foreign: true }),
+                          },
+                        ]
+                      : []),
                     { label: 'Archivar', icon: Archive, onSelect: () => handleArchive(card) },
                     {
                       label: 'Eliminar',
@@ -134,15 +187,34 @@ export function CardsScreen() {
                 </div>
                 <div>
                   <dt className="text-xs text-slate-400">Deuda</dt>
-                  <dd className="text-sm font-medium text-red-600">{formatCop(card.cachedDebt)}</dd>
+                  {/* Tarjeta mixta: la deuda total ≈ COP incluye la parte en divisa convertida EN
+                      VIVO; debajo, el monto exacto en la divisa. */}
+                  <dd className="text-sm font-medium text-red-600">
+                    {hasForeignDebt ? '≈ ' : ''}
+                    {formatCop(totalDebt)}
+                  </dd>
+                  {hasForeignDebt && (
+                    <dd className="text-[11px] text-slate-400">
+                      {formatForeignAmount(card.cachedForeignDebt ?? 0)} {card.foreignCurrency}
+                    </dd>
+                  )}
                 </div>
                 <div>
                   <dt className="text-xs text-slate-400">Disponible</dt>
                   <dd className="text-sm font-semibold text-emerald-600">
-                    {formatCop(cardAvailableCredit(card))}
+                    {hasForeignDebt ? '≈ ' : ''}
+                    {formatCop(cardAvailableCredit(card, table))}
                   </dd>
                 </div>
               </dl>
+
+              <button
+                type="button"
+                onClick={() => navigate(`/mas/tarjetas/${card.id}/movimientos`)}
+                className="mt-3 flex w-full items-center justify-center gap-1 rounded-lg border border-slate-200 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
+              >
+                Ver movimientos <ChevronRight className="h-4 w-4" />
+              </button>
 
               {/* Cuota del mes ligada a un fijo "abono a deuda" que apunta a esta tarjeta (§5.5). */}
               {linked && (

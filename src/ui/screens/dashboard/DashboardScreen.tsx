@@ -10,6 +10,8 @@ import { subscribeTransactions } from '../../../data/transactionRepository';
 import { subscribeBudgets } from '../../../data/budgetRepository';
 import { subscribeAllocatedFixeds } from '../../../data/fixedMonthlyRepository';
 import { disponibleReal } from '../../../domain/derived';
+import { accountBalanceCop } from '../../../domain/foreignBalance';
+import { useUsdRateTable } from '../../hooks/useUsdRateTable';
 import { fixedTotals } from '../../../domain/fixed';
 import { budgetStatus, spendByCategory } from '../../../domain/reports';
 import {
@@ -67,9 +69,11 @@ export function DashboardScreen() {
   // futuro baja ya el disponible (el dinero está apartado aunque el fijo se pague después).
   const { items: allocatedFixeds } =
     useUserCollection<FixedObligationMonthly>(subscribeAllocatedFixeds);
-  const available = disponibleReal(activeAccounts, allocatedFixeds);
+  // Cuentas en divisa: su COP es la conversión en vivo con la tasa del día (decisión 2026-07-09).
+  const { table } = useUsdRateTable();
+  const available = disponibleReal(activeAccounts, allocatedFixeds, table);
   // Saldo total: TODO lo que hay, incluido lo de Ahorros (a diferencia del disponible real).
-  const totalBalance = activeAccounts.reduce((sum, a) => sum + a.cachedBalance, 0);
+  const totalBalance = activeAccounts.reduce((sum, a) => sum + accountBalanceCop(a, table), 0);
   // Los fijos del Inicio (progreso y alertas) SÍ siguen el mes del selector: cada mes tiene su
   // propia instancia de fijos. Si el mes no tiene fijos generados (sin plantilla aplicada aún), la
   // tarjeta de progreso se oculta (no se muestra nada del feature para ese mes).

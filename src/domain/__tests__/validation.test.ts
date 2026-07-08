@@ -93,6 +93,86 @@ describe('Validación de transacciones (§11)', () => {
         ),
       ).toContain('transfer_requires_distinct_account_destination');
     });
+
+    it('acepta transfer cross-moneda (USD→COP): pata de destino con su COP y divisa de origen', () => {
+      expect(
+        validateTransaction(
+          makeTxn({
+            type: 'transfer',
+            amount: 6_832_900,
+            source: accountRef('usd'),
+            destination: accountRef('cop'),
+            categoryId: null,
+            foreignCurrency: 'USD',
+            foreignAmount: 2000,
+            destinationAmount: 6_832_900,
+          }),
+        ),
+      ).toEqual([]);
+    });
+
+    it('acepta transfer cross-moneda (COP→USD): la divisa va en la pata de destino', () => {
+      expect(
+        validateTransaction(
+          makeTxn({
+            type: 'transfer',
+            amount: 7_000_000,
+            source: accountRef('cop'),
+            destination: accountRef('usd'),
+            categoryId: null,
+            destinationAmount: 7_000_000,
+            destinationForeignCurrency: 'USD',
+            destinationForeignAmount: 1750,
+          }),
+        ),
+      ).toEqual([]);
+    });
+
+    it('rechaza destinationAmount <= 0', () => {
+      expect(
+        validateTransaction(
+          makeTxn({
+            type: 'transfer',
+            source: accountRef('usd'),
+            destination: accountRef('cop'),
+            categoryId: null,
+            foreignCurrency: 'USD',
+            foreignAmount: 2000,
+            destinationAmount: 0,
+          }),
+        ),
+      ).toContain('destination_amount_must_be_positive');
+    });
+
+    it('rechaza monto de destino en divisa sin su moneda', () => {
+      expect(
+        validateTransaction(
+          makeTxn({
+            type: 'transfer',
+            amount: 7_000_000,
+            source: accountRef('cop'),
+            destination: accountRef('usd'),
+            categoryId: null,
+            destinationAmount: 7_000_000,
+            destinationForeignAmount: 1750,
+          }),
+        ),
+      ).toContain('destination_foreign_requires_currency');
+    });
+
+    it('rechaza destinationAmount fuera de una transferencia', () => {
+      expect(
+        validateTransaction(
+          makeTxn({
+            type: 'income',
+            destination: accountRef('cop'),
+            source: null,
+            categoryId: null,
+            destinationAmount: 100_000,
+          }),
+        ),
+      ).toContain('destination_amount_only_on_transfer');
+    });
   });
 
   describe('debt_payment', () => {
@@ -216,6 +296,132 @@ describe('Validación de transacciones (§11)', () => {
       expect(
         validateTransaction(income({ budgetBoosts: [{ budgetId: '', month: '', amount: 100 }] })),
       ).toContain('budget_boost_invalid');
+    });
+  });
+
+  describe('movimientos en divisa (decisión 2026-07-09)', () => {
+    const foreignIncome = (extra: Record<string, unknown> = {}) =>
+      makeTxn({
+        type: 'income',
+        source: null,
+        destination: accountRef('usd'),
+        categoryId: null,
+        foreignCurrency: 'USD',
+        foreignAmount: 100.5,
+        ...extra,
+      });
+
+    it('acepta ingreso y gasto en divisa con cuenta en el lado correcto', () => {
+      expect(validateTransaction(foreignIncome())).toEqual([]);
+      expect(
+        validateTransaction(
+          makeTxn({
+            type: 'expense',
+            source: accountRef('usd'),
+            categoryId: 'c1',
+            foreignCurrency: 'USD',
+            foreignAmount: 52.1,
+          }),
+        ),
+      ).toEqual([]);
+    });
+
+    it('acepta transferencia en divisa entre dos cuentas', () => {
+      expect(
+        validateTransaction(
+          makeTxn({
+            type: 'transfer',
+            source: accountRef('usd-a'),
+            destination: accountRef('usd-b'),
+            categoryId: null,
+            foreignCurrency: 'USD',
+            foreignAmount: 200,
+          }),
+        ),
+      ).toEqual([]);
+    });
+
+    it('rechaza foreignAmount <= 0 o no finito (decimales sí valen)', () => {
+      expect(validateTransaction(foreignIncome({ foreignAmount: 0 }))).toContain(
+        'foreign_amount_must_be_positive',
+      );
+      expect(validateTransaction(foreignIncome({ foreignAmount: -5 }))).toContain(
+        'foreign_amount_must_be_positive',
+      );
+      expect(validateTransaction(foreignIncome({ foreignAmount: 100.5 }))).toEqual([]);
+    });
+
+    it('exige moneda y monto juntos', () => {
+      expect(validateTransaction(foreignIncome({ foreignCurrency: null }))).toContain(
+        'foreign_requires_currency',
+      );
+      expect(validateTransaction(foreignIncome({ foreignAmount: null }))).toContain(
+        'foreign_requires_currency',
+      );
+    });
+
+    it('prohíbe divisa en abonos a deuda (las deudas son COP)', () => {
+      expect(
+        validateTransaction(
+          makeTxn({
+            type: 'debt_payment',
+            source: accountRef('usd'),
+            destination: cardRef('tc'),
+            categoryId: null,
+            foreignCurrency: 'USD',
+            foreignAmount: 100,
+          }),
+        ),
+      ).toContain('foreign_forbidden_on_debt_payment');
+    });
+
+    it('acepta gasto en divisa con tarjeta como origen (tarjeta mixta, 2026-07-07)', () => {
+      expect(
+        validateTransaction(
+          makeTxn({
+            type: 'expense',
+            source: cardRef('tc'),
+            categoryId: 'c1',
+            foreignCurrency: 'USD',
+            foreignAmount: 10,
+          }),
+        ),
+      ).toEqual([]);
+    });
+
+    it('acepta ajuste en divisa con tarjeta como origen (reconciliar deuda en USD)', () => {
+      expect(
+        validateTransaction(
+          makeTxn({
+            type: 'adjustment',
+            source: cardRef('tc'),
+            categoryId: 'adj',
+            adjustmentDirection: 'increase',
+            foreignCurrency: 'USD',
+            foreignAmount: 10,
+          }),
+        ),
+      ).toEqual([]);
+    });
+
+    it('rechaza gasto en divisa cuyo origen no es cuenta ni tarjeta', () => {
+      expect(
+        validateTransaction(
+          makeTxn({
+            type: 'expense',
+            source: null,
+            categoryId: 'c1',
+            foreignCurrency: 'USD',
+            foreignAmount: 10,
+          }),
+        ),
+      ).toContain('foreign_requires_account_side');
+    });
+
+    it('los movimientos sin divisa no se ven afectados', () => {
+      expect(validateTransaction(makeTxn({ type: 'expense', source: accountRef('a') }))).toEqual(
+        [],
+      );
     });
   });
 });

@@ -23,9 +23,30 @@ const sampleAccount = {
   sortOrder: 0,
 } as unknown as Account;
 
+// Cuenta en divisa: su saldo COP se muestra EN VIVO (foreignAmount × tasa del día).
+const usdAccount = {
+  id: 'acc-usd',
+  name: 'Global66',
+  type: 'savings',
+  cachedBalance: 99, // ledger interno: NO debe mostrarse habiendo tasa
+  initialBalance: 0,
+  archived: false,
+  sortOrder: 1,
+  foreignCurrency: 'USD',
+  foreignAmount: 100,
+} as unknown as Account;
+
+// Tabla del día fija: 1 USD = 4.000 COP (sin red en tests).
+vi.mock('../hooks/useUsdRateTable', () => ({
+  useUsdRateTable: () => ({
+    table: { rates: { USD: 1, COP: 4000 }, date: '2026-07-09', source: 'exchangerate-api' },
+    loading: false,
+  }),
+}));
+
 vi.mock('../../data/accountRepository', () => ({
   subscribeAccounts: (_uid: string, cb: (items: Account[]) => void) => {
-    cb([sampleAccount]);
+    cb([sampleAccount, usdAccount]);
     return () => {};
   },
   archiveAccount: vi.fn(),
@@ -55,13 +76,22 @@ describe('AccountsScreen', () => {
   it('lista las cuentas activas con su nombre', () => {
     renderScreen();
     expect(screen.getByText('Bancolombia')).toBeInTheDocument();
-    expect(screen.getByText('Ahorros')).toBeInTheDocument();
+    expect(screen.getAllByText('Ahorros').length).toBeGreaterThanOrEqual(1);
   });
 
   it('muestra el saldo y el disponible (reservado 0 sin fijos)', () => {
     renderScreen();
     // Saldo y disponible son ambos 1.000.000 cuando no hay reservado.
     expect(screen.getAllByText(/1\.000\.000/).length).toBeGreaterThanOrEqual(2);
-    expect(screen.getByText('Disponible')).toBeInTheDocument();
+    expect(screen.getAllByText('Disponible').length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('cuenta en divisa: el saldo COP es la conversión EN VIVO, no el cachedBalance', () => {
+    renderScreen();
+    expect(screen.getByText('Global66')).toBeInTheDocument();
+    // 100 USD × 4.000 = 400.000 (saldo y disponible); el cachedBalance interno (99) no aparece.
+    expect(screen.getAllByText(/400\.000/).length).toBeGreaterThanOrEqual(2);
+    // El monto en USD aparece bajo el Saldo y bajo el Disponible (bimoneda).
+    expect(screen.getAllByText(/100 USD/).length).toBeGreaterThanOrEqual(2);
   });
 });

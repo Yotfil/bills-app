@@ -1,6 +1,12 @@
 // Valores DERIVADOS (CLAUDE.md §4, §5.1, §5.5, §5.6). No se persisten: se calculan al leer
 // a partir de las cachés y los fijos del mes. Son funciones puras.
+//
+// Cuentas en divisa (decisión 2026-07-09): su saldo COP es la conversión EN VIVO con la tasa
+// del día (accountBalanceCop), por eso el disponible y el número-héroe reciben la tabla de
+// tasas. Con `table = null` (o cuentas COP) el comportamiento es idéntico al histórico.
+import { accountBalanceCop, cardTotalDebtCop } from './foreignBalance';
 import type { Account, CreditCard, FixedObligationMonthly, Loan } from './types';
+import type { ExchangeRateTable } from './ExchangeRateTable';
 
 /**
  * Reservado de una cuenta (§5.1, §5.2): Σ de los fijos del mes en estado 'allocated' cuyo
@@ -20,17 +26,22 @@ export function accountReserved(
     .reduce((sum, f) => sum + f.budgetedAmount, 0);
 }
 
-/** Disponible de una cuenta = saldo total − reservado (§5.1). */
+/** Disponible de una cuenta = saldo total (COP en vivo) − reservado (§5.1). */
 export function accountAvailable(
   account: Account,
   monthlyFixeds: FixedObligationMonthly[],
+  table: ExchangeRateTable | null,
 ): number {
-  return account.cachedBalance - accountReserved(monthlyFixeds, account.id);
+  return accountBalanceCop(account, table) - accountReserved(monthlyFixeds, account.id);
 }
 
-/** Cupo disponible de una tarjeta = cupo total − deuda (§5.5). */
-export function cardAvailableCredit(card: CreditCard): number {
-  return card.creditLimit - card.cachedDebt;
+/**
+ * Cupo disponible de una tarjeta = cupo total − deuda total (§5.5). En una tarjeta mixta la deuda
+ * total incluye la parte en divisa convertida EN VIVO con la tasa del día, así que el disponible es
+ * una APROXIMACIÓN que fluctúa con la tasa (`table = null` o tarjeta COP → solo `cachedDebt`).
+ */
+export function cardAvailableCredit(card: CreditCard, table: ExchangeRateTable | null = null): number {
+  return card.creditLimit - cardTotalDebtCop(card, table);
 }
 
 /**
@@ -50,8 +61,9 @@ export function loanProgress(loan: Loan): number {
 export function disponibleReal(
   accounts: Account[],
   monthlyFixeds: FixedObligationMonthly[],
+  table: ExchangeRateTable | null,
 ): number {
   return accounts
     .filter((acc) => !acc.savingsBucket)
-    .reduce((sum, acc) => sum + accountAvailable(acc, monthlyFixeds), 0);
+    .reduce((sum, acc) => sum + accountAvailable(acc, monthlyFixeds, table), 0);
 }

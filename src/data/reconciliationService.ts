@@ -6,10 +6,11 @@ import { categoriesCol } from './collections';
 import { listAll } from './crud';
 import { ADJUSTMENT_CATEGORY_NAME } from './categoryRepository';
 import { createTransaction } from './transactionService';
-import { updateAccount } from './accountRepository';
-import { buildReconciliationAdjustment } from '../domain/reconciliation';
-import { convertToCop, copPerUnit } from '../domain/currencyConversion';
-import { buildForeignReconcileNote } from '../domain/revaluation';
+import {
+  buildForeignReconciliationAdjustment,
+  buildReconciliationAdjustment,
+} from '../domain/reconciliation';
+import { copPerUnit } from '../domain/currencyConversion';
 import { nowTimestamp } from '../lib/date';
 import type { Account, CreditCard, EntityRef, Loan } from '../domain/types';
 import type { ExchangeRateTable } from '../domain/ExchangeRateTable';
@@ -64,11 +65,11 @@ export const reconcileAccount = (
   );
 
 /**
- * Reconcilia una cuenta en MONEDA EXTRANJERA (decisión 2026-07-05): el usuario dice "el saldo
- * real es X USD"; la divisa es la fuente de verdad y el COP es el reflejo de la conversión con
- * la tasa del día. Actualiza primero foreignAmount y luego crea el ajuste COP: si el ajuste
- * fallara, la revaluación automática realineará el saldo después (el orden inverso perdería
- * la reconciliación, porque la revaluación devolvería el COP al monto en divisa viejo).
+ * Reconcilia una cuenta en MONEDA EXTRANJERA (decisión 2026-07-09): el usuario dice "el saldo
+ * real es X USD" y se crea UN movimiento de ajuste EN LA DIVISA (foreignAmount = |Δ|), cuyo
+ * `amount` COP es la conversión del día. `createTransaction` aplica en un solo batch atómico
+ * tanto el delta en divisa (foreignAmount de la cuenta, la fuente de verdad) como el delta COP
+ * (cachedBalance, el ledger interno): nada queda a medias.
  */
 export async function reconcileAccountForeign(
   uid: string,
@@ -81,18 +82,28 @@ export async function reconcileAccountForeign(
     throw new Error(`La cuenta "${account.name}" no tiene moneda extranjera.`);
   }
   const rate = copPerUnit(table, account.foreignCurrency);
-  const targetCop = convertToCop(realForeign, account.foreignCurrency, table);
-  if (rate === null || targetCop === null) {
+  if (rate === null) {
     throw new Error(`No hay tasa disponible para ${account.foreignCurrency}.`);
   }
-  await updateAccount(uid, account.id, { foreignAmount: realForeign });
-  const finalNote = note?.trim()
-    ? note
-    : buildForeignReconcileNote(account.foreignCurrency, rate);
-  return reconcileAccount(uid, account, targetCop, finalNote);
+  const adjustmentCategoryId = await getAdjustmentCategoryId(uid);
+  const draft = buildForeignReconciliationAdjustment(
+    account.foreignAmount ?? 0,
+    realForeign,
+    account.foreignCurrency,
+    rate,
+    {
+      source: { kind: 'account', id: account.id },
+      adjustmentCategoryId,
+      date: nowTimestamp(),
+      note: note?.trim() ? note : null,
+    },
+  );
+  if (!draft) return false; // saldo en divisa igual al registrado: nada que ajustar
+  await createTransaction(uid, draft);
+  return true;
 }
 
-/** Reconcilia la DEUDA de una tarjeta de crédito (§5.5, §5.7). */
+/** Reconcilia la DEUDA COP de una tarjeta de crédito (§5.5, §5.7). */
 export const reconcileCard = (
   uid: string,
   card: CreditCard,
@@ -100,6 +111,44 @@ export const reconcileCard = (
   note?: string | null,
 ): Promise<boolean> =>
   reconcileEntity(uid, { kind: 'card', id: card.id }, card.cachedDebt, realDebt, note);
+
+/**
+ * Reconcilia la DEUDA EN DIVISA de una tarjeta mixta (gastos en divisa, 2026-07-07): el usuario dice
+ * "la deuda real es X USD" y se crea UN ajuste EN LA DIVISA (foreignAmount = |Δ|; dirección
+ * 'increase' = más deuda). `createTransaction` mueve `cachedForeignDebt` en un batch atómico y NO
+ * toca la deuda COP (`cachedDebt`), porque la tarjeta es mixta (pools separados).
+ */
+export async function reconcileCardForeign(
+  uid: string,
+  card: CreditCard,
+  realForeign: number,
+  table: ExchangeRateTable,
+  note?: string | null,
+): Promise<boolean> {
+  if (!card.foreignCurrency) {
+    throw new Error(`La tarjeta "${card.name}" no cobra en moneda extranjera.`);
+  }
+  const rate = copPerUnit(table, card.foreignCurrency);
+  if (rate === null) {
+    throw new Error(`No hay tasa disponible para ${card.foreignCurrency}.`);
+  }
+  const adjustmentCategoryId = await getAdjustmentCategoryId(uid);
+  const draft = buildForeignReconciliationAdjustment(
+    card.cachedForeignDebt ?? 0,
+    realForeign,
+    card.foreignCurrency,
+    rate,
+    {
+      source: { kind: 'card', id: card.id },
+      adjustmentCategoryId,
+      date: nowTimestamp(),
+      note: note?.trim() ? note : null,
+    },
+  );
+  if (!draft) return false; // deuda en divisa igual a la registrada: nada que ajustar
+  await createTransaction(uid, draft);
+  return true;
+}
 
 /** Reconcilia el SALDO pendiente de un crédito (§5.6, §5.7). */
 export const reconcileLoan = (

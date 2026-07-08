@@ -21,8 +21,8 @@ describe('Obligaciones fijas: transiciones de estado', () => {
       expect(accountReserved([fixedAllocated], 'acc-1')).toBe(230_000);
 
       // Disponible real baja exactamente en el monto destinado.
-      expect(disponibleReal(accounts, [])).toBe(1_000_000);
-      expect(disponibleReal(accounts, [fixedAllocated])).toBe(770_000);
+      expect(disponibleReal(accounts, [], null)).toBe(1_000_000);
+      expect(disponibleReal(accounts, [fixedAllocated], null)).toBe(770_000);
     });
 
   });
@@ -37,7 +37,7 @@ describe('Obligaciones fijas: transiciones de estado', () => {
       });
 
       // Con el fijo destinado: saldo 1.000.000, reservado 230.000 → disponible real 770.000.
-      expect(disponibleReal(accounts, [allocated])).toBe(770_000);
+      expect(disponibleReal(accounts, [allocated], null)).toBe(770_000);
 
       // Al pagar se crea la transacción y el fijo deja de estar 'allocated' (reservado se libera).
       const txn = buildTransactionFromFixed(allocated, {
@@ -52,7 +52,7 @@ describe('Obligaciones fijas: transiciones de estado', () => {
 
       // Saldo bajó a 770.000; ya no hay reservado → disponible real sigue en 770.000.
       expect(paidAccounts[0]!.cachedBalance).toBe(770_000);
-      expect(disponibleReal(paidAccounts, [])).toBe(770_000);
+      expect(disponibleReal(paidAccounts, [], null)).toBe(770_000);
     });
   });
 

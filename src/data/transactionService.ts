@@ -39,7 +39,8 @@ import {
 } from '../domain/ledger';
 import { listAll } from './crud';
 import { applyBudgetBoosts } from './budgetBoostService';
-import { foreignIncomeDelta } from '../domain/revaluation';
+import { foreignDelta } from '../domain/foreignLedger';
+import { foreignCardDelta } from '../domain/foreignCardLedger';
 import type { TransactionDraft } from '../domain/types';
 import type { RecalculationCorrections } from './RecalculationCorrections';
 
@@ -86,26 +87,65 @@ function applyDeltaToBatch(batch: WriteBatch, uid: string, delta: LedgerDelta): 
 
 /**
  * Aplica al batch el efecto de un movimiento sobre el MONTO EN DIVISA de las cuentas (decisión
- * 2026-07-07): un ingreso en divisa suma su monto original a `Account.foreignAmount` (la fuente
- * de verdad de las cuentas en moneda extranjera, ver revaluación). Va en el MISMO batch que los
- * saldos para que la revaluación diaria nunca vea un estado a medias. `factors` permite netear
- * revertir el movimiento viejo (−1) y aplicar el nuevo (+1) en una sola escritura por cuenta.
+ * 2026-07-09): cualquier movimiento en divisa (ingreso, gasto, transferencia misma-moneda,
+ * ajuste de reconciliación) mueve `Account.foreignAmount` — la fuente de verdad de las cuentas
+ * en moneda extranjera; el COP mostrado es su conversión en vivo. Va en el MISMO batch que los
+ * saldos COP (todo o nada). `factor` permite netear revertir el movimiento viejo (−1) y aplicar
+ * el nuevo (+1) en una sola escritura por cuenta.
  */
 function applyForeignDeltaToBatch(
   batch: WriteBatch,
   uid: string,
-  entries: Array<{ txn: Pick<TransactionDraft, 'type' | 'destination' | 'foreignAmount'>; factor: 1 | -1 }>,
+  entries: Array<{
+    txn: Pick<
+      TransactionDraft,
+      | 'type'
+      | 'source'
+      | 'destination'
+      | 'foreignAmount'
+      | 'adjustmentDirection'
+      | 'destinationAmount'
+      | 'destinationForeignAmount'
+    >;
+    factor: 1 | -1;
+  }>,
 ): void {
   const perAccount: Record<string, number> = {};
   for (const { txn, factor } of entries) {
-    const delta = foreignIncomeDelta(txn);
-    if (!delta) continue;
-    perAccount[delta.accountId] = (perAccount[delta.accountId] ?? 0) + delta.amount * factor;
+    for (const delta of foreignDelta(txn)) {
+      perAccount[delta.accountId] = (perAccount[delta.accountId] ?? 0) + delta.amount * factor;
+    }
   }
   for (const [id, amount] of Object.entries(perAccount)) {
     if (amount === 0) continue;
     batch.update(rawDoc(accountsCol(uid), id), {
       foreignAmount: increment(amount),
+      updatedAt: serverTimestamp(),
+    });
+  }
+}
+
+// Aplica al batch el delta en DIVISA sobre la deuda de las tarjetas mixtas (`cachedForeignDebt`),
+// espejo de applyForeignDeltaToBatch pero sobre `cardsCol`. `factor` permite netear viejo/nuevo al
+// editar. Un gasto/ajuste en divisa con tarjeta mueve solo este pool (no la deuda COP, §ledger).
+function applyForeignCardDeltaToBatch(
+  batch: WriteBatch,
+  uid: string,
+  entries: Array<{
+    txn: Pick<TransactionDraft, 'type' | 'source' | 'foreignAmount' | 'adjustmentDirection'>;
+    factor: 1 | -1;
+  }>,
+): void {
+  const perCard: Record<string, number> = {};
+  for (const { txn, factor } of entries) {
+    for (const delta of foreignCardDelta(txn)) {
+      perCard[delta.cardId] = (perCard[delta.cardId] ?? 0) + delta.amount * factor;
+    }
+  }
+  for (const [id, amount] of Object.entries(perCard)) {
+    if (amount === 0) continue;
+    batch.update(rawDoc(cardsCol(uid), id), {
+      cachedForeignDebt: increment(amount),
       updatedAt: serverTimestamp(),
     });
   }
@@ -132,6 +172,7 @@ export function addTransactionToBatch(
   });
   applyDeltaToBatch(batch, uid, transactionDelta(draft));
   applyForeignDeltaToBatch(batch, uid, [{ txn: draft, factor: 1 }]);
+  applyForeignCardDeltaToBatch(batch, uid, [{ txn: draft, factor: 1 }]);
   return newRef.id;
 }
 
@@ -177,11 +218,20 @@ export async function editTransaction(
     // que borrar el movimiento después no revierta un monto que ya no aplica.
     foreignCurrency: newDraft.foreignCurrency ?? null,
     foreignAmount: newDraft.foreignAmount ?? null,
+    // Igual con la pata de destino de una transferencia cross-moneda: si el nuevo draft ya no la
+    // lleva, se limpia para que un borrado posterior no revierta un monto que ya no aplica.
+    destinationAmount: newDraft.destinationAmount ?? null,
+    destinationForeignCurrency: newDraft.destinationForeignCurrency ?? null,
+    destinationForeignAmount: newDraft.destinationForeignAmount ?? null,
     updatedAt: serverTimestamp(),
   });
   applyDeltaToBatch(batch, uid, delta);
   // Divisa: revierte el efecto del movimiento viejo y aplica el del nuevo (neteado por cuenta).
   applyForeignDeltaToBatch(batch, uid, [
+    { txn: oldTxn, factor: -1 },
+    { txn: newDraft, factor: 1 },
+  ]);
+  applyForeignCardDeltaToBatch(batch, uid, [
     { txn: oldTxn, factor: -1 },
     { txn: newDraft, factor: 1 },
   ]);
@@ -218,6 +268,7 @@ export async function deleteTransaction(uid: string, id: string): Promise<void> 
   applyDeltaToBatch(batch, uid, delta);
   // Divisa: al borrar un ingreso en divisa, su monto original sale de la fuente de verdad.
   applyForeignDeltaToBatch(batch, uid, [{ txn: data, factor: -1 }]);
+  applyForeignCardDeltaToBatch(batch, uid, [{ txn: data, factor: -1 }]);
   if (fixedRef) {
     batch.update(fixedRef, {
       status: 'pending',

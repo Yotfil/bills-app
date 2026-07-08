@@ -51,14 +51,28 @@ service cloud.firestore {
         allow create, update: if canAccess(uid)
           && request.resource.data.name is string
           && request.resource.data.cachedBalance is number
-          && request.resource.data.initialBalance is number;
+          && request.resource.data.initialBalance is number
+          // Cuenta en divisa (opcional): si trae monto en divisa, debe ser número.
+          && (!('foreignAmount' in request.resource.data)
+              || request.resource.data.foreignAmount == null
+              || request.resource.data.foreignAmount is number);
       }
       match /cards/{cardId} {
         allow read, delete: if canAccess(uid);
         allow create, update: if canAccess(uid)
           && request.resource.data.name is string
           && request.resource.data.creditLimit is number
-          && request.resource.data.cachedDebt is number;
+          && request.resource.data.cachedDebt is number
+          // Tarjeta mixta (opcional): divisa en la que también cobra y su deuda en esa divisa.
+          && (!('foreignCurrency' in request.resource.data)
+              || request.resource.data.foreignCurrency == null
+              || request.resource.data.foreignCurrency is string)
+          && (!('cachedForeignDebt' in request.resource.data)
+              || request.resource.data.cachedForeignDebt == null
+              || request.resource.data.cachedForeignDebt is number)
+          && (!('initialForeignDebt' in request.resource.data)
+              || request.resource.data.initialForeignDebt == null
+              || request.resource.data.initialForeignDebt is number);
       }
       match /loans/{loanId} {
         allow read, delete: if canAccess(uid);
@@ -98,7 +112,29 @@ service cloud.firestore {
           && request.resource.data.amount is int
           && request.resource.data.amount > 0
           && request.resource.data.type in ['expense', 'income', 'transfer', 'debt_payment', 'adjustment']
-          && request.resource.data.concept is string;
+          && request.resource.data.concept is string
+          // Movimiento en divisa (opcional): monto > 0 con su moneda, y nunca en abonos a
+          // deuda (las deudas son COP; decisión 2026-07-09).
+          && (!('foreignAmount' in request.resource.data)
+              || request.resource.data.foreignAmount == null
+              || (request.resource.data.foreignAmount is number
+                  && request.resource.data.foreignAmount > 0
+                  && request.resource.data.foreignCurrency is string
+                  && request.resource.data.type != 'debt_payment'))
+          // Transferencia cross-moneda (opcional): la pata de destino lleva su propio COP entero > 0
+          // y, si el destino es en divisa, su monto en esa moneda (> 0 con su moneda). Solo en
+          // transferencias.
+          && (!('destinationAmount' in request.resource.data)
+              || request.resource.data.destinationAmount == null
+              || (request.resource.data.destinationAmount is int
+                  && request.resource.data.destinationAmount > 0
+                  && request.resource.data.type == 'transfer'))
+          && (!('destinationForeignAmount' in request.resource.data)
+              || request.resource.data.destinationForeignAmount == null
+              || (request.resource.data.destinationForeignAmount is number
+                  && request.resource.data.destinationForeignAmount > 0
+                  && request.resource.data.destinationForeignCurrency is string
+                  && request.resource.data.type == 'transfer'));
       }
     }
   }

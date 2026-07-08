@@ -4,7 +4,6 @@ import { Brand } from './components/Brand';
 import { BudgetAlertWatcher } from './components/BudgetAlertWatcher';
 import { MonthlyRolloverWatcher } from './components/MonthlyRolloverWatcher';
 import { AutoPayWatcher } from './components/AutoPayWatcher';
-import { RevaluationWatcher } from './components/RevaluationWatcher';
 
 // Esqueleto de la app autenticada: contenido + barra inferior con 5 destinos (CLAUDE.md §8).
 // Las pantallas de cada destino se van completando en sus pasos del plan. El botón central
@@ -36,8 +35,6 @@ export function AppLayout() {
       {/* Auto-registro de gastos fijos en su día de cobro (§5.3): corre tras generarse el mes. */}
       <AutoPayWatcher />
       <BudgetAlertWatcher />
-      {/* Realinea el saldo COP de cuentas en divisa con la tasa del día (ajuste automático). */}
-      <RevaluationWatcher />
 
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white">
         <div className="mx-auto flex max-w-md items-center">

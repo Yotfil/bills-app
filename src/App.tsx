@@ -25,6 +25,11 @@ const AccountsScreen = lazy(() =>
 const CardsScreen = lazy(() =>
   import('./ui/screens/CardsScreen').then((m) => ({ default: m.CardsScreen })),
 );
+const EntityMovementsScreen = lazy(() =>
+  import('./ui/screens/EntityMovementsScreen').then((m) => ({
+    default: m.EntityMovementsScreen,
+  })),
+);
 const PlantillaScreen = lazy(() =>
   import('./ui/screens/plantilla/PlantillaScreen').then((m) => ({ default: m.PlantillaScreen })),
 );
@@ -102,7 +107,15 @@ function App() {
               <Route path="/mas" element={<MoreScreen />} />
               <Route path="/mas/cuentas" element={<AccountsScreen />} />
               <Route path="/mas/ahorros" element={<AccountsScreen savingsBucket />} />
+              <Route
+                path="/mas/cuentas/:id/movimientos"
+                element={<EntityMovementsScreen kind="account" />}
+              />
               <Route path="/mas/tarjetas" element={<CardsScreen />} />
+              <Route
+                path="/mas/tarjetas/:id/movimientos"
+                element={<EntityMovementsScreen kind="card" />}
+              />
               <Route path="/mas/fijos" element={<PlantillaScreen />} />
               {/* Ruta vieja: la plantilla de presupuestos ahora es un tab de Plantilla. */}
               <Route

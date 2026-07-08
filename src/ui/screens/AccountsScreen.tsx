@@ -1,11 +1,12 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useUserCollection } from '../hooks/useUserCollection';
 import { useSessionStore } from '../../store/sessionStore';
 import { AccountForm } from './AccountForm';
 import { ReconcileModal } from './ReconcileModal';
 import { ReservedBreakdownModal } from './ReservedBreakdownModal';
 import { BackButton } from '../components/BackButton';
-import { Pencil, Scale, Archive, Trash2 } from 'lucide-react';
+import { Pencil, Scale, Archive, Trash2, ChevronRight } from 'lucide-react';
 import { ActionMenu } from '../components/ActionMenu';
 import { ConfirmDeleteModal } from '../components/ConfirmDeleteModal';
 import { formatCop, formatForeignAmount } from '../../lib/currency';
@@ -17,6 +18,7 @@ import { subscribeTransactions } from '../../data/transactionRepository';
 import { reconcileAccount, reconcileAccountForeign } from '../../data/reconciliationService';
 import { useUsdRateTable } from '../hooks/useUsdRateTable';
 import { copPerUnit } from '../../domain/currencyConversion';
+import { accountBalanceCop, accountCopRate, copToForeign } from '../../domain/foreignBalance';
 import type { AccountsScreenProps } from './AccountsScreenProps';
 import type { ReconcileTarget } from './ReconcileTarget';
 import type {
@@ -36,6 +38,7 @@ const TYPE_LABEL: Record<AccountType, string> = {
 // el flag savingsBucket. El disponible real solo cuenta las de uso (§4).
 export function AccountsScreen({ savingsBucket = false }: AccountsScreenProps) {
   const uid = useSessionStore((s) => s.user?.uid);
+  const navigate = useNavigate();
   const { items, loading } = useUserCollection<Account>(subscribeAccounts);
   const { items: transactions } = useUserCollection<Transaction>(subscribeTransactions);
   const [editing, setEditing] = useState<Account | null>(null);
@@ -87,7 +90,8 @@ export function AccountsScreen({ savingsBucket = false }: AccountsScreenProps) {
       ? {
           id: reconciling.id,
           name: reconciling.name,
-          registeredValue: reconciling.cachedBalance,
+          // El registrado debe coincidir con el saldo que la pantalla muestra (COP en vivo).
+          registeredValue: accountBalanceCop(reconciling, table),
           registeredLabel: 'Saldo registrado',
           inputLabel:
             foreignRate !== null
@@ -133,12 +137,19 @@ export function AccountsScreen({ savingsBucket = false }: AccountsScreenProps) {
       <ul className="flex flex-col gap-3">
         {accounts.map((account) => {
           const reserved = accountReserved(allocatedFixeds, account.id);
-          const available = accountAvailable(account, allocatedFixeds);
+          const available = accountAvailable(account, allocatedFixeds, table);
+          const rate = accountCopRate(account, table);
           return (
             <li key={account.id} className="rounded-xl border border-slate-200 bg-white p-4">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="truncate font-semibold text-slate-800">{account.name}</p>
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/mas/cuentas/${account.id}/movimientos`)}
+                    className="block max-w-full truncate text-left font-semibold text-slate-800 hover:underline"
+                  >
+                    {account.name}
+                  </button>
                   <p className="text-xs text-slate-400">{TYPE_LABEL[account.type]}</p>
                 </div>
                 <ActionMenu
@@ -159,12 +170,15 @@ export function AccountsScreen({ savingsBucket = false }: AccountsScreenProps) {
               <dl className="mt-3 grid grid-cols-3 gap-2 text-center">
                 <div>
                   <dt className="text-xs text-slate-400">Saldo</dt>
+                  {/* En cuentas en divisa el COP es la conversión EN VIVO (≈); la divisa es el
+                      valor exacto (decisión 2026-07-09). */}
                   <dd className="text-sm font-medium text-slate-800">
-                    {formatCop(account.cachedBalance)}
+                    {account.foreignCurrency ? '≈ ' : ''}
+                    {formatCop(accountBalanceCop(account, table))}
                   </dd>
                   {account.foreignCurrency && account.foreignAmount != null && (
                     <dd className="text-[11px] text-slate-400">
-                      ≈ {formatForeignAmount(account.foreignAmount)} {account.foreignCurrency}
+                      {formatForeignAmount(account.foreignAmount)} {account.foreignCurrency}
                     </dd>
                   )}
                 </div>
@@ -187,9 +201,26 @@ export function AccountsScreen({ savingsBucket = false }: AccountsScreenProps) {
                 </div>
                 <div>
                   <dt className="text-xs text-slate-400">Disponible</dt>
-                  <dd className="text-sm font-semibold text-emerald-600">{formatCop(available)}</dd>
+                  <dd className="text-sm font-semibold text-emerald-600">
+                    {account.foreignCurrency ? '≈ ' : ''}
+                    {formatCop(available)}
+                  </dd>
+                  {account.foreignCurrency && rate !== null && (
+                    <dd className="text-[11px] text-slate-400">
+                      {formatForeignAmount(copToForeign(available, rate))}{' '}
+                      {account.foreignCurrency}
+                    </dd>
+                  )}
                 </div>
               </dl>
+
+              <button
+                type="button"
+                onClick={() => navigate(`/mas/cuentas/${account.id}/movimientos`)}
+                className="mt-3 flex w-full items-center justify-center gap-1 rounded-lg border border-slate-200 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
+              >
+                Ver movimientos <ChevronRight className="h-4 w-4" />
+              </button>
             </li>
           );
         })}

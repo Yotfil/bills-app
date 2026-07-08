@@ -40,13 +40,12 @@ type PayFixedFormProps = Omit<PayFixedModalProps, 'open'> & {
 
 function PayFixedForm({ fixed, accounts, cards, loans, onConfirm, onClose }: PayFixedFormProps) {
   const isDebtPayment = fixed.payKind === 'debt_payment';
-  const [amount, setAmount] = useState(String(fixed.budgetedAmount));
-  const [source, setSource] = useState(refToValue(fixed.paymentMethod));
-  const { busy, error, run } = useAsyncAction();
-
-  // En abono a deuda el origen es una cuenta; en gasto puede ser cuenta o tarjeta.
+  // En abono a deuda el origen es una cuenta; en gasto puede ser cuenta o tarjeta. Las cuentas
+  // en OTRA MONEDA se excluyen: los fijos son COP y pagarlos desde una cuenta en divisa sería un
+  // cambio de moneda, que por ahora es manual, fuera de la app (decisión 2026-07-09).
+  const copAccounts = accounts.filter((a) => !a.foreignCurrency);
   const sourceOptions = [
-    ...accounts.map((a) => ({ value: refToValue({ kind: 'account', id: a.id }), label: a.name })),
+    ...copAccounts.map((a) => ({ value: refToValue({ kind: 'account', id: a.id }), label: a.name })),
     ...(isDebtPayment
       ? []
       : cards.map((c) => ({
@@ -54,6 +53,15 @@ function PayFixedForm({ fixed, accounts, cards, loans, onConfirm, onClose }: Pay
           label: `${c.name} (TC)`,
         }))),
   ];
+  // Si el medio por defecto del fijo quedó excluido (cuenta en divisa), cae al primero válido.
+  const defaultSource = refToValue(fixed.paymentMethod);
+  const [amount, setAmount] = useState(String(fixed.budgetedAmount));
+  const [source, setSource] = useState(
+    sourceOptions.some((o) => o.value === defaultSource)
+      ? defaultSource
+      : (sourceOptions[0]?.value ?? ''),
+  );
+  const { busy, error, run } = useAsyncAction();
 
   // El destino del abono es la tarjeta o el crédito del fijo (resolvemos el kind por el id).
   const targetCard = isDebtPayment ? cards.find((c) => c.id === fixed.debtTargetId) : undefined;

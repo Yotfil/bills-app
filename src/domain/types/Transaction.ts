@@ -33,12 +33,22 @@ export interface Transaction extends BaseDoc {
   // varios presupuestos en el mes elegido. Solo en `income`. Se hornea en el override del presupuesto
   // al crear y se revierte al borrar/editar. Ausente = sin aumentos.
   budgetBoosts?: BudgetBoost[];
-  // Ingreso EN DIVISA a una cuenta en moneda extranjera (decisión 2026-07-07): el monto original en
-  // la divisa de la cuenta destino; `amount` es su conversión a COP con la tasa del día. LIGADO y
-  // reversible: crear/editar/borrar el movimiento incrementa/revierte Account.foreignAmount (la
-  // fuente de verdad de esas cuentas), para que la revaluación diaria no lo deshaga. Ausente = COP.
+  // Movimiento EN DIVISA sobre una cuenta en moneda extranjera (decisión 2026-07-09): el monto
+  // original en la divisa; `amount` es su conversión a COP con la tasa del día (reportes/caja).
+  // LIGADO y reversible: crear/editar/borrar aplica/revierte el delta sobre Account.foreignAmount
+  // (la fuente de verdad); el lado y el signo los deriva foreignLedger.foreignDelta según el tipo
+  // (ingreso, gasto, transferencia misma-moneda, ajuste). Ausente = movimiento COP normal.
   foreignCurrency?: string | null;
   foreignAmount?: number | null; // en la divisa, puede llevar decimales (la regla "entero" es COP)
+  // Transferencia CROSS-MONEDA (cuentas en distinta moneda, montos manuales por lado): los campos
+  // `amount`/`foreignCurrency`/`foreignAmount` de arriba describen la pata de ORIGEN (lo que sale);
+  // estos describen la pata de DESTINO (lo que entra). Su presencia (`destinationAmount != null`)
+  // marca la transferencia como cross-moneda. Cuando un lado es COP, `amount` y `destinationAmount`
+  // coinciden (el valor real de la operación) y el ledger COP queda en neto cero; si ambos lados son
+  // divisa, cada pata usa la conversión del día. Ausente = transferencia normal (misma moneda).
+  destinationAmount?: number | null; // COP que ENTRA al destino (entero, positivo)
+  destinationForeignCurrency?: string | null;
+  destinationForeignAmount?: number | null; // en la divisa del destino (decimales permitidos)
 }
 
 /**

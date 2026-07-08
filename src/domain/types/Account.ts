@@ -11,9 +11,11 @@ export interface Account extends BaseDoc, Archivable {
   // Si es una "bolsa de ahorro" (dinero apartado): se muestra en la sección Ahorros y NO
   // cuenta en el disponible real (§4). False = cuenta de uso/gasto normal.
   savingsBucket: boolean;
-  // Anotación de moneda extranjera (la app es COP, §3): el saldo (cachedBalance) está en COP,
-  // pero si la cuenta vive en otra moneda se muestra el monto original como referencia.
-  // p.ej. Global66 en USD: foreignCurrency = 'USD', foreignAmount = 9918. null = solo COP.
+  // Cuenta en MONEDA EXTRANJERA (decisión 2026-07-09): la cuenta es monomoneda y su fuente de
+  // verdad es `foreignAmount` (en su divisa; admite decimales), movida SOLO por movimientos en
+  // esa divisa (ver foreignLedger.foreignDelta). El COP que se muestra es la conversión EN VIVO
+  // con la tasa del día (foreignBalance.accountBalanceCop); `cachedBalance` queda como ledger
+  // COP interno y fallback offline. null = cuenta en COP normal.
   foreignCurrency: string | null;
   foreignAmount: number | null;
   color: string;

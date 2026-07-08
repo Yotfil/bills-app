@@ -4,59 +4,22 @@ import { useUserCollection } from '../hooks/useUserCollection';
 import { useSessionStore } from '../../store/sessionStore';
 import { Modal } from '../components/Modal';
 import { DisponibleRealBar } from '../components/DisponibleRealBar';
+import { TransactionList } from '../components/TransactionList';
 import { TransactionForm } from './TransactionForm';
 import { TransactionFilters } from './TransactionFilters';
-import { formatCop, formatForeignAmount } from '../../lib/currency';
-import { dayKey, formatDayLabel, formatMonthLabel, formatTime, monthKey } from '../../lib/date';
 import { subscribeTransactions } from '../../data/transactionRepository';
 import { subscribeAccounts } from '../../data/accountRepository';
 import { subscribeCards } from '../../data/cardRepository';
 import { subscribeLoans } from '../../data/loanRepository';
 import { subscribeCategories } from '../../data/categoryRepository';
 import { deleteTransaction } from '../../data/transactionService';
-import { totalSpend } from '../../domain/reports';
 import {
   EMPTY_TRANSACTION_FILTER,
   filterTransactions,
   isFilterActive,
 } from '../../domain/transactionFilters';
 import type { TransactionFilter } from '../../domain/transactionFilters';
-import type {
-  Account,
-  Category,
-  CreditCard,
-  EntityRef,
-  Loan,
-  Transaction,
-  TransactionType,
-} from '../../domain/types';
-
-// Color del monto según el tipo (§8.2): gasto baja (rojo), ingreso entra (verde), el resto
-// es movimiento neutro.
-const AMOUNT_CLASS: Record<TransactionType, string> = {
-  expense: 'text-red-600',
-  income: 'text-emerald-600',
-  transfer: 'text-slate-500',
-  debt_payment: 'text-slate-500',
-  adjustment: 'text-slate-500',
-};
-
-const SIGN: Record<TransactionType, string> = {
-  expense: '−',
-  income: '+',
-  transfer: '',
-  debt_payment: '−',
-  adjustment: '',
-};
-
-// Etiqueta del tipo de movimiento, para mostrarla junto al medio de pago en cada card (§8.2).
-const TYPE_LABEL: Record<TransactionType, string> = {
-  expense: 'Gasto',
-  income: 'Ingreso',
-  transfer: 'Transferencia',
-  debt_payment: 'Abono',
-  adjustment: 'Ajuste',
-};
+import type { Account, Category, CreditCard, Loan, Transaction } from '../../domain/types';
 
 export function RegistroScreen() {
   const uid = useSessionStore((s) => s.user?.uid);
@@ -74,32 +37,10 @@ export function RegistroScreen() {
     categoryId: searchParams.get('cat'),
   }));
 
-  const entityName = useMemo(() => {
-    const map = new Map<string, string>();
-    accounts.forEach((a) => map.set(`account:${a.id}`, a.name));
-    cards.forEach((c) => map.set(`card:${c.id}`, c.name));
-    loans.forEach((l) => map.set(`loan:${l.id}`, l.name));
-    return (ref: EntityRef | null) => (ref ? (map.get(`${ref.kind}:${ref.id}`) ?? '—') : '—');
-  }, [accounts, cards, loans]);
-
-  const categoryById = useMemo(() => {
-    const map = new Map<string, Category>();
-    categories.forEach((c) => map.set(c.id, c));
-    return map;
-  }, [categories]);
-
-  // Aplicar filtros (§8.2) y agrupar por día conservando el orden cronológico inverso.
-  const groups = useMemo(() => {
-    const visible = filterTransactions(transactions, filter);
-    const byDay = new Map<string, Transaction[]>();
-    for (const txn of visible) {
-      const key = dayKey(txn.date);
-      const list = byDay.get(key) ?? [];
-      list.push(txn);
-      byDay.set(key, list);
-    }
-    return [...byDay.entries()];
-  }, [transactions, filter]);
+  const visible = useMemo(
+    () => filterTransactions(transactions, filter),
+    [transactions, filter],
+  );
 
   async function handleDelete(txn: Transaction) {
     if (!uid) return;
@@ -130,7 +71,7 @@ export function RegistroScreen() {
           Aún no hay movimientos. Toca “+” para registrar el primero.
         </p>
       )}
-      {!loading && transactions.length > 0 && groups.length === 0 && (
+      {!loading && transactions.length > 0 && visible.length === 0 && (
         <p className="text-slate-500">
           Ningún movimiento coincide con el filtro.{' '}
           {isFilterActive(filter) && (
@@ -145,69 +86,14 @@ export function RegistroScreen() {
         </p>
       )}
 
-      {groups.map(([key, dayTxns]) => (
-        <section key={key} className="flex flex-col gap-2">
-          <div className="flex items-center justify-between px-1">
-            <h2 className="text-xs font-semibold text-slate-400 uppercase">
-              {formatDayLabel(dayTxns[0]!.date)}
-            </h2>
-            <span className="text-xs text-slate-400">Gastos: {formatCop(totalSpend(dayTxns))}</span>
-          </div>
-          <ul className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-            {dayTxns.map((txn) => {
-              const cat = txn.categoryId ? categoryById.get(txn.categoryId) : undefined;
-              const method = entityName(txn.source ?? txn.destination);
-              const time = formatTime(txn.createdAt);
-              // Si el movimiento pertenece a un mes distinto al de su fecha (p.ej. un fijo pagado por
-              // adelantado), se muestra ese mes en un chip junto al nombre para saber a cuál aplica.
-              const periodLabel =
-                txn.periodMonth && txn.periodMonth !== monthKey(txn.date)
-                  ? formatMonthLabel(txn.periodMonth)
-                  : null;
-              return (
-                <li key={txn.id}>
-                  <button
-                    type="button"
-                    onClick={() => setEditing(txn)}
-                    className="flex w-full items-center gap-3 border-b border-slate-100 px-3 py-3 text-left last:border-0"
-                  >
-                    <span className="text-xl">{cat?.icon ?? '↔️'}</span>
-                    <span className="min-w-0 flex-1">
-                      <span className="flex items-center gap-2">
-                        <span className="truncate font-medium text-slate-800">
-                          {txn.concept}
-                          {txn.tags.includes('hormiga') && ' 🐜'}
-                        </span>
-                        {periodLabel && (
-                          <span className="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500 capitalize">
-                            {periodLabel}
-                          </span>
-                        )}
-                      </span>
-                      <span className="block truncate text-xs text-slate-400">
-                        {TYPE_LABEL[txn.type]} · {method}
-                      </span>
-                    </span>
-                    <span className="flex flex-col items-end">
-                      <span className={`font-semibold ${AMOUNT_CLASS[txn.type]}`}>
-                        {SIGN[txn.type]}
-                        {formatCop(txn.amount)}
-                      </span>
-                      {/* Ingreso en divisa: el COP es la conversión; se muestra el monto original. */}
-                      {txn.foreignAmount != null && txn.foreignCurrency && (
-                        <span className="text-[11px] text-slate-400">
-                          {formatForeignAmount(txn.foreignAmount)} {txn.foreignCurrency}
-                        </span>
-                      )}
-                      {time && <span className="text-xs text-slate-400">{time}</span>}
-                    </span>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        </section>
-      ))}
+      <TransactionList
+        transactions={visible}
+        categories={categories}
+        accounts={accounts}
+        cards={cards}
+        loans={loans}
+        onSelect={setEditing}
+      />
 
       <Modal open={!!editing} title="Editar movimiento" onClose={() => setEditing(null)}>
         {editing && (
