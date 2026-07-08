@@ -137,15 +137,25 @@ export function validateTransaction(txn: TransactionDraft): ValidationError[] {
       errors.push('foreign_forbidden_on_debt_payment');
     } else if (txn.type === 'income' && txn.destination?.kind !== 'account') {
       errors.push('foreign_requires_account_side');
-    } else if (txn.type === 'expense' && txn.source?.kind !== 'account') {
-      // Un gasto en divisa con tarjeta es inválido: las tarjetas son COP.
+    } else if (
+      txn.type === 'expense' &&
+      txn.source?.kind !== 'account' &&
+      txn.source?.kind !== 'card'
+    ) {
+      // Un gasto en divisa sale de una cuenta en esa moneda o de una tarjeta que cobra en ella
+      // (tarjeta mixta, 2026-07-07). Solo se prohíbe si el origen no es cuenta ni tarjeta.
       errors.push('foreign_requires_account_side');
     } else if (
       txn.type === 'transfer' &&
       (txn.source?.kind !== 'account' || txn.destination?.kind !== 'account')
     ) {
       errors.push('foreign_requires_account_side');
-    } else if (txn.type === 'adjustment' && txn.source?.kind !== 'account') {
+    } else if (
+      txn.type === 'adjustment' &&
+      txn.source?.kind !== 'account' &&
+      txn.source?.kind !== 'card'
+    ) {
+      // Reconciliar en divisa aplica a una cuenta o a la deuda en divisa de una tarjeta.
       errors.push('foreign_requires_account_side');
     }
   }

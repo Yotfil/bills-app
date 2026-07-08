@@ -4,7 +4,7 @@ import { TransactionForm } from './TransactionForm';
 import { useSessionStore } from '../../store/sessionStore';
 import { useEntryPrefsStore } from '../../store/entryPrefsStore';
 import { createTransaction } from '../../data/transactionService';
-import type { Account, Category, TransactionDraft } from '../../domain/types';
+import type { Account, Category, CreditCard, TransactionDraft } from '../../domain/types';
 
 // Mockeamos repos y servicio: el form no debe tocar Firestore en tests (§13.2).
 const sampleAccount = {
@@ -51,9 +51,18 @@ vi.mock('../hooks/useUsdRateTable', () => ({
     loading: false,
   }),
 }));
+// Tarjeta que puede cobrar en USD (tarjeta mixta, 2026-07-07).
+const usdCard = {
+  id: 'tc-usd',
+  name: 'TC Global',
+  archived: false,
+  creditLimit: 10_000_000,
+  cachedDebt: 0,
+  foreignCurrency: 'USD',
+} as unknown as CreditCard;
 vi.mock('../../data/cardRepository', () => ({
   subscribeCards: (_uid: string, cb: (items: unknown[]) => void) => {
-    cb([]);
+    cb([usdCard]);
     return () => {};
   },
 }));
@@ -183,11 +192,33 @@ describe('TransactionForm', () => {
     expect(draft.source).toEqual({ kind: 'account', id: 'acc-usd' });
   });
 
-  it('un gasto con tarjeta nunca entra en modo divisa', () => {
+  it('con cuenta COP el monto sigue en COP (sin selector de moneda)', () => {
     render(<TransactionForm onDone={vi.fn()} />);
-    // El mock de tarjetas está vacío; basta verificar que con cuenta COP el monto sigue en COP.
     fireEvent.change(screen.getByRole('combobox'), { target: { value: 'account:acc-1' } });
     expect(screen.getByText('Monto (COP)')).toBeInTheDocument();
+    expect(screen.queryByText('Moneda del gasto')).not.toBeInTheDocument();
+  });
+
+  it('gasto con tarjeta que cobra en divisa: elegir USD guarda el gasto en esa moneda', async () => {
+    render(<TransactionForm onDone={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: /Comidas/ })); // categoría requerida
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'card:tc-usd' } });
+    // Aparece el selector de moneda; por defecto COP.
+    expect(screen.getByText('Moneda del gasto')).toBeInTheDocument();
+    expect(screen.getByText('Monto (COP)')).toBeInTheDocument();
+    // Elegir USD → el monto se pide en esa moneda.
+    fireEvent.click(screen.getByRole('button', { name: 'USD' }));
+    expect(screen.getByText('Monto (USD)')).toBeInTheDocument();
+    fireEvent.change(screen.getByPlaceholderText('0'), { target: { value: '52.1' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar' }));
+
+    await vi.waitFor(() => expect(mockedCreate).toHaveBeenCalledTimes(1));
+    const draft = mockedCreate.mock.calls[0]![1] as TransactionDraft;
+    expect(draft.type).toBe('expense');
+    expect(draft.amount).toBe(208_400); // 52.1 USD × 4.000 (para el Registro/reportes)
+    expect(draft.foreignCurrency).toBe('USD');
+    expect(draft.foreignAmount).toBe(52.1);
+    expect(draft.source).toEqual({ kind: 'card', id: 'tc-usd' });
   });
 
   it('el abono a deuda NO ofrece cuentas en divisa como origen', () => {

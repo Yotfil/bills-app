@@ -36,9 +36,11 @@ export function transactionDelta(txn: TransactionDraft): LedgerDelta {
 
   switch (txn.type) {
     case 'expense':
-      // Gasto: baja la cuenta, o sube la deuda de la tarjeta (no toca cuentas).
+      // Gasto: baja la cuenta, o sube la deuda de la tarjeta (no toca cuentas). Un gasto con
+      // tarjeta EN DIVISA no mueve la deuda COP (`cachedDebt`): su efecto va al pool en divisa
+      // (`cachedForeignDebt`, vía foreignCardDelta). La tarjeta es mixta, no monomoneda.
       if (source?.kind === 'account') add(delta.accounts, source.id, -amount);
-      else if (source?.kind === 'card') add(delta.cards, source.id, +amount);
+      else if (source?.kind === 'card' && !txn.foreignAmount) add(delta.cards, source.id, +amount);
       break;
 
     case 'income':
@@ -68,7 +70,9 @@ export function transactionDelta(txn: TransactionDraft): LedgerDelta {
       // de crédito (en los tres, "el valor real es X" se lleva al registrado con este ajuste).
       const signed = txn.adjustmentDirection === 'decrease' ? -amount : +amount;
       if (source?.kind === 'account') add(delta.accounts, source.id, signed);
-      else if (source?.kind === 'card') add(delta.cards, source.id, signed);
+      // Un ajuste de tarjeta EN DIVISA reconcilia el pool en divisa (cachedForeignDebt), no la
+      // deuda COP: se maneja en foreignCardDelta, igual que el gasto en divisa.
+      else if (source?.kind === 'card' && !txn.foreignAmount) add(delta.cards, source.id, signed);
       else if (source?.kind === 'loan') add(delta.loans, source.id, signed);
       break;
     }
