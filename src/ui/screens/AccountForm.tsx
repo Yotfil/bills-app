@@ -8,7 +8,7 @@ import { useUsdRateTable } from '../hooks/useUsdRateTable';
 import { useSessionStore } from '../../store/sessionStore';
 import { createAccount, updateAccount } from '../../data/accountRepository';
 import { convertToCop, listCurrencyCodes } from '../../domain/currencyConversion';
-import { parseDecimal } from '../../lib/currency';
+import { formatForeignAmount, parseDecimal } from '../../lib/currency';
 import type { AccountFormProps } from './AccountFormProps';
 import type { AccountType } from '../../domain/types';
 
@@ -54,7 +54,7 @@ export function AccountForm({ open, account, defaultSavingsBucket, onClose }: Ac
     event.preventDefault();
     if (!uid || !name.trim()) return;
     const currency = foreignCurrency || null;
-    if (currency && parsedForeign === null) {
+    if (!isEdit && currency && parsedForeign === null) {
       setError(`Ingresa el monto en ${currency}.`);
       return;
     }
@@ -64,12 +64,12 @@ export function AccountForm({ open, account, defaultSavingsBucket, onClose }: Ac
     }
     const ok = await run(async () => {
       if (isEdit && account) {
+        // La moneda y el monto en divisa NO se editan aquí (misma regla que el saldo COP, §2):
+        // el monto se corrige reconciliando y la moneda es parte de la identidad de la cuenta.
         await updateAccount(uid, account.id, {
           name: name.trim(),
           type,
           savingsBucket,
-          foreignCurrency: currency,
-          foreignAmount: currency ? parsedForeign : null,
         });
       } else {
         await createAccount(uid, {
@@ -108,15 +108,19 @@ export function AccountForm({ open, account, defaultSavingsBucket, onClose }: Ac
           <option value="term_deposit">CDT / Inversión</option>
         </select>
 
-        <SelectField
-          label="Moneda de la cuenta"
-          value={foreignCurrency}
-          onChange={setForeignCurrency}
-          options={currencyOptions}
-          placeholder="COP (pesos)"
-        />
+        {/* La moneda solo se elige al CREAR: cambiarla (o editar el monto en divisa) en una
+            cuenta con historial rompería su ledger. En edición se muestra como dato fijo. */}
+        {!isEdit && (
+          <SelectField
+            label="Moneda de la cuenta"
+            value={foreignCurrency}
+            onChange={setForeignCurrency}
+            options={currencyOptions}
+            placeholder="COP (pesos)"
+          />
+        )}
 
-        {foreignCurrency && (
+        {!isEdit && foreignCurrency && (
           <label className="flex flex-col gap-1">
             <span className="text-xs text-slate-400">Monto en {foreignCurrency}</span>
             <DecimalInput
@@ -126,6 +130,18 @@ export function AccountForm({ open, account, defaultSavingsBucket, onClose }: Ac
               className="rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-slate-500"
             />
           </label>
+        )}
+
+        {isEdit && account?.foreignCurrency && (
+          <div className="rounded-xl bg-slate-50 p-3 text-sm">
+            <span className="text-slate-400">Cuenta en {account.foreignCurrency}</span>
+            <p className="font-semibold text-slate-800">
+              {formatForeignAmount(account.foreignAmount ?? 0)} {account.foreignCurrency}
+            </p>
+            <p className="text-xs text-slate-400">
+              El monto en {account.foreignCurrency} se corrige reconciliando la cuenta (§5.7).
+            </p>
+          </div>
         )}
 
         {!isEdit && (
