@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { accountBalanceCop, accountCopRate, cardTotalDebtCop, copToForeign } from '../foreignBalance';
+import {
+  accountBalanceCop,
+  accountCopRate,
+  cardForeignDebtEntries,
+  cardTotalDebtCop,
+  copToForeign,
+} from '../foreignBalance';
 import { accountAvailable, cardAvailableCredit, disponibleReal } from '../derived';
 import { makeAccount, makeCard } from './fixtures';
 import type { ExchangeRateTable } from '../ExchangeRateTable';
@@ -80,34 +86,48 @@ describe('copToForeign', () => {
   });
 });
 
-// Tarjeta mixta (gastos en divisa, 2026-07-07): la deuda total ≈ COP suma la deuda COP más la deuda
-// en divisa convertida en vivo; el disponible se deriva de esa deuda total.
+// Tarjeta multimoneda (2026-07-07): la deuda total ≈ COP suma la deuda COP más CADA deuda en divisa
+// convertida en vivo; el disponible se deriva de esa deuda total.
+describe('cardForeignDebtEntries', () => {
+  it('lista las deudas en divisa ≠ 0, ordenadas por moneda', () => {
+    const card = makeCard({ foreignDebts: { USD: 100, EUR: 30, GBP: 0 } });
+    expect(cardForeignDebtEntries(card)).toEqual([
+      { currency: 'EUR', amount: 30 },
+      { currency: 'USD', amount: 100 },
+    ]);
+  });
+
+  it('sin deudas en divisa → []', () => {
+    expect(cardForeignDebtEntries(makeCard({}))).toEqual([]);
+  });
+});
+
 describe('cardTotalDebtCop', () => {
-  it('suma la deuda COP y la deuda en divisa convertida con la tasa del día', () => {
-    const card = makeCard({ cachedDebt: 500_000, foreignCurrency: 'USD', cachedForeignDebt: 100 });
-    expect(cardTotalDebtCop(card, table)).toBe(900_000); // 500.000 + 100 × 4.000
+  it('suma la deuda COP y cada deuda en divisa convertida con la tasa del día', () => {
+    const card = makeCard({ cachedDebt: 500_000, foreignDebts: { USD: 100, EUR: 50 } });
+    // 500.000 + 100×4.000 (USD) + 50×5.000 (EUR: COP/EUR = 4000/0.8) = 500.000 + 400.000 + 250.000
+    expect(cardTotalDebtCop(card, table)).toBe(1_150_000);
   });
 
   it('tarjeta COP pura o sin deuda en divisa → solo cachedDebt', () => {
     expect(cardTotalDebtCop(makeCard({ cachedDebt: 300_000 }), table)).toBe(300_000);
-    expect(
-      cardTotalDebtCop(makeCard({ cachedDebt: 300_000, foreignCurrency: 'USD', cachedForeignDebt: 0 }), table),
-    ).toBe(300_000);
+    expect(cardTotalDebtCop(makeCard({ cachedDebt: 300_000, foreignDebts: { USD: 0 } }), table)).toBe(
+      300_000,
+    );
   });
 
   it('sin tasa (offline) → solo la parte COP que sí se puede afirmar', () => {
-    const card = makeCard({ cachedDebt: 500_000, foreignCurrency: 'USD', cachedForeignDebt: 100 });
+    const card = makeCard({ cachedDebt: 500_000, foreignDebts: { USD: 100 } });
     expect(cardTotalDebtCop(card, null)).toBe(500_000);
   });
 });
 
-describe('cardAvailableCredit con deuda mixta', () => {
-  it('cupo − deuda total (COP + divisa convertida)', () => {
+describe('cardAvailableCredit con deuda multimoneda', () => {
+  it('cupo − deuda total (COP + cada divisa convertida)', () => {
     const card = makeCard({
       creditLimit: 2_000_000,
       cachedDebt: 500_000,
-      foreignCurrency: 'USD',
-      cachedForeignDebt: 100,
+      foreignDebts: { USD: 100 },
     });
     expect(cardAvailableCredit(card, table)).toBe(1_100_000); // 2.000.000 − 900.000
   });

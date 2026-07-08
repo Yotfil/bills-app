@@ -113,39 +113,33 @@ export const reconcileCard = (
   reconcileEntity(uid, { kind: 'card', id: card.id }, card.cachedDebt, realDebt, note);
 
 /**
- * Reconcilia la DEUDA EN DIVISA de una tarjeta mixta (gastos en divisa, 2026-07-07): el usuario dice
- * "la deuda real es X USD" y se crea UN ajuste EN LA DIVISA (foreignAmount = |Δ|; dirección
- * 'increase' = más deuda). `createTransaction` mueve `cachedForeignDebt` en un batch atómico y NO
- * toca la deuda COP (`cachedDebt`), porque la tarjeta es mixta (pools separados).
+ * Reconcilia la DEUDA EN UNA DIVISA de una tarjeta multimoneda (2026-07-07): el usuario dice "la
+ * deuda real en USD es X" y se crea UN ajuste EN ESA DIVISA (foreignAmount = |Δ|; dirección
+ * 'increase' = más deuda). `createTransaction` mueve `foreignDebts[currency]` en un batch atómico y
+ * NO toca la deuda COP (`cachedDebt`): los pools por moneda son independientes. Sirve también para
+ * FIJAR la deuda de una moneda nueva (registrada = 0 → el ajuste la crea).
  */
 export async function reconcileCardForeign(
   uid: string,
   card: CreditCard,
+  currency: string,
   realForeign: number,
   table: ExchangeRateTable,
   note?: string | null,
 ): Promise<boolean> {
-  if (!card.foreignCurrency) {
-    throw new Error(`La tarjeta "${card.name}" no cobra en moneda extranjera.`);
-  }
-  const rate = copPerUnit(table, card.foreignCurrency);
+  const rate = copPerUnit(table, currency);
   if (rate === null) {
-    throw new Error(`No hay tasa disponible para ${card.foreignCurrency}.`);
+    throw new Error(`No hay tasa disponible para ${currency}.`);
   }
   const adjustmentCategoryId = await getAdjustmentCategoryId(uid);
-  const draft = buildForeignReconciliationAdjustment(
-    card.cachedForeignDebt ?? 0,
-    realForeign,
-    card.foreignCurrency,
-    rate,
-    {
-      source: { kind: 'card', id: card.id },
-      adjustmentCategoryId,
-      date: nowTimestamp(),
-      note: note?.trim() ? note : null,
-    },
-  );
-  if (!draft) return false; // deuda en divisa igual a la registrada: nada que ajustar
+  const registered = card.foreignDebts?.[currency] ?? 0;
+  const draft = buildForeignReconciliationAdjustment(registered, realForeign, currency, rate, {
+    source: { kind: 'card', id: card.id },
+    adjustmentCategoryId,
+    date: nowTimestamp(),
+    note: note?.trim() ? note : null,
+  });
+  if (!draft) return false; // deuda en esa divisa igual a la registrada: nada que ajustar
   await createTransaction(uid, draft);
   return true;
 }

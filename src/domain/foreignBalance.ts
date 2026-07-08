@@ -41,17 +41,35 @@ export function copToForeign(cop: number, rateToCop: number): number {
   return Math.round((cop / rateToCop) * 100) / 100;
 }
 
-type DebtCard = Pick<CreditCard, 'cachedDebt' | 'foreignCurrency' | 'cachedForeignDebt'>;
+type DebtCard = Pick<CreditCard, 'cachedDebt' | 'foreignDebts'>;
+
+export interface CardForeignDebtEntry {
+  currency: string;
+  amount: number; // monto en esa divisa (fuente de verdad del pool)
+}
 
 /**
- * Deuda TOTAL de una tarjeta en COP (tarjeta mixta, 2026-07-07): la deuda COP (`cachedDebt`) más la
- * deuda en divisa convertida EN VIVO con la tasa del día. Sin divisa/tasa, es solo `cachedDebt`. Con
- * esto se muestra la deuda y se deriva el disponible aproximado (§5.5).
+ * Deudas en divisa de una tarjeta como lista ordenada, solo las de monto ≠ 0 (tarjeta multimoneda,
+ * 2026-07-07). Sirve para el listado "una deuda por moneda" en la pantalla de Tarjetas.
+ */
+export function cardForeignDebtEntries(card: Pick<CreditCard, 'foreignDebts'>): CardForeignDebtEntry[] {
+  return Object.entries(card.foreignDebts ?? {})
+    .filter(([, amount]) => amount !== 0)
+    .map(([currency, amount]) => ({ currency, amount }))
+    .sort((a, b) => a.currency.localeCompare(b.currency));
+}
+
+/**
+ * Deuda TOTAL de una tarjeta en COP (tarjeta multimoneda, 2026-07-07): la deuda COP (`cachedDebt`)
+ * más CADA deuda en divisa convertida EN VIVO con la tasa del día. Una moneda sin tasa disponible
+ * (offline) no se puede convertir → se omite (solo se afirma lo que se puede). Con esto se muestra la
+ * deuda total aproximada y se deriva el disponible (§5.5).
  */
 export function cardTotalDebtCop(card: DebtCard, table: ExchangeRateTable | null): number {
-  const foreignDebt = card.cachedForeignDebt ?? 0;
-  if (!card.foreignCurrency || foreignDebt === 0 || !table) return card.cachedDebt;
-  const rate = copPerUnit(table, card.foreignCurrency);
-  if (rate === null) return card.cachedDebt; // sin tasa, solo se puede afirmar la parte COP
-  return card.cachedDebt + foreignToCop(foreignDebt, rate);
+  let total = card.cachedDebt;
+  for (const { currency, amount } of cardForeignDebtEntries(card)) {
+    const rate = table ? copPerUnit(table, currency) : null;
+    if (rate !== null) total += foreignToCop(amount, rate);
+  }
+  return total;
 }
