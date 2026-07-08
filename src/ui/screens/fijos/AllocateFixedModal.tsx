@@ -44,23 +44,29 @@ function AllocateFixedForm({
   onConfirm,
   onClose,
 }: AllocateFixedFormProps) {
-  // Prellena con la cuenta por defecto del fijo si es una cuenta; si no, la primera disponible.
-  const defaultValue =
-    fixed.paymentMethod.kind === 'account'
-      ? refToValue(fixed.paymentMethod)
-      : refToValue(accounts[0] ? { kind: 'account', id: accounts[0].id } : null);
-  const [source, setSource] = useState(defaultValue);
-  const [busy, setBusy] = useState(false);
-
-  const options = accounts.map((a) => ({
+  // Solo cuentas COP: los fijos son COP y no se pagan desde cuentas en divisa, así que tampoco
+  // se reserva en ellas (decisión 2026-07-09; su reservado es siempre 0).
+  const copAccounts = accounts.filter((a) => !a.foreignCurrency);
+  const options = copAccounts.map((a) => ({
     value: refToValue({ kind: 'account', id: a.id }),
     label: a.name,
   }));
 
+  // Prellena con la cuenta por defecto del fijo si es una cuenta VÁLIDA (COP); si no, la primera.
+  const fixedDefault =
+    fixed.paymentMethod.kind === 'account' ? refToValue(fixed.paymentMethod) : '';
+  const defaultValue = options.some((o) => o.value === fixedDefault)
+    ? fixedDefault
+    : (options[0]?.value ?? '');
+  const [source, setSource] = useState(defaultValue);
+  const [busy, setBusy] = useState(false);
+
   // Vista previa del efecto sobre la cuenta elegida: disponible actual y cómo queda tras reservar.
   // Se pasa `table = null`: aquí solo se destina a cuentas COP (las de divisa se excluyen), donde
   // el fallback a cachedBalance es exacto — no hace falta cargar la tasa en el modal.
-  const selectedAccount = accounts.find((a) => refToValue({ kind: 'account', id: a.id }) === source);
+  const selectedAccount = copAccounts.find(
+    (a) => refToValue({ kind: 'account', id: a.id }) === source,
+  );
   const currentAvailable = selectedAccount
     ? accountAvailable(selectedAccount, monthlyFixeds, null)
     : null;
