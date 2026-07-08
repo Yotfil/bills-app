@@ -23,7 +23,7 @@ import {
 import { validateTransaction, validationErrorMessage } from '../../domain/validation';
 import { fromDateInputValue, nowTimestamp, toDateInputValue } from '../../lib/date';
 import { formatCop, formatForeignAmount, parseDecimal } from '../../lib/currency';
-import { copPerUnit, foreignToCop } from '../../domain/currencyConversion';
+import { copPerUnit, foreignToCop, listCurrencyCodes } from '../../domain/currencyConversion';
 import type { BoostRow } from './BoostRow';
 import type {
   Account,
@@ -106,9 +106,13 @@ export function TransactionForm({ existing, onDone }: TransactionFormProps) {
       : '',
   );
   // Gasto con tarjeta que cobra en divisa (tarjeta mixta, 2026-07-07): el usuario elige si ESTE
-  // gasto fue en COP o en la divisa de la tarjeta. Se prellena en divisa si el gasto editado lo era.
-  const [expenseInForeign, setExpenseInForeign] = useState(
-    !!(existing?.type === 'expense' && existing.source?.kind === 'card' && existing.foreignCurrency),
+  // Moneda elegida para un gasto con TARJETA (tarjeta multimoneda, 2026-07-07): '' = COP, o el código
+  // de la divisa (USD, EUR…). Cualquier tarjeta puede cobrar en cualquier moneda. Se prellena con la
+  // moneda del gasto editado.
+  const [expenseCurrency, setExpenseCurrency] = useState(
+    existing?.type === 'expense' && existing.source?.kind === 'card'
+      ? (existing.foreignCurrency ?? '')
+      : '',
   );
   const { busy, error, setError, run } = useAsyncAction();
   const { table } = useUsdRateTable();
@@ -123,17 +127,20 @@ export function TransactionForm({ existing, onDone }: TransactionFormProps) {
     entryAccountRef?.kind === 'account'
       ? (activeAccounts.find((a) => a.id === entryAccountRef.id) ?? null)
       : null;
-  // Tarjeta del gasto (si el medio es una tarjeta) y la divisa en que puede cobrar.
-  const entryCard =
-    type === 'expense' && source?.kind === 'card'
-      ? (activeCards.find((c) => c.id === source.id) ?? null)
-      : null;
-  const cardForeignCurrency = entryCard?.foreignCurrency ?? null;
-  // La divisa de captura: forzada por una cuenta en divisa, o elegida (COP/divisa) en una tarjeta
-  // mixta. `null` = COP. Toda la maquinaria de abajo (DecimalInput, conversión, patch) usa esto.
+  // ¿El gasto usa una tarjeta? (entonces se ofrece elegir la moneda).
+  const isCardExpense = type === 'expense' && source?.kind === 'card';
+  // La divisa de captura: forzada por una cuenta en divisa (monomoneda), o la moneda elegida para un
+  // gasto con tarjeta. `null` = COP. Toda la maquinaria de abajo (DecimalInput, conversión, patch) la usa.
   const entryCurrency =
-    entryAccount?.foreignCurrency ??
-    (cardForeignCurrency && expenseInForeign ? cardForeignCurrency : null);
+    entryAccount?.foreignCurrency ?? (isCardExpense && expenseCurrency ? expenseCurrency : null);
+  // Opciones de moneda del gasto (sin COP: COP = placeholder). Conserva la moneda ya elegida si la
+  // tabla no está (offline), para no perderla al editar.
+  const currencyCodes = table ? listCurrencyCodes(table).filter((c) => c !== 'COP') : [];
+  const expenseCurrencyOptions = (
+    expenseCurrency && !currencyCodes.includes(expenseCurrency)
+      ? [expenseCurrency, ...currencyCodes]
+      : currencyCodes
+  ).map((c) => ({ value: c, label: c }));
   const entryRate = entryCurrency && table ? copPerUnit(table, entryCurrency) : null;
   const parsedForeign = entryCurrency ? parseDecimal(foreignText) : null;
   // COP derivado del monto en divisa (es el `amount` que se guarda).
@@ -508,31 +515,16 @@ export function TransactionForm({ existing, onDone }: TransactionFormProps) {
         </p>
       )}
 
-      {/* Tarjeta que cobra en divisa: elegir la moneda de ESTE gasto (COP o la divisa). El Monto de
-          arriba se captura en la moneda elegida. */}
-      {type === 'expense' && cardForeignCurrency && (
-        <div className="-mt-2 flex flex-col gap-1">
-          <span className="text-xs text-slate-400">Moneda del gasto</span>
-          <div className="flex gap-2">
-            {[
-              { value: false, label: 'COP' },
-              { value: true, label: cardForeignCurrency },
-            ].map((opt) => (
-              <button
-                key={opt.label}
-                type="button"
-                onClick={() => setExpenseInForeign(opt.value)}
-                className={`rounded-full px-4 py-1.5 text-sm ${
-                  expenseInForeign === opt.value
-                    ? 'bg-slate-800 text-white'
-                    : 'bg-slate-100 text-slate-600'
-                }`}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
-        </div>
+      {/* Gasto con TARJETA: elegir la moneda de ESTE gasto (COP o cualquier divisa; las compras
+          internacionales pueden ser en USD, EUR…). El Monto de arriba se captura en la moneda elegida. */}
+      {isCardExpense && (
+        <SelectField
+          label="Moneda del gasto"
+          value={expenseCurrency}
+          onChange={setExpenseCurrency}
+          options={expenseCurrencyOptions}
+          placeholder="COP (pesos)"
+        />
       )}
 
       {/* Destino: income (cuenta), transfer (cuenta), debt_payment (tarjeta). */}
