@@ -98,7 +98,13 @@ function applyForeignDeltaToBatch(
   entries: Array<{
     txn: Pick<
       TransactionDraft,
-      'type' | 'source' | 'destination' | 'foreignAmount' | 'adjustmentDirection'
+      | 'type'
+      | 'source'
+      | 'destination'
+      | 'foreignAmount'
+      | 'adjustmentDirection'
+      | 'destinationAmount'
+      | 'destinationForeignAmount'
     >;
     factor: 1 | -1;
   }>,
@@ -184,6 +190,11 @@ export async function editTransaction(
     // que borrar el movimiento después no revierta un monto que ya no aplica.
     foreignCurrency: newDraft.foreignCurrency ?? null,
     foreignAmount: newDraft.foreignAmount ?? null,
+    // Igual con la pata de destino de una transferencia cross-moneda: si el nuevo draft ya no la
+    // lleva, se limpia para que un borrado posterior no revierta un monto que ya no aplica.
+    destinationAmount: newDraft.destinationAmount ?? null,
+    destinationForeignCurrency: newDraft.destinationForeignCurrency ?? null,
+    destinationForeignAmount: newDraft.destinationForeignAmount ?? null,
     updatedAt: serverTimestamp(),
   });
   applyDeltaToBatch(batch, uid, delta);

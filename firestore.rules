@@ -110,7 +110,21 @@ service cloud.firestore {
               || (request.resource.data.foreignAmount is number
                   && request.resource.data.foreignAmount > 0
                   && request.resource.data.foreignCurrency is string
-                  && request.resource.data.type != 'debt_payment'));
+                  && request.resource.data.type != 'debt_payment'))
+          // Transferencia cross-moneda (opcional): la pata de destino lleva su propio COP entero > 0
+          // y, si el destino es en divisa, su monto en esa moneda (> 0 con su moneda). Solo en
+          // transferencias.
+          && (!('destinationAmount' in request.resource.data)
+              || request.resource.data.destinationAmount == null
+              || (request.resource.data.destinationAmount is int
+                  && request.resource.data.destinationAmount > 0
+                  && request.resource.data.type == 'transfer'))
+          && (!('destinationForeignAmount' in request.resource.data)
+              || request.resource.data.destinationForeignAmount == null
+              || (request.resource.data.destinationForeignAmount is number
+                  && request.resource.data.destinationForeignAmount > 0
+                  && request.resource.data.destinationForeignCurrency is string
+                  && request.resource.data.type == 'transfer'));
       }
     }
   }
