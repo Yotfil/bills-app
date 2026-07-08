@@ -157,6 +157,41 @@ describe('TransactionForm', () => {
     expect(draft.foreignAmount).toBeNull();
   });
 
+  it('un gasto DESDE una cuenta en divisa se captura en USD y guarda el COP convertido', async () => {
+    render(<TransactionForm onDone={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole('button', { name: /Comidas/ }));
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'account:acc-usd' } });
+    expect(screen.getByText('Monto (USD)')).toBeInTheDocument();
+    fireEvent.change(screen.getByPlaceholderText('0'), { target: { value: '52,1' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar' }));
+
+    await vi.waitFor(() => expect(mockedCreate).toHaveBeenCalledTimes(1));
+    const draft = mockedCreate.mock.calls[0]![1] as TransactionDraft;
+    expect(draft.type).toBe('expense');
+    expect(draft.amount).toBe(208_400); // 52.1 USD × 4.000
+    expect(draft.foreignCurrency).toBe('USD');
+    expect(draft.foreignAmount).toBe(52.1);
+    expect(draft.source).toEqual({ kind: 'account', id: 'acc-usd' });
+  });
+
+  it('un gasto con tarjeta nunca entra en modo divisa', () => {
+    render(<TransactionForm onDone={vi.fn()} />);
+    // El mock de tarjetas está vacío; basta verificar que con cuenta COP el monto sigue en COP.
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'account:acc-1' } });
+    expect(screen.getByText('Monto (COP)')).toBeInTheDocument();
+  });
+
+  it('el abono a deuda NO ofrece cuentas en divisa como origen', () => {
+    render(<TransactionForm onDone={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Abono' }));
+    const sourceSelect = screen.getAllByRole('combobox')[0] as HTMLSelectElement;
+    const values = Array.from(sourceSelect.options).map((o) => o.value);
+    expect(values).toContain('account:acc-1');
+    expect(values).not.toContain('account:acc-usd');
+    expect(screen.getByText(/las deudas se pagan en pesos/i)).toBeInTheDocument();
+  });
+
   it('ingreso en divisa sin monto: error visible y no guarda', async () => {
     render(<TransactionForm onDone={vi.fn()} />);
 
