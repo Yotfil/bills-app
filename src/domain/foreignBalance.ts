@@ -4,7 +4,7 @@
 // leer. Ya no hay ajustes automáticos de revaluación: el ledger COP interno (`cachedBalance`)
 // solo queda como fallback cuando no hay tasa disponible (offline sin caché).
 import { copPerUnit, foreignToCop } from './currencyConversion';
-import type { Account } from './types';
+import type { Account, CreditCard } from './types';
 import type { ExchangeRateTable } from './ExchangeRateTable';
 
 type BalanceAccount = Pick<Account, 'cachedBalance' | 'foreignCurrency' | 'foreignAmount'>;
@@ -39,4 +39,19 @@ export function accountBalanceCop(
  */
 export function copToForeign(cop: number, rateToCop: number): number {
   return Math.round((cop / rateToCop) * 100) / 100;
+}
+
+type DebtCard = Pick<CreditCard, 'cachedDebt' | 'foreignCurrency' | 'cachedForeignDebt'>;
+
+/**
+ * Deuda TOTAL de una tarjeta en COP (tarjeta mixta, 2026-07-07): la deuda COP (`cachedDebt`) más la
+ * deuda en divisa convertida EN VIVO con la tasa del día. Sin divisa/tasa, es solo `cachedDebt`. Con
+ * esto se muestra la deuda y se deriva el disponible aproximado (§5.5).
+ */
+export function cardTotalDebtCop(card: DebtCard, table: ExchangeRateTable | null): number {
+  const foreignDebt = card.cachedForeignDebt ?? 0;
+  if (!card.foreignCurrency || foreignDebt === 0 || !table) return card.cachedDebt;
+  const rate = copPerUnit(table, card.foreignCurrency);
+  if (rate === null) return card.cachedDebt; // sin tasa, solo se puede afirmar la parte COP
+  return card.cachedDebt + foreignToCop(foreignDebt, rate);
 }

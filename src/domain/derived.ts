@@ -4,7 +4,7 @@
 // Cuentas en divisa (decisión 2026-07-09): su saldo COP es la conversión EN VIVO con la tasa
 // del día (accountBalanceCop), por eso el disponible y el número-héroe reciben la tabla de
 // tasas. Con `table = null` (o cuentas COP) el comportamiento es idéntico al histórico.
-import { accountBalanceCop } from './foreignBalance';
+import { accountBalanceCop, cardTotalDebtCop } from './foreignBalance';
 import type { Account, CreditCard, FixedObligationMonthly, Loan } from './types';
 import type { ExchangeRateTable } from './ExchangeRateTable';
 
@@ -35,9 +35,13 @@ export function accountAvailable(
   return accountBalanceCop(account, table) - accountReserved(monthlyFixeds, account.id);
 }
 
-/** Cupo disponible de una tarjeta = cupo total − deuda (§5.5). */
-export function cardAvailableCredit(card: CreditCard): number {
-  return card.creditLimit - card.cachedDebt;
+/**
+ * Cupo disponible de una tarjeta = cupo total − deuda total (§5.5). En una tarjeta mixta la deuda
+ * total incluye la parte en divisa convertida EN VIVO con la tasa del día, así que el disponible es
+ * una APROXIMACIÓN que fluctúa con la tasa (`table = null` o tarjeta COP → solo `cachedDebt`).
+ */
+export function cardAvailableCredit(card: CreditCard, table: ExchangeRateTable | null = null): number {
+  return card.creditLimit - cardTotalDebtCop(card, table);
 }
 
 /**
