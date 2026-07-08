@@ -200,21 +200,16 @@ describe('TransactionForm', () => {
     expect(screen.getByText(/las deudas se pagan en pesos/i)).toBeInTheDocument();
   });
 
-  it('transferencia: el destino solo ofrece cuentas de la MISMA moneda que el origen', () => {
+  it('transferencia: el destino ofrece todas las cuentas menos el origen (permite cross-moneda)', () => {
     render(<TransactionForm onDone={vi.fn()} />);
     fireEvent.click(screen.getByRole('button', { name: 'Transferencia' }));
     const [sourceSelect, destSelect] = screen.getAllByRole('combobox') as HTMLSelectElement[];
 
-    // Origen USD → destino solo cuentas USD (sin la COP).
+    // Origen USD → destino ofrece la otra USD y también la COP (cambio de moneda permitido);
+    // no se ofrece a sí misma.
     fireEvent.change(sourceSelect!, { target: { value: 'account:acc-usd' } });
-    let destValues = Array.from(destSelect!.options).map((o) => o.value);
+    const destValues = Array.from(destSelect!.options).map((o) => o.value);
     expect(destValues).toContain('account:acc-usd-2');
-    expect(destValues).not.toContain('account:acc-1');
-    expect(screen.getByText(/Solo entre cuentas en USD/)).toBeInTheDocument();
-
-    // Origen COP → destino solo cuentas COP.
-    fireEvent.change(sourceSelect!, { target: { value: 'account:acc-1' } });
-    destValues = Array.from(destSelect!.options).map((o) => o.value);
     expect(destValues).toContain('account:acc-1');
     expect(destValues).not.toContain('account:acc-usd');
   });
@@ -239,15 +234,62 @@ describe('TransactionForm', () => {
     expect(draft.destination).toEqual({ kind: 'account', id: 'acc-usd-2' });
   });
 
-  it('al cambiar el origen de la transferencia a otra moneda, el destino incompatible se limpia', () => {
+  it('transferencia entre monedas distintas: NO limpia el destino y pide los dos montos por lado', () => {
     render(<TransactionForm onDone={vi.fn()} />);
     fireEvent.click(screen.getByRole('button', { name: 'Transferencia' }));
     const [sourceSelect, destSelect] = screen.getAllByRole('combobox') as HTMLSelectElement[];
     fireEvent.change(sourceSelect!, { target: { value: 'account:acc-usd' } });
-    fireEvent.change(destSelect!, { target: { value: 'account:acc-usd-2' } });
-    expect(destSelect!.value).toBe('account:acc-usd-2');
+    fireEvent.change(destSelect!, { target: { value: 'account:acc-1' } });
+    // El destino se conserva (cross-moneda permitido) y aparecen los dos campos manuales por lado.
+    expect(destSelect!.value).toBe('account:acc-1');
+    expect(screen.getByText(/Sale de Global66 \(USD\)/)).toBeInTheDocument();
+    expect(screen.getByText(/Entra a Bancolombia \(COP\)/)).toBeInTheDocument();
+  });
+
+  it('transferencia cross-moneda USD→COP: guarda montos por lado (el COP real ancla neto cero)', async () => {
+    render(<TransactionForm onDone={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Transferencia' }));
+    const [sourceSelect, destSelect] = screen.getAllByRole('combobox') as HTMLSelectElement[];
+    fireEvent.change(sourceSelect!, { target: { value: 'account:acc-usd' } });
+    fireEvent.change(destSelect!, { target: { value: 'account:acc-1' } });
+    const [outInput, inInput] = screen.getAllByPlaceholderText('0') as HTMLInputElement[];
+    fireEvent.change(outInput!, { target: { value: '2000' } }); // 2.000 USD salen de Global66
+    fireEvent.change(inInput!, { target: { value: '6832900' } }); // 6.832.900 COP entran a Bancolombia
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar' }));
+
+    await vi.waitFor(() => expect(mockedCreate).toHaveBeenCalledTimes(1));
+    const draft = mockedCreate.mock.calls[0]![1] as TransactionDraft;
+    expect(draft.type).toBe('transfer');
+    // El COP real de la operación (lo que ENTRA) ancla ambas patas → ledger COP neto cero.
+    expect(draft.amount).toBe(6_832_900);
+    expect(draft.destinationAmount).toBe(6_832_900);
+    expect(draft.foreignCurrency).toBe('USD');
+    expect(draft.foreignAmount).toBe(2000);
+    expect(draft.destinationForeignCurrency).toBeNull();
+    expect(draft.destinationForeignAmount).toBeNull();
+    expect(draft.source).toEqual({ kind: 'account', id: 'acc-usd' });
+    expect(draft.destination).toEqual({ kind: 'account', id: 'acc-1' });
+  });
+
+  it('transferencia cross-moneda COP→USD: la divisa recibida se guarda en la pata de destino', async () => {
+    render(<TransactionForm onDone={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Transferencia' }));
+    const [sourceSelect, destSelect] = screen.getAllByRole('combobox') as HTMLSelectElement[];
     fireEvent.change(sourceSelect!, { target: { value: 'account:acc-1' } });
-    expect(destSelect!.value).toBe(''); // se limpió: Wise es USD y el origen ahora es COP
+    fireEvent.change(destSelect!, { target: { value: 'account:acc-usd' } });
+    const [outInput, inInput] = screen.getAllByPlaceholderText('0') as HTMLInputElement[];
+    fireEvent.change(outInput!, { target: { value: '7000000' } }); // 7.000.000 COP salen de Bancolombia
+    fireEvent.change(inInput!, { target: { value: '1750' } }); // 1.750 USD entran a Global66
+    fireEvent.click(screen.getByRole('button', { name: 'Guardar' }));
+
+    await vi.waitFor(() => expect(mockedCreate).toHaveBeenCalledTimes(1));
+    const draft = mockedCreate.mock.calls[0]![1] as TransactionDraft;
+    expect(draft.amount).toBe(7_000_000);
+    expect(draft.destinationAmount).toBe(7_000_000);
+    expect(draft.foreignCurrency).toBeNull();
+    expect(draft.foreignAmount).toBeNull();
+    expect(draft.destinationForeignCurrency).toBe('USD');
+    expect(draft.destinationForeignAmount).toBe(1750);
   });
 
   it('ingreso en divisa sin monto: error visible y no guarda', async () => {
