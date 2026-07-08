@@ -14,12 +14,11 @@ export interface CreditCard extends BaseDoc, Archivable {
   // las cuentas guardan `initialBalance` aparte de `cachedBalance`, la tarjeta guarda la
   // semilla aparte de la caché para poder reconstruir la deuda si las cachés divergen.
   //
-  // TARJETA MIXTA (gastos en divisa, 2026-07-07): una tarjeta puede cobrar en COP o en una divisa
-  // (ej. USD) según si la compra es internacional. Mantiene DOS pools de deuda: COP (`cachedDebt`,
-  // arriba) y divisa (`cachedForeignDebt`). La parte en divisa es la FUENTE DE VERDAD de su pool y
-  // su COP se calcula EN VIVO con la tasa del día (como `Account.foreignAmount`). El cupo sigue en
-  // COP; el disponible ≈ creditLimit − (cachedDebt + cachedForeignDebt × tasa). Ausentes = COP pura.
-  foreignCurrency?: string | null; // divisa en la que la tarjeta puede cobrar (ej. 'USD')
-  cachedForeignDebt?: number; // deuda en esa divisa (fuente de verdad; admite decimales)
-  initialForeignDebt?: number; // semilla de la deuda en divisa (mirror de initialDebt)
+  // TARJETA MULTIMONEDA (2026-07-07): una tarjeta puede cobrar en COP y también en compras
+  // internacionales en cualquier divisa (USD, EUR…). La deuda COP vive en `cachedDebt`; las deudas
+  // en divisa viven en `foreignDebts` (mapa moneda→monto en esa moneda, la FUENTE DE VERDAD de cada
+  // pool). El COP de cada pool en divisa se calcula EN VIVO con la tasa del día (como se paga: a la
+  // TRM del día del pago, no de la compra). El cupo sigue en COP y el disponible ≈ es
+  // creditLimit − (cachedDebt + Σ monto_divisa × tasa). Ausente/{} = tarjeta sin deuda en divisa.
+  foreignDebts?: Record<string, number>;
 }
