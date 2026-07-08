@@ -1,10 +1,11 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useUserCollection } from '../hooks/useUserCollection';
 import { useFixedMonthly } from '../hooks/useFixedMonthly';
 import { useSessionStore } from '../../store/sessionStore';
 import { CardForm } from './CardForm';
 import { BackButton } from '../components/BackButton';
-import { Pencil, Scale, Archive, Trash2 } from 'lucide-react';
+import { Pencil, Scale, Archive, Trash2, ChevronRight } from 'lucide-react';
 import { ActionMenu } from '../components/ActionMenu';
 import { ConfirmDeleteModal } from '../components/ConfirmDeleteModal';
 import { ReconcileModal } from './ReconcileModal';
@@ -24,6 +25,7 @@ import type { CreditCard, FixedObligationTemplate, Transaction } from '../../dom
 
 export function CardsScreen() {
   const uid = useSessionStore((s) => s.user?.uid);
+  const navigate = useNavigate();
   const { items, loading } = useUserCollection<CreditCard>(subscribeCards);
   const { items: transactions } = useUserCollection<Transaction>(subscribeTransactions);
   const { items: templates } = useUserCollection<FixedObligationTemplate>(subscribeFixedTemplates);
@@ -109,7 +111,13 @@ export function CardsScreen() {
           return (
             <li key={card.id} className="rounded-xl border border-slate-200 bg-white p-4">
               <div className="flex items-start justify-between">
-                <p className="font-semibold text-slate-800">{card.name}</p>
+                <button
+                  type="button"
+                  onClick={() => navigate(`/mas/tarjetas/${card.id}/movimientos`)}
+                  className="truncate text-left font-semibold text-slate-800 hover:underline"
+                >
+                  {card.name}
+                </button>
                 <ActionMenu
                   ariaLabel={`Acciones de ${card.name}`}
                   items={[
@@ -143,6 +151,14 @@ export function CardsScreen() {
                   </dd>
                 </div>
               </dl>
+
+              <button
+                type="button"
+                onClick={() => navigate(`/mas/tarjetas/${card.id}/movimientos`)}
+                className="mt-3 flex w-full items-center justify-center gap-1 rounded-lg border border-slate-200 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
+              >
+                Ver movimientos <ChevronRight className="h-4 w-4" />
+              </button>
 
               {/* Cuota del mes ligada a un fijo "abono a deuda" que apunta a esta tarjeta (§5.5). */}
               {linked && (

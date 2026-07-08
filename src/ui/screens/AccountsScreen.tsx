@@ -1,11 +1,12 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useUserCollection } from '../hooks/useUserCollection';
 import { useSessionStore } from '../../store/sessionStore';
 import { AccountForm } from './AccountForm';
 import { ReconcileModal } from './ReconcileModal';
 import { ReservedBreakdownModal } from './ReservedBreakdownModal';
 import { BackButton } from '../components/BackButton';
-import { Pencil, Scale, Archive, Trash2 } from 'lucide-react';
+import { Pencil, Scale, Archive, Trash2, ChevronRight } from 'lucide-react';
 import { ActionMenu } from '../components/ActionMenu';
 import { ConfirmDeleteModal } from '../components/ConfirmDeleteModal';
 import { formatCop, formatForeignAmount } from '../../lib/currency';
@@ -37,6 +38,7 @@ const TYPE_LABEL: Record<AccountType, string> = {
 // el flag savingsBucket. El disponible real solo cuenta las de uso (§4).
 export function AccountsScreen({ savingsBucket = false }: AccountsScreenProps) {
   const uid = useSessionStore((s) => s.user?.uid);
+  const navigate = useNavigate();
   const { items, loading } = useUserCollection<Account>(subscribeAccounts);
   const { items: transactions } = useUserCollection<Transaction>(subscribeTransactions);
   const [editing, setEditing] = useState<Account | null>(null);
@@ -141,7 +143,13 @@ export function AccountsScreen({ savingsBucket = false }: AccountsScreenProps) {
             <li key={account.id} className="rounded-xl border border-slate-200 bg-white p-4">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="truncate font-semibold text-slate-800">{account.name}</p>
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/mas/cuentas/${account.id}/movimientos`)}
+                    className="block max-w-full truncate text-left font-semibold text-slate-800 hover:underline"
+                  >
+                    {account.name}
+                  </button>
                   <p className="text-xs text-slate-400">{TYPE_LABEL[account.type]}</p>
                 </div>
                 <ActionMenu
@@ -205,6 +213,14 @@ export function AccountsScreen({ savingsBucket = false }: AccountsScreenProps) {
                   )}
                 </div>
               </dl>
+
+              <button
+                type="button"
+                onClick={() => navigate(`/mas/cuentas/${account.id}/movimientos`)}
+                className="mt-3 flex w-full items-center justify-center gap-1 rounded-lg border border-slate-200 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
+              >
+                Ver movimientos <ChevronRight className="h-4 w-4" />
+              </button>
             </li>
           );
         })}
